@@ -8,12 +8,14 @@
 - [ ] Choose technology stack
 
 ## Phase 1 - Core Foundation
-- [ ] Application shell
-- [ ] Module registry
-- [ ] Settings management
-- [ ] Theme system
-- [ ] Logging
-- [ ] Error handling
+- [ ] Go backend starts
+- [ ] Quickshell UI launches
+- [ ] UI connects to Go through the Unix socket
+- [ ] JSON-RPC handshake and request/response work
+- [ ] Basic module registry works
+- [ ] TOML configuration loads and validates
+- [ ] Logging and graceful shutdown work
+- [ ] A minimal working UI demonstrates the connection
 
 ## Phase 2 - System Monitoring
 - [ ] CPU monitoring
@@ -84,9 +86,8 @@
 - [ ] Workspace manager
 
 ## Phase 11 - Distribution
-- [ ] Update manager
+- [ ] Package and release integration
 - [ ] Module ecosystem
 - [ ] GitHub releases
 - [ ] Installation documentation
 - [ ] Stable release
-
