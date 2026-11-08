@@ -63,23 +63,11 @@ func TestInitErrorLevel(t *testing.T) {
 	}
 }
 
-func TestInitWarningAlias(t *testing.T) {
-	var buf bytes.Buffer
-	logger := Init("warning", &buf)
-
-	logger.Warn("warning alias message")
-	output := buf.String()
-	if !strings.Contains(output, "warning alias message") {
-		t.Errorf("expected warn output for 'warning' level, got: %q", output)
-	}
-}
-
 func TestLevelFromString(t *testing.T) {
 	cases := []string{
 		"debug",
 		"info",
 		"warn",
-		"warning",
 		"error",
 		"",
 		"unknown",

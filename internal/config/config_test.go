@@ -28,8 +28,8 @@ func TestLoadMissingFileUsesDefaults(t *testing.T) {
 	if len(cfg.Permissions) != 0 {
 		t.Errorf("Permissions = %v, want empty", cfg.Permissions)
 	}
-	if !cfg.Permissions.IsGranted("system.info") {
-		// This is expected to be false; just checking IsGranted works.
+	if cfg.Permissions.IsGranted("system.info") {
+		t.Error("expected system.info to be denied when permissions table is missing")
 	}
 }
 
@@ -116,6 +116,65 @@ func TestValidateNegativeConfigVersion(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "config_version") {
 		t.Errorf("expected config_version error, got: %v", err)
+	}
+}
+
+func TestValidateVersionOneAccepted(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Version = 1
+
+	err := cfg.Validate()
+	if err != nil {
+		t.Fatalf("Validate() returned error for version 1: %v", err)
+	}
+}
+
+func TestValidateVersionZeroRejected(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Version = 0
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected error for config_version 0")
+	}
+	if !strings.Contains(err.Error(), "unsupported config_version") {
+		t.Errorf("expected unsupported version error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "only version 1 is supported") {
+		t.Errorf("expected supported version in error, got: %v", err)
+	}
+}
+
+func TestValidateVersionTwoRejected(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Version = 2
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected error for config_version 2")
+	}
+	if !strings.Contains(err.Error(), "unsupported config_version") {
+		t.Errorf("expected unsupported version error, got: %v", err)
+	}
+}
+
+func TestLoadOmittedVersionDefaultsToOne(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	content := `[core]
+log_level = "info"
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+
+	if cfg.Version != DefaultConfigVersion {
+		t.Errorf("Version = %d, want %d", cfg.Version, DefaultConfigVersion)
 	}
 }
 

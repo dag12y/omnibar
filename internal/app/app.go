@@ -21,14 +21,14 @@ import (
 // translating the error into an exit code.
 //
 // Startup sequence:
-//   1. Parse command-line arguments (--help, --config)
-//   2. Handle --help
-//   3. Resolve configuration path ($XDG_CONFIG_HOME/omnibar/config.toml,
-//      or --config override)
-//   4. Load configuration (defaults if file missing)
-//   5. Initialize structured logging (log/slog)
-//   6. Validate configuration
-//   7. Return error if configuration is invalid
+//  1. Parse command-line arguments (--help, --config)
+//  2. Handle --help
+//  3. Resolve configuration path ($XDG_CONFIG_HOME/omnibar/config.toml,
+//     or --config override)
+//  4. Load configuration (defaults if file missing)
+//  5. Initialize structured logging (log/slog)
+//  6. Validate configuration
+//  7. Return error if configuration is invalid
 func Run(args []string, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet("omnibar", flag.ContinueOnError)
 	fs.SetOutput(stderr)

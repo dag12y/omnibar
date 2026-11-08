@@ -34,18 +34,17 @@ const (
 
 // validLogLevels lists the log level names accepted by the loader.
 var validLogLevels = map[string]bool{
-	"debug":  true,
-	"info":   true,
-	"warn":   true,
-	"warning": true,
-	"error":  true,
+	"debug": true,
+	"info":  true,
+	"warn":  true,
+	"error": true,
 }
 
 // Config is the top-level Omnibar configuration.
 type Config struct {
-	Version   int                    `toml:"config_version"`
-	Core      CoreConfig             `toml:"core"`
-	Modules   map[string]ModuleConfig `toml:"modules"`
+	Version     int                     `toml:"config_version"`
+	Core        CoreConfig              `toml:"core"`
+	Modules     map[string]ModuleConfig `toml:"modules"`
 	Permissions Permissions             `toml:"permissions"`
 }
 
@@ -74,7 +73,7 @@ func (p Permissions) IsGranted(name string) bool {
 // DefaultConfig returns a Config with all default values applied.
 func DefaultConfig() *Config {
 	return &Config{
-		Version:   DefaultConfigVersion,
+		Version: DefaultConfigVersion,
 		Core: CoreConfig{
 			LogLevel: DefaultLogLevel,
 		},
@@ -114,8 +113,8 @@ func Load(path string) (*Config, error) {
 // It returns an error if any value is invalid. Invalid configuration
 // is rejected, not silently corrected.
 func (c *Config) Validate() error {
-	if c.Version < 0 {
-		return fmt.Errorf("config_version must be non-negative, got %d", c.Version)
+	if c.Version != DefaultConfigVersion {
+		return fmt.Errorf("unsupported config_version %d: only version %d is supported", c.Version, DefaultConfigVersion)
 	}
 
 	if !validLogLevels[c.Core.LogLevel] {

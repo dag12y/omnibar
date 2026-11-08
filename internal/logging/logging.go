@@ -11,7 +11,7 @@ import (
 )
 
 // Init configures structured logging with the given level and output
-// writer. Valid levels: debug, info, warn, warning, error.
+// writer. Valid levels: debug, info, warn, error.
 // Any other value (including empty) defaults to info.
 //
 // The returned logger is also set as the default slog logger.
@@ -20,7 +20,7 @@ func Init(level string, w io.Writer) *slog.Logger {
 	switch level {
 	case "debug":
 		lvl = slog.LevelDebug
-	case "warn", "warning":
+	case "warn":
 		lvl = slog.LevelWarn
 	case "error":
 		lvl = slog.LevelError
@@ -36,12 +36,13 @@ func Init(level string, w io.Writer) *slog.Logger {
 }
 
 // LevelFromString converts a string level name to a slog.Level.
+// Valid levels: debug, info, warn, error.
 // Unrecognized names default to Info.
 func LevelFromString(level string) slog.Level {
 	switch level {
 	case "debug":
 		return slog.LevelDebug
-	case "warn", "warning":
+	case "warn":
 		return slog.LevelWarn
 	case "error":
 		return slog.LevelError
