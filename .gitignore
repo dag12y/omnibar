@@ -1,0 +1,26 @@
+# Build outputs
+build/
+dist/
+bin/
+*.out
+
+# Go
+/vendor/
+
+# QML and temporary files
+*.qmlc
+*.jsc
+
+# Local configuration
+.env
+.env.*
+!.env.example
+
+# Editors
+.idea/
+.vscode/
+.cursor/
+
+# OS
+.DS_Store
+Thumbs.db
