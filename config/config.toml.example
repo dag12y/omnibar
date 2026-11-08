@@ -1,0 +1,40 @@
+# Omnibar configuration file.
+#
+# Location: $XDG_CONFIG_HOME/omnibar/config.toml
+#           (~/.config/omnibar/config.toml when XDG_CONFIG_HOME is unset)
+
+config_version = 1
+
+[core]
+# Log level: debug, info, warn, error (default: info)
+log_level = "info"
+
+# Module configuration.
+# Each module can be enabled or disabled independently.
+# Modules are registered statically in Go code (see internal/modules/).
+[modules]
+  [modules.system_monitor]
+  enabled = true
+
+# Permissions granted to modules.
+#
+# Permissions are quoted dotted strings because TOML bare keys cannot
+# contain dots.
+#
+# A module can only use a capability if it both declares the permission
+# (in its ModuleInfo, set at compile time) AND the user has granted it
+# here.
+#
+# Missing or invalid grants fail closed: access is denied. A missing
+# [permissions] table grants no permissions at all.
+[permissions]
+"system.info" = true
+"window.manage" = false
+"clipboard.read" = false
+"clipboard.write" = false
+"audio.control" = false
+"screen.capture" = false
+"process.manage" = false
+"filesystem.access" = false
+"network.access" = false
+"package.manage" = false

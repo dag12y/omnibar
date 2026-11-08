@@ -2,6 +2,8 @@ package app
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -36,12 +38,16 @@ func TestRunDoubleDashHelp(t *testing.T) {
 
 func TestRunNoArgs(t *testing.T) {
 	var out bytes.Buffer
-	err := Run([]string{}, &out, &bytes.Buffer{})
+	var errOut bytes.Buffer
+
+	err := Run([]string{}, &out, &errOut)
 	if err != nil {
 		t.Fatalf("Run() with no args returned error: %v", err)
 	}
-	if !strings.Contains(out.String(), "starting") {
-		t.Errorf("expected startup message, got: %q", out.String())
+
+	// Startup message is now emitted via slog to stderr.
+	if !strings.Contains(errOut.String(), "starting") {
+		t.Errorf("expected startup message in stderr, got: %q", errOut.String())
 	}
 }
 
@@ -60,6 +66,74 @@ func TestRunParseError(t *testing.T) {
 	}
 	if errOut.Len() == 0 {
 		t.Error("expected usage output on stderr for parse error")
+	}
+}
+
+func TestRunInvalidConfig(t *testing.T) {
+	// Create a temporary directory with a malformed config file.
+	dir := t.TempDir()
+	malformed := filepath.Join(dir, "config.toml")
+	if err := os.WriteFile(malformed, []byte("= invalid toml ="), 0o644); err != nil {
+		t.Fatalf("write malformed config: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+
+	err := Run([]string{"-config", malformed}, &out, &errOut)
+	if err == nil {
+		t.Fatal("expected error for malformed config")
+	}
+	if !strings.Contains(err.Error(), "parse config file") {
+		t.Errorf("expected parse error in result, got: %v", err)
+	}
+}
+
+func TestRunValidConfig(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	content := `
+config_version = 1
+[core]
+  log_level = "debug"
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+
+	err := Run([]string{"-config", path}, &out, &errOut)
+	if err != nil {
+		t.Fatalf("Run() with valid config returned error: %v", err)
+	}
+	if !strings.Contains(errOut.String(), "starting") {
+		t.Errorf("expected startup message in stderr, got: %q", errOut.String())
+	}
+}
+
+func TestRunInvalidLogLevel(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	content := `
+config_version = 1
+[core]
+  log_level = "not-a-level"
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+
+	err := Run([]string{"-config", path}, &out, &errOut)
+	if err == nil {
+		t.Fatal("expected error for invalid log level")
+	}
+	if !strings.Contains(err.Error(), "validate configuration") {
+		t.Errorf("expected validation error, got: %v", err)
 	}
 }
 

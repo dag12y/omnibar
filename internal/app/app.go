@@ -10,16 +10,30 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	"omnibar/internal/config"
+	"omnibar/internal/logging"
 )
 
 // Run executes the Omnibar backend with the provided command-line
 // arguments (excluding the program name). It returns nil on success
 // and a non-nil error on failure. The caller is responsible for
 // translating the error into an exit code.
+//
+// Startup sequence:
+//   1. Parse command-line arguments (--help, --config)
+//   2. Handle --help
+//   3. Resolve configuration path ($XDG_CONFIG_HOME/omnibar/config.toml,
+//      or --config override)
+//   4. Load configuration (defaults if file missing)
+//   5. Initialize structured logging (log/slog)
+//   6. Validate configuration
+//   7. Return error if configuration is invalid
 func Run(args []string, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet("omnibar", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	help := fs.Bool("help", false, "Show help and exit")
+	configPath := fs.String("config", "", "Path to configuration file")
 	if err := fs.Parse(args); err != nil {
 		return fmt.Errorf("parse arguments: %w", err)
 	}
@@ -29,20 +43,39 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		return nil
 	}
 
-	// Phase 1 scaffold: no configuration, logging, socket, or module
-	// functionality is implemented yet. Those are added in later
-	// milestones.
-	fmt.Fprintln(stdout, "omnibar backend starting")
-	fmt.Fprintln(stdout, "no modules enabled; run with --help for usage")
-	return nil
-}
+	// Resolve configuration path.
+	path := *configPath
+	if path == "" {
+		var err error
+		path, err = config.ConfigPath()
+		if err != nil {
+			return fmt.Errorf("resolve config path: %w", err)
+		}
+	}
 
-// printUsage writes the command-line usage to the given writer.
-func printUsage(w io.Writer) {
-	fmt.Fprintf(w, "Usage: omnibar [flags]\n")
-	fmt.Fprintf(w, "\n")
-	fmt.Fprintf(w, "Flags:\n")
-	fmt.Fprintf(w, "  -help   Show this help and exit\n")
+	// Load configuration (defaults if file missing).
+	cfg, err := config.Load(path)
+	if err != nil {
+		return fmt.Errorf("load configuration: %w", err)
+	}
+
+	// Initialize logging before any further output.
+	logger := logging.Init(cfg.Core.LogLevel, stderr)
+
+	// Validate configuration.
+	if err := cfg.Validate(); err != nil {
+		logger.Error("configuration validation failed", "error", err)
+		return fmt.Errorf("validate configuration: %w", err)
+	}
+
+	logger.Info("omnibar backend starting",
+		"config", path,
+		"log_level", cfg.Core.LogLevel,
+		"modules", len(cfg.Modules),
+		"permissions", len(cfg.Permissions),
+	)
+
+	return nil
 }
 
 // isHelpRequest reports whether args contains a help flag. It is
@@ -64,4 +97,13 @@ func argsWithoutProgram(args []string) []string {
 		return args[1:]
 	}
 	return args
+}
+
+// printUsage writes the command-line usage to the given writer.
+func printUsage(w io.Writer) {
+	fmt.Fprintf(w, "Usage: omnibar [flags]\n")
+	fmt.Fprintf(w, "\n")
+	fmt.Fprintf(w, "Flags:\n")
+	fmt.Fprintf(w, "  -help     Show this help and exit\n")
+	fmt.Fprintf(w, "  -config   Path to configuration file\n")
 }
