@@ -12,13 +12,13 @@ import (
 	"strings"
 
 	"omnibar/internal/config"
+	"omnibar/internal/ipc"
 	"omnibar/internal/logging"
 )
 
-// Run executes the Omnibar backend with the provided command-line
-// arguments (excluding the program name). It returns nil on success
-// and a non-nil error on failure. The caller is responsible for
-// translating the error into an exit code.
+// Run executes the Omnibar backend startup sequence and returns the
+// started IPC server. The caller is responsible for shutting down the
+// server when appropriate (e.g., on signal in main, or in test cleanup).
 //
 // Startup sequence:
 //  1. Parse command-line arguments (--help, --config)
@@ -28,19 +28,21 @@ import (
 //  4. Load configuration (defaults if file missing)
 //  5. Initialize structured logging (log/slog)
 //  6. Validate configuration
-//  7. Return error if configuration is invalid
-func Run(args []string, stdout, stderr io.Writer) error {
+//  7. Resolve IPC socket path ($XDG_RUNTIME_DIR/omnibar/omnibar.sock)
+//  8. Ensure runtime directory exists with mode 0700
+//  9. Start IPC server (Go owns the Unix domain socket server)
+func Run(args []string, stdout, stderr io.Writer) (*ipc.Server, error) {
 	fs := flag.NewFlagSet("omnibar", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	help := fs.Bool("help", false, "Show help and exit")
 	configPath := fs.String("config", "", "Path to configuration file")
 	if err := fs.Parse(args); err != nil {
-		return fmt.Errorf("parse arguments: %w", err)
+		return nil, fmt.Errorf("parse arguments: %w", err)
 	}
 
 	if *help {
 		printUsage(stdout)
-		return nil
+		return nil, nil
 	}
 
 	// Resolve configuration path.
@@ -49,14 +51,14 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		var err error
 		path, err = config.ConfigPath()
 		if err != nil {
-			return fmt.Errorf("resolve config path: %w", err)
+			return nil, fmt.Errorf("resolve config path: %w", err)
 		}
 	}
 
 	// Load configuration (defaults if file missing).
 	cfg, err := config.Load(path)
 	if err != nil {
-		return fmt.Errorf("load configuration: %w", err)
+		return nil, fmt.Errorf("load configuration: %w", err)
 	}
 
 	// Initialize logging before any further output.
@@ -65,7 +67,7 @@ func Run(args []string, stdout, stderr io.Writer) error {
 	// Validate configuration.
 	if err := cfg.Validate(); err != nil {
 		logger.Error("configuration validation failed", "error", err)
-		return fmt.Errorf("validate configuration: %w", err)
+		return nil, fmt.Errorf("validate configuration: %w", err)
 	}
 
 	logger.Info("omnibar backend starting",
@@ -75,7 +77,21 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		"permissions", len(cfg.Permissions),
 	)
 
-	return nil
+	// Resolve IPC socket path.
+	socketPath, err := ipc.SocketPath()
+	if err != nil {
+		logger.Error("resolve socket path", "error", err)
+		return nil, fmt.Errorf("resolve socket path: %w", err)
+	}
+
+	// Create and start the IPC server.
+	server := ipc.New(socketPath, logger, nil)
+	if err := server.Start(); err != nil {
+		logger.Error("start IPC server", "error", err)
+		return nil, fmt.Errorf("start IPC server: %w", err)
+	}
+
+	return server, nil
 }
 
 // isHelpRequest reports whether args contains a help flag. It is

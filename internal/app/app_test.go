@@ -12,9 +12,12 @@ func TestRunHelp(t *testing.T) {
 	var out bytes.Buffer
 	var errOut bytes.Buffer
 
-	err := Run([]string{"-help"}, &out, &errOut)
+	server, err := Run([]string{"-help"}, &out, &errOut)
 	if err != nil {
 		t.Fatalf("Run(-help) returned error: %v", err)
+	}
+	if server != nil {
+		t.Fatal("expected nil server for --help")
 	}
 
 	if !strings.Contains(out.String(), "Usage:") {
@@ -27,9 +30,12 @@ func TestRunHelp(t *testing.T) {
 
 func TestRunDoubleDashHelp(t *testing.T) {
 	var out bytes.Buffer
-	err := Run([]string{"--help"}, &out, &bytes.Buffer{})
+	server, err := Run([]string{"--help"}, &out, &bytes.Buffer{})
 	if err != nil {
 		t.Fatalf("Run(--help) returned error: %v", err)
+	}
+	if server != nil {
+		t.Fatal("expected nil server for --help")
 	}
 	if !strings.Contains(out.String(), "Usage:") {
 		t.Errorf("expected usage output, got: %q", out.String())
@@ -40,12 +46,16 @@ func TestRunNoArgs(t *testing.T) {
 	var out bytes.Buffer
 	var errOut bytes.Buffer
 
-	err := Run([]string{}, &out, &errOut)
+	server, err := Run([]string{}, &out, &errOut)
 	if err != nil {
 		t.Fatalf("Run() with no args returned error: %v", err)
 	}
+	if server == nil {
+		t.Fatal("expected non-nil server")
+	}
+	defer server.Shutdown()
 
-	// Startup message is now emitted via slog to stderr.
+	// Startup message is emitted via slog to stderr.
 	if !strings.Contains(errOut.String(), "starting") {
 		t.Errorf("expected startup message in stderr, got: %q", errOut.String())
 	}
@@ -57,7 +67,7 @@ func TestRunParseError(t *testing.T) {
 	var out bytes.Buffer
 	var errOut bytes.Buffer
 
-	err := Run([]string{"-unknown-flag"}, &out, &errOut)
+	_, err := Run([]string{"-unknown-flag"}, &out, &errOut)
 	if err == nil {
 		t.Fatal("expected error for unknown flag")
 	}
@@ -80,7 +90,7 @@ func TestRunInvalidConfig(t *testing.T) {
 	var out bytes.Buffer
 	var errOut bytes.Buffer
 
-	err := Run([]string{"-config", malformed}, &out, &errOut)
+	_, err := Run([]string{"-config", malformed}, &out, &errOut)
 	if err == nil {
 		t.Fatal("expected error for malformed config")
 	}
@@ -104,10 +114,15 @@ config_version = 1
 	var out bytes.Buffer
 	var errOut bytes.Buffer
 
-	err := Run([]string{"-config", path}, &out, &errOut)
+	server, err := Run([]string{"-config", path}, &out, &errOut)
 	if err != nil {
 		t.Fatalf("Run() with valid config returned error: %v", err)
 	}
+	if server == nil {
+		t.Fatal("expected non-nil server")
+	}
+	defer server.Shutdown()
+
 	if !strings.Contains(errOut.String(), "starting") {
 		t.Errorf("expected startup message in stderr, got: %q", errOut.String())
 	}
@@ -128,7 +143,7 @@ config_version = 1
 	var out bytes.Buffer
 	var errOut bytes.Buffer
 
-	err := Run([]string{"-config", path}, &out, &errOut)
+	_, err := Run([]string{"-config", path}, &out, &errOut)
 	if err == nil {
 		t.Fatal("expected error for invalid log level")
 	}
