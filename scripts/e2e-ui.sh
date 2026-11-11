@@ -130,15 +130,18 @@ ui_pid=$!
 wait_for_count "status: connected" 1 20 "UI to connect"
 wait_for_count "handshake complete; backend 0.1.0 modules: core" 1 5 "UI handshake"
 wait_for_count "subscribed to core" 1 5 "UI to subscribe to core events"
-pass "UI connected, completed handshake, and subscribed"
+wait_for_count "subscribed to system_monitor" 1 5 "UI to subscribe to system_monitor events"
+wait_for_count "snapshot for system_monitor received" 1 15 "UI to receive a live system_monitor snapshot"
+pass "UI connected, completed handshake, and subscribed; live values arrived"
 
 stop_backend
 pass "backend SIGTERM exit 0 and socket removed"
 
 wait_for_count "status: unavailable" 1 10 "UI to report backend unavailable"
+wait_for_count "snapshots marked stale" 1 10 "UI to mark snapshots stale"
 wait_for_count "reconnecting in 1000 ms" 1 10 "first backoff (1000 ms)"
 wait_for_count "reconnecting in 2000 ms" 1 10 "second backoff (2000 ms)"
-pass "UI offline with exponential backoff (1000 ms, 2000 ms)"
+pass "UI offline with exponential backoff (1000 ms, 2000 ms) and stale snapshots"
 
 start_backend 2
 wait_for_count "status: connected" 2 30 "UI to reconnect after backend restart"

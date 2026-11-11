@@ -28,6 +28,7 @@ All notable changes will be documented here.
 - UI: subscribes to every module after each handshake, tracks per-module subscription state (shown as a dot on each module chip), and emits `moduleEvent`; pure-JS `protocol.js` with Qt Test coverage.
 - `make e2e-ui` now also checks that the UI subscribes and re-subscribes after a backend restart.
 - System monitoring module `system_monitor` (M10, ADR-0010): reads `/proc/stat` and `/proc/meminfo`, publishes `cpu` and `memory` events while subscribed, and answers `system.getSnapshot`. Declares the `system.info` capability; denied without the grant. Sampling interval `interval_ms` (default 2000, range 500-60000) validated at config load. Sampler runs only while subscribed, so idle cost is near zero.
+- System monitoring UI (M11): `system_monitor` card with CPU, memory, and swap metric bars; fetches `system.getSnapshot` after subscribing and applies live `cpu`/`memory` events; offline marks last values stale; denied/unavailable states shown on the card; reusable `ModuleCard` and `MetricBar` components; pure-JS `format.js` helper with Qt Test coverage (`tst_format.qml`).
 
 ### Changed
 - The integration harness finds the repository root from the working directory, so it also works under `-trimpath` (package `check()`).

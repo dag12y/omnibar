@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import "components"
+import "format.js" as Format
 
 ShellRoot {
     BackendClient {
@@ -139,6 +140,75 @@ ShellRoot {
                         }
                     }
 
+                    // system_monitor card: live CPU, memory, and swap readings.
+                    ModuleCard {
+                        Layout.fillWidth: true
+                        module: "system_monitor"
+                        state: client.snapshotStates["system_monitor"] || "pending"
+                        detail: {
+                            const snap = client.snapshots["system_monitor"]
+                            if (!snap || !snap.sampled_at)
+                                return ""
+                            return "Sampled " + Format.formatSampledAt(snap.sampled_at)
+                        }
+
+                        ColumnLayout {
+                            spacing: 6
+                            Layout.fillWidth: true
+
+                            MetricBar {
+                                Layout.fillWidth: true
+                                label: "CPU"
+                                value: {
+                                    const cpu = client.snapshots["system_monitor"]?.cpu
+                                    if (!cpu)
+                                        return "\u2014"
+                                    return Format.formatPercent(cpu.percent) + "  (" + (cpu.cores ? cpu.cores.length : 0) + " cores)"
+                                }
+                                percent: client.snapshots["system_monitor"]?.cpu?.percent || 0
+                                stale: client.snapshotStates["system_monitor"] === "stale"
+                            }
+
+                            MetricBar {
+                                Layout.fillWidth: true
+                                label: "Memory"
+                                value: {
+                                    const mem = client.snapshots["system_monitor"]?.memory
+                                    if (!mem)
+                                        return "\u2014"
+                                    return Format.formatBytes(mem.used) + " / " + Format.formatBytes(mem.total)
+                                }
+                                percent: {
+                                    const mem = client.snapshots["system_monitor"]?.memory
+                                    if (!mem || mem.total === 0)
+                                        return 0
+                                    return (mem.used / mem.total) * 100
+                                }
+                                stale: client.snapshotStates["system_monitor"] === "stale"
+                            }
+
+                            MetricBar {
+                                Layout.fillWidth: true
+                                label: "Swap"
+                                value: {
+                                    const swap = client.snapshots["system_monitor"]?.swap
+                                    if (!swap)
+                                        return "\u2014"
+                                    return Format.formatBytes(swap.used) + " / " + Format.formatBytes(swap.total)
+                                }
+                                percent: {
+                                    const swap = client.snapshots["system_monitor"]?.swap
+                                    if (!swap || swap.total === 0)
+                                        return 0
+                                    return (swap.used / swap.total) * 100
+                                }
+                                stale: client.snapshotStates["system_monitor"] === "stale"
+                            }
+                        }
+                    }
+
+                    // Module list chips: one chip per module reported at
+                    // handshake, with a per-module subscription dot.
                     Flow {
                         Layout.fillWidth: true
                         Layout.preferredHeight: childrenRect.height

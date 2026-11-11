@@ -12,7 +12,9 @@ import "protocol.js" as Protocol
 // never terminates the application when the backend is missing.
 //
 // Subscriptions live in the backend's memory, so they are made again after
-// every successful handshake (ADR-0009).
+// every successful handshake (ADR-0009). After a module is subscribed, the
+// UI fetches its current snapshot with system.getSnapshot and then applies
+// live cpu/memory events as they arrive (M11).
 Item {
     id: root
 
@@ -46,6 +48,16 @@ Item {
     // Request id -> module name for subscribe requests awaiting a response.
     property var pendingSubscriptions: ({})
 
+    // Per-module snapshot data from system.getSnapshot and live events.
+    property var snapshots: ({})
+
+    // Per-module snapshot state: "pending", "fresh", "stale", "denied",
+    // "unavailable", or "failed".
+    property var snapshotStates: ({})
+
+    // Request id -> module name for snapshot requests awaiting a response.
+    property var pendingSnapshots: ({})
+
     readonly property bool backendConnected: status === "connected"
     readonly property bool connecting: status === "connecting"
     readonly property bool backendUnavailable: status === "unavailable"
@@ -57,6 +69,9 @@ Item {
 
     // A module.event notification from the backend.
     signal moduleEvent(string module, string event, var data)
+
+    // A module snapshot, from system.getSnapshot or a live event.
+    signal snapshotReceived(string module, var data)
 
     property Socket socket: Socket {
         id: socket
@@ -168,6 +183,8 @@ Item {
     function resetSubscriptions() {
         subscriptions = ({})
         pendingSubscriptions = ({})
+        snapshotStates = ({})
+        pendingSnapshots = ({})
     }
 
     function handleConnected() {
@@ -184,6 +201,16 @@ Item {
         resetSubscriptions()
         pendingHandshakeId = -1
         handshakeComplete = false
+
+        // Mark every snapshot stale: keep the last values but show them
+        // as stale until the backend returns and re-subscribes.
+        var staleStates = {}
+        for (var module in snapshots) {
+            staleStates[module] = "stale"
+        }
+        snapshotStates = staleStates
+        if (Object.keys(snapshots).length > 0)
+            console.info("[omnibar-ui] snapshots marked stale")
 
         if (status !== "unavailable") {
             lastError = "Connection to backend lost"
@@ -224,10 +251,15 @@ Item {
         const parsed = Protocol.classify(message)
         if (parsed.kind === "event") {
             moduleEvent(parsed.module, parsed.event, parsed.data)
+            root.applyModuleEvent(parsed.module, parsed.event, parsed.data)
             return
         }
         if (parsed.kind === "response" && pendingSubscriptions[parsed.id] !== undefined) {
             handleSubscribeResponse(parsed)
+            return
+        }
+        if (parsed.kind === "response" && pendingSnapshots[parsed.id] !== undefined) {
+            handleSnapshotResponse(parsed)
             return
         }
 
@@ -260,6 +292,27 @@ Item {
                      "modules:", modules.join(", "))
         subscribeToModules()
         handshakeSucceeded()
+    }
+
+    // Merge a live module.event into the stored snapshot so the UI can
+    // keep showing current values between snapshots.
+    function applyModuleEvent(module, event, data) {
+        var snap = snapshots[module]
+        if (!snap || typeof snap !== "object") {
+            snap = {}
+        }
+        if (event === "cpu") {
+            snap.cpu = data
+        } else if (event === "memory") {
+            snap.memory = data
+            if (data.swap_total !== undefined) {
+                snap.swap = { total: data.swap_total, used: data.swap_used }
+            }
+        }
+        snap.sampled_at = new Date().toISOString()
+        snapshots = Protocol.withState(snapshots, module, snap)
+        snapshotStates = Protocol.withState(snapshotStates, module, "fresh")
+        snapshotReceived(module, snap)
     }
 
     // Subscribe to every event of every module the backend reported. Safe
@@ -296,12 +349,66 @@ Item {
         const state = Protocol.subscriptionState(response)
         subscriptions = Protocol.withState(subscriptions, module, state)
 
+        // A denied or unavailable subscription means the snapshot is also
+        // denied or unavailable.
+        if (state === Protocol.Denied || state === Protocol.Unavailable || state === Protocol.Failed) {
+            snapshotStates = Protocol.withState(snapshotStates, module, state)
+            console.warn("[omnibar-ui] subscription to", module, state + ":", response.error && response.error.message ? response.error.message : "unknown error")
+            return
+        }
+
         if (state === Protocol.Subscribed) {
             console.info("[omnibar-ui] subscribed to", module)
-        } else {
-            const reason = response.error && response.error.message ? response.error.message : "unknown error"
-            console.warn("[omnibar-ui] subscription to", module, state + ":", reason)
+            // Fetch the current snapshot after a successful subscription
+            // so the UI shows live values without waiting for the next
+            // event (ADR-0009: subscribe before fetching avoids a gap).
+            if (module === "system_monitor")
+                requestSnapshot(module)
         }
+    }
+
+    // Request the current snapshot for a module with system.getSnapshot.
+    function requestSnapshot(module) {
+        if (!socket.connected)
+            return
+
+        const requestId = nextRequestId++
+        pendingSnapshots = Protocol.withState(pendingSnapshots, requestId, module)
+        snapshotStates = Protocol.withState(snapshotStates, module, "pending")
+
+        socket.write(Protocol.buildRequest(requestId, "system.getSnapshot") + "\n")
+        socket.flush()
+    }
+
+    function handleSnapshotResponse(response) {
+        const module = pendingSnapshots[response.id]
+
+        const remaining = {}
+        for (const id in pendingSnapshots) {
+            if (String(id) !== String(response.id))
+                remaining[id] = pendingSnapshots[id]
+        }
+        pendingSnapshots = remaining
+
+        if (response.error) {
+            snapshotStates = Protocol.withState(snapshotStates, module, "failed")
+            console.warn("[omnibar-ui] snapshot for", module, "failed:", response.error.message)
+            return
+        }
+
+        var data = {}
+        try {
+            data = JSON.parse(response.result)
+        } catch (error) {
+            console.warn("[omnibar-ui] invalid snapshot for", module, error)
+            snapshotStates = Protocol.withState(snapshotStates, module, "failed")
+            return
+        }
+
+        snapshots = Protocol.withState(snapshots, module, data)
+        snapshotStates = Protocol.withState(snapshotStates, module, "fresh")
+        console.info("[omnibar-ui] snapshot for", module, "received")
+        snapshotReceived(module, data)
     }
 
     function failConnection(reason) {
