@@ -31,6 +31,9 @@ const (
 
 	// EventDisk is the event name for disk storage and I/O rate samples.
 	EventDisk = "disk"
+
+	// EventNetwork is the event name for network transfer rate samples.
+	EventNetwork = "network"
 )
 
 var (
@@ -41,11 +44,12 @@ var (
 // Snapshot is the result of system.getSnapshot and the basis of published
 // events.
 type Snapshot struct {
-	CPU       CPUSnapshot    `json:"cpu"`
-	Memory    MemorySnapshot `json:"memory"`
-	Swap      SwapSnapshot   `json:"swap"`
-	Disk      DiskSnapshot   `json:"disk"`
-	SampledAt string         `json:"sampled_at"`
+	CPU       CPUSnapshot     `json:"cpu"`
+	Memory    MemorySnapshot  `json:"memory"`
+	Swap      SwapSnapshot    `json:"swap"`
+	Disk      DiskSnapshot    `json:"disk"`
+	Network   NetworkSnapshot `json:"network"`
+	SampledAt string          `json:"sampled_at"`
 }
 
 // CPUSnapshot holds overall and per-core CPU usage as percentages (0-100).
@@ -76,6 +80,12 @@ type DiskSnapshot struct {
 	WriteBytesSec uint64 `json:"write_bytes_sec"`
 }
 
+// NetworkSnapshot holds network transfer rates in bytes/sec.
+type NetworkSnapshot struct {
+	RxBytesSec uint64 `json:"rx_bytes_sec"`
+	TxBytesSec uint64 `json:"tx_bytes_sec"`
+}
+
 // computeSnapshot builds a Snapshot from consecutive readings. When
 // prev is nil (first reading), no CPU or disk delta can be computed.
 func computeSnapshot(
@@ -86,6 +96,8 @@ func computeSnapshot(
 	prevDisk *DiskSample,
 	fsStat FsStatFunc,
 	fsPath string,
+	net *NetSample,
+	prevNet *NetSample,
 ) *Snapshot {
 	snap := &Snapshot{
 		SampledAt: time.Now().UTC().Format(time.RFC3339),
@@ -152,6 +164,13 @@ func computeSnapshot(
 		rRate, wRate := computeDiskDelta(disk, prevDisk)
 		snap.Disk.ReadBytesSec = rRate
 		snap.Disk.WriteBytesSec = wRate
+	}
+
+	// Network throughput delta.
+	if net != nil && prevNet != nil {
+		rxRate, txRate := computeNetDelta(net, prevNet)
+		snap.Network.RxBytesSec = rxRate
+		snap.Network.TxBytesSec = txRate
 	}
 
 	return snap
@@ -288,6 +307,15 @@ func marshalDiskEvent(snap *Snapshot) json.RawMessage {
 		"used":            snap.Disk.Used,
 		"read_bytes_sec":  snap.Disk.ReadBytesSec,
 		"write_bytes_sec": snap.Disk.WriteBytesSec,
+	})
+	return out
+}
+
+// marshalNetworkEvent returns the JSON payload for a network event.
+func marshalNetworkEvent(snap *Snapshot) json.RawMessage {
+	out, _ := json.Marshal(map[string]any{
+		"rx_bytes_sec": snap.Network.RxBytesSec,
+		"tx_bytes_sec": snap.Network.TxBytesSec,
 	})
 	return out
 }

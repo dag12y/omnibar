@@ -46,20 +46,21 @@ func TestSamplerStartStopNoLeak(t *testing.T) {
 func TestSamplerPublishesOnlyWhenSubscribed(t *testing.T) {
 	hub := newTestHub()
 	subscriber := &testSubscriber{}
-	hub.Subscribe(subscriber, "test", []string{"cpu", "memory", "disk"})
+	hub.Subscribe(subscriber, "test", []string{"cpu", "memory", "disk", "network"})
 
 	s := newSampler("test", 50*time.Millisecond, hub, nil)
 	s.statPath = filepath.Join("fixtures", "stat_normal")
 	s.meminfoPath = filepath.Join("fixtures", "meminfo_normal")
 	s.diskPath = filepath.Join("fixtures", "diskstats_normal")
+	s.netdevPath = filepath.Join("fixtures", "netdev_normal")
 
 	s.start()
 	defer s.stop()
 
-	// Wait for at least one cpu, one memory, and one disk event.
+	// Wait for at least one cpu, one memory, one disk, and one network event.
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		if names := subscriber.names(); names["cpu"] && names["memory"] && names["disk"] {
+		if names := subscriber.names(); names["cpu"] && names["memory"] && names["disk"] && names["network"] {
 			break
 		}
 		time.Sleep(10 * time.Millisecond)
@@ -74,6 +75,9 @@ func TestSamplerPublishesOnlyWhenSubscribed(t *testing.T) {
 	}
 	if !names["disk"] {
 		t.Error("expected disk event to be published")
+	}
+	if !names["network"] {
+		t.Error("expected network event to be published")
 	}
 }
 

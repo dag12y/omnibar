@@ -23,7 +23,7 @@ ShellRoot {
         }
 
         implicitWidth: 460
-        implicitHeight: 380
+        implicitHeight: 430
         color: "transparent"
         exclusionMode: ExclusionMode.Ignore
 
@@ -224,6 +224,19 @@ ShellRoot {
                                         return 0
                                     return (disk.used / disk.total) * 100
                                 }
+                                stale: client.snapshotStates["system_monitor"] === "stale"
+                            }
+
+                            MetricBar {
+                                Layout.fillWidth: true
+                                label: "Network"
+                                value: {
+                                    const net = client.snapshots["system_monitor"]?.network
+                                    if (!net)
+                                        return "\u2014"
+                                    return "\u2193 " + Format.formatBytes(net.rx_bytes_sec || 0) + "/s   \u2191 " + Format.formatBytes(net.tx_bytes_sec || 0) + "/s"
+                                }
+                                percent: 0
                                 stale: client.snapshotStates["system_monitor"] === "stale"
                             }
                         }

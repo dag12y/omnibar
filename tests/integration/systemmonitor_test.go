@@ -66,6 +66,10 @@ func TestSystemGetSnapshotGranted(t *testing.T) {
 			ReadBytesSec  uint64 `json:"read_bytes_sec"`
 			WriteBytesSec uint64 `json:"write_bytes_sec"`
 		} `json:"disk"`
+		Network struct {
+			RxBytesSec uint64 `json:"rx_bytes_sec"`
+			TxBytesSec uint64 `json:"tx_bytes_sec"`
+		} `json:"network"`
 		SampledAt string `json:"sampled_at"`
 	}
 	if err := json.Unmarshal(resp.Result, &snap); err != nil {

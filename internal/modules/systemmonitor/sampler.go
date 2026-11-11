@@ -23,6 +23,7 @@ type sampler struct {
 	statPath    string
 	meminfoPath string
 	diskPath    string
+	netdevPath  string
 	fsPath      string
 	fsStat      FsStatFunc
 
@@ -34,6 +35,7 @@ type sampler struct {
 	lastStat *StatSample
 	lastMem  *MemInfo
 	lastDisk *DiskSample
+	lastNet  *NetSample
 	snapshot *Snapshot
 }
 
@@ -46,6 +48,7 @@ func newSampler(module string, interval time.Duration, hub *events.Hub, logger *
 		statPath:    "/proc/stat",
 		meminfoPath: "/proc/meminfo",
 		diskPath:    "/proc/diskstats",
+		netdevPath:  "/proc/net/dev",
 		fsPath:      "/",
 		fsStat:      DefaultFsStat,
 	}
@@ -138,10 +141,15 @@ func (s *sampler) takeBaseline() {
 		s.lastDisk = disk
 		s.mu.Unlock()
 	}
+	if net, err := ParseNetdevFile(s.netdevPath, time.Now()); err == nil {
+		s.mu.Lock()
+		s.lastNet = net
+		s.mu.Unlock()
+	}
 }
 
-// sample reads /proc/stat, /proc/meminfo, and /proc/diskstats, computes the delta from the
-// previous reading, stores the snapshot, and returns it.
+// sample reads /proc/stat, /proc/meminfo, /proc/diskstats, and /proc/net/dev, computes
+// deltas from previous readings, stores the snapshot, and returns it.
 func (s *sampler) sample() (*Snapshot, error) {
 	stat, err := ParseStatFile(s.statPath)
 	if err != nil {
@@ -153,15 +161,19 @@ func (s *sampler) sample() (*Snapshot, error) {
 	}
 	now := time.Now()
 	disk, _ := ParseDiskstatsFile(s.diskPath, now)
+	net, _ := ParseNetdevFile(s.netdevPath, now)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	snap := computeSnapshot(stat, mem, s.lastStat, disk, s.lastDisk, s.fsStat, s.fsPath)
+	snap := computeSnapshot(stat, mem, s.lastStat, disk, s.lastDisk, s.fsStat, s.fsPath, net, s.lastNet)
 	s.lastStat = stat
 	s.lastMem = mem
 	if disk != nil {
 		s.lastDisk = disk
+	}
+	if net != nil {
+		s.lastNet = net
 	}
 	s.snapshot = snap
 	return snap, nil
@@ -181,15 +193,19 @@ func (s *sampler) sampleOnce() (*Snapshot, error) {
 	}
 	now := time.Now()
 	disk, _ := ParseDiskstatsFile(s.diskPath, now)
+	net, _ := ParseNetdevFile(s.netdevPath, now)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	snap := computeSnapshot(stat, mem, s.lastStat, disk, s.lastDisk, s.fsStat, s.fsPath)
+	snap := computeSnapshot(stat, mem, s.lastStat, disk, s.lastDisk, s.fsStat, s.fsPath, net, s.lastNet)
 	s.lastStat = stat
 	s.lastMem = mem
 	if disk != nil {
 		s.lastDisk = disk
+	}
+	if net != nil {
+		s.lastNet = net
 	}
 	s.snapshot = snap
 	return snap, nil
@@ -202,7 +218,7 @@ func (s *sampler) currentSnapshot() *Snapshot {
 	return s.snapshot
 }
 
-// publish sends cpu, memory, and disk events for snap to subscribed clients.
+// publish sends cpu, memory, disk, and network events for snap to subscribed clients.
 func (s *sampler) publish(snap *Snapshot) {
 	cpuData := marshalCPUEvent(snap)
 	if err := s.hub.Publish(s.module, EventCPU, cpuData); err != nil {
@@ -217,5 +233,10 @@ func (s *sampler) publish(snap *Snapshot) {
 	diskData := marshalDiskEvent(snap)
 	if err := s.hub.Publish(s.module, EventDisk, diskData); err != nil {
 		s.logger.Error("publish disk event", "module", s.module, "error", err)
+	}
+
+	netData := marshalNetworkEvent(snap)
+	if err := s.hub.Publish(s.module, EventNetwork, netData); err != nil {
+		s.logger.Error("publish network event", "module", s.module, "error", err)
 	}
 }

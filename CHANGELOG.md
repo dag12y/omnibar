@@ -30,6 +30,7 @@ All notable changes will be documented here.
 - System monitoring module `system_monitor` (M10, ADR-0010): reads `/proc/stat` and `/proc/meminfo`, publishes `cpu` and `memory` events while subscribed, and answers `system.getSnapshot`. Declares the `system.info` capability; denied without the grant. Sampling interval `interval_ms` (default 2000, range 500-60000) validated at config load. Sampler runs only while subscribed, so idle cost is near zero.
 - System monitoring UI (M11): `system_monitor` card with CPU, memory, and swap metric bars; fetches `system.getSnapshot` after subscribing and applies live `cpu`/`memory` events; offline marks last values stale; denied/unavailable states shown on the card; reusable `ModuleCard` and `MetricBar` components; pure-JS `format.js` helper with Qt Test coverage (`tst_format.qml`).
 - Disk monitoring (M12): reads `/proc/diskstats` for block I/O throughput (read/write bytes/sec) and filesystem storage (total, available, used); publishes `disk` events and includes `disk` in `system.getSnapshot`; Quickshell UI displays live disk storage and I/O rates.
+- Network monitoring (M13): reads `/proc/net/dev` for active non-loopback transfer rates (download/upload bytes/sec); publishes `network` events and includes `network` in `system.getSnapshot`; Quickshell UI displays live network throughput.
 
 ### Changed
 - The integration harness finds the repository root from the working directory, so it also works under `-trimpath` (package `check()`).

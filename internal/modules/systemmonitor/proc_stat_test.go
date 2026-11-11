@@ -98,7 +98,7 @@ func TestComputeSnapshotDelta(t *testing.T) {
 		t.Fatalf("parse second: %v", err)
 	}
 
-	snap := computeSnapshot(second, &MemInfo{}, first, nil, nil, nil, "")
+	snap := computeSnapshot(second, &MemInfo{}, first, nil, nil, nil, "", nil, nil)
 	// totalDelta = 9370-4685 = 4685, idleDelta = 8100-4050 = 4050
 	// percent = (4685-4050)/4685 * 100 = 13.55... -> 13.6
 	if snap.CPU.Percent < 13.5 || snap.CPU.Percent > 13.7 {
@@ -125,7 +125,7 @@ func TestComputeSnapshotNoBaseline(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	snap := computeSnapshot(first, &MemInfo{}, nil, nil, nil, nil, "")
+	snap := computeSnapshot(first, &MemInfo{}, nil, nil, nil, nil, "", nil, nil)
 	if snap.CPU.Percent != 0 {
 		t.Errorf("CPU.Percent = %f, want 0 with no baseline", snap.CPU.Percent)
 	}
@@ -144,7 +144,7 @@ func TestComputeSnapshotCounterWrap(t *testing.T) {
 		t.Fatalf("parse second: %v", err)
 	}
 
-	snap := computeSnapshot(second, &MemInfo{}, first, nil, nil, nil, "")
+	snap := computeSnapshot(second, &MemInfo{}, first, nil, nil, nil, "", nil, nil)
 	// totalDelta is negative (counter reset), so percent clamps to 0.
 	if snap.CPU.Percent != 0 {
 		t.Errorf("CPU.Percent = %f, want 0 on counter wrap", snap.CPU.Percent)

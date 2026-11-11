@@ -310,6 +310,8 @@ Item {
             }
         } else if (event === "disk") {
             snap.disk = data
+        } else if (event === "network") {
+            snap.network = data
         }
         snap.sampled_at = new Date().toISOString()
         snapshots = Protocol.withState(snapshots, module, snap)
