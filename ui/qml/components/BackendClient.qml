@@ -397,12 +397,16 @@ Item {
         }
 
         var data = {}
-        try {
-            data = JSON.parse(response.result)
-        } catch (error) {
-            console.warn("[omnibar-ui] invalid snapshot for", module, error)
-            snapshotStates = Protocol.withState(snapshotStates, module, "failed")
-            return
+        if (typeof response.result === "object" && response.result !== null) {
+            data = response.result
+        } else if (typeof response.result === "string") {
+            try {
+                data = JSON.parse(response.result)
+            } catch (error) {
+                console.warn("[omnibar-ui] invalid snapshot for", module, error)
+                snapshotStates = Protocol.withState(snapshotStates, module, "failed")
+                return
+            }
         }
 
         snapshots = Protocol.withState(snapshots, module, data)

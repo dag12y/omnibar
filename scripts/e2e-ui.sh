@@ -44,8 +44,9 @@ if [[ ! -S "$wayland_socket" ]]; then
 fi
 
 tmp="$(mktemp -d "${TMPDIR:-/tmp}/omnibar-e2e-XXXXXX")"
-mkdir -p "$tmp/run" "$tmp/config"
+mkdir -p "$tmp/run" "$tmp/config/omnibar"
 chmod 700 "$tmp/run"
+cp "$root/config/config.toml.example" "$tmp/config/omnibar/config.toml"
 socket="$tmp/run/omnibar/omnibar.sock"
 ui_log="$tmp/ui.log"
 backend_pid=""

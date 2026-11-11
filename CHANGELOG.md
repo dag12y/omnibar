@@ -34,6 +34,11 @@ All notable changes will be documented here.
 - The integration harness finds the repository root from the working directory, so it also works under `-trimpath` (package `check()`).
 - Documented reconnect backoff consistently as 1s, 2s, 4s, 8s, 16s, then capped at 30s.
 
+### Fixed
+- QML snapshot parsing in `BackendClient.qml` to handle already parsed object results from JSON-RPC without throwing `SyntaxError`.
+- Relative import path of `components/format.js` in `shell.qml`.
+- Seed example config in `scripts/e2e-ui.sh` so `system_monitor` permissions are granted during automated e2e UI testing.
+
 ### Deferred
 - `module.subscribe` and `module.event` notifications until the first event-producing module (Phase 2).
 - A production RPC method that consumes a capability; the fail-closed path is tested with a test-only module.

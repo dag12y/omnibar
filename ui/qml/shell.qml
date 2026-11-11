@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import "components"
-import "format.js" as Format
+import "components/format.js" as Format
 
 ShellRoot {
     BackendClient {
