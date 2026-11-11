@@ -1,10 +1,11 @@
-# Makefile for Omnibar backend.
+# Makefile for Omnibar backend and UI tests.
 
 GO ?= go
+QMLTESTRUNNER ?= /usr/lib/qt6/bin/qmltestrunner
 BIN_DIR := build
 BINARY := $(BIN_DIR)/omnibar
 
-.PHONY: all build test run clean help
+.PHONY: all build test ui-test run clean help
 
 all: build
 
@@ -14,6 +15,9 @@ build:
 
 test:
 	$(GO) test ./...
+
+ui-test:
+	QT_QPA_PLATFORM=offscreen $(QMLTESTRUNNER) -input ui/qml/tests -o -,txt
 
 run: build
 	$(BINARY)
@@ -27,5 +31,6 @@ help:
 # Target-specific documentation.
 build: ## Build the omnibar binary into build/omnibar
 test: ## Run all Go unit and integration tests
+ui-test: ## Run the QML logic tests with Qt Test
 run: ## Build and run the omnibar backend
 clean: ## Remove generated build artifacts

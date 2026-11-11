@@ -58,7 +58,18 @@ The backend reads config from `$XDG_CONFIG_HOME/omnibar/config.toml`, creates th
 quickshell -p ui/qml/shell.qml
 ```
 
-The UI connects to the backend socket using `Quickshell.Io.Socket`. The backend must be running first.
+The UI connects to the backend socket using `Quickshell.Io.Socket`. It can
+start before the backend and reconnects automatically with exponential
+backoff (1s, 2s, 4s, 8s, 16s, then every 30s). Quickshell 0.3.2 is the pinned UI
+framework version.
+
+### Testing QML logic
+```sh
+make ui-test
+```
+
+This runs the Qt Test suite under `ui/qml/tests/` with the Qt 6 test runner
+in offscreen mode.
 
 ### Backend and UI separation
 - The Go backend is a standalone daemon; it stays alive when the UI closes.
