@@ -103,7 +103,7 @@ This framing prevents unbounded memory growth from a malformed or malicious send
 
 **Notification (backend → UI, no `id`):**
 ```json
-{"jsonrpc":"2.0","method":"module.event","params":{"module":"audio","event":"volume_changed","value":45}}
+{"jsonrpc":"2.0","method":"module.event","params":{"module":"audio","event":"volume_changed","data":{"volume":45}}}
 ```
 
 ### Connection lifecycle
@@ -115,11 +115,13 @@ This framing prevents unbounded memory growth from a malformed or malicious send
 5. The UI subscribes to events of interest via `module.subscribe`.
 6. The backend pushes notifications for subscribed events.
 
+Subscription semantics, the `module.event` payload (`module`, `event`, `data`), the added error codes -32001 and -32002, and the backpressure policy are specified in [ADR-0009](ADR-0009-event-subscription.md).
+
 ### Reconnection behavior
 
 - Socket disconnection → UI enters offline mode: cached data displayed, backend-requiring actions disabled with a "Backend unavailable" message.
 - Automatic reconnect attempts with exponential backoff.
-- On reconnect, UI re-sends handshake and re-subscribes to events.
+- On reconnect, UI re-sends handshake, re-subscribes to events, then fetches current state (ADR-0009).
 - Pending requests that timed out are reported as errors to the UI.
 
 ### Error handling

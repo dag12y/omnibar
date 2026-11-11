@@ -4,7 +4,7 @@ Omnibar is a modular desktop utility suite for Linux, initially targeting Omarch
 
 ## Status
 
-Finalized. See `docs/architecture/ADR-0002` through `ADR-0008` for individual decisions.
+Finalized. See `docs/architecture/ADR-0002` through `ADR-0010` for individual decisions.
 
 ## Overview
 
@@ -196,7 +196,7 @@ This framing prevents unbounded memory growth from a malformed or malicious send
 
 **Notification (backend → UI, no `id`):**
 ```json
-{"jsonrpc":"2.0","method":"module.event","params":{"module":"audio","event":"volume_changed","value":45}}
+{"jsonrpc":"2.0","method":"module.event","params":{"module":"audio","event":"volume_changed","data":{"volume":45}}}
 ```
 
 ### Connection lifecycle
@@ -208,11 +208,13 @@ This framing prevents unbounded memory growth from a malformed or malicious send
 5. The UI subscribes to events of interest via `module.subscribe`.
 6. The backend pushes notifications for subscribed events.
 
+Subscription methods, error codes, delivery guarantees, and the slow-client policy are specified in ADR-0009. Delivery is at most once with no replay, so after a reconnect the UI re-subscribes and then fetches current state with a request.
+
 ### Reconnection behavior
 
 - Socket disconnection → UI enters offline mode: cached data displayed, backend-requiring actions disabled with a "Backend unavailable" message.
 - Automatic reconnect attempts with exponential backoff.
-- On reconnect, UI re-sends handshake and re-subscribes to events.
+- On reconnect, UI re-sends handshake, re-subscribes to events, then fetches current state (ADR-0009).
 - Pending requests that timed out are reported as errors to the UI.
 
 ### Error handling
@@ -359,7 +361,9 @@ omnibar/
 │   │   ├── ADR-0005-configuration-format.md
 │   │   ├── ADR-0006-storage.md
 │   │   ├── ADR-0007-permissions-security.md
-│   │   └── ADR-0008-packaging-updates.md
+│   │   ├── ADR-0008-packaging-updates.md
+│   │   ├── ADR-0009-event-subscription.md
+│   │   └── ADR-0010-system-monitor.md
 │   ├── development/
 │   └── features/
 ├── internal/

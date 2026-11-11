@@ -1,6 +1,6 @@
 # Omnibar Implementation Milestone Plan
 
-This document breaks the approved architecture into small, sequential, independently verifiable implementation milestones. It is a planning document only — no implementation code, Go module, or dependencies are introduced here.
+This document breaks the approved architecture into small, sequential, independently verifiable implementation milestones. It is a planning document only — no implementation code, Go module, or dependencies are introduced here. M1–M8 form Phase 1 (core foundation) and are complete. M9–M12 start Phase 2 (system monitoring) and finish with the first release.
 
 ## Conventions
 
@@ -8,20 +8,25 @@ This document breaks the approved architecture into small, sequential, independe
 - Milestones are deliberately small: each should be implementable, testable, reviewable, and committable independently.
 - "Expected files" describes likely paths; exact implementation decisions are made during the milestone.
 - Testing strategy distinguishes unit tests (Go `testing`), integration tests (backend+UI together), and manual verification steps.
-- No SQLite, no dynamic Go plugin loading, no self-updater, no OS sandboxing, and no features beyond Phase 1 scope are introduced in this plan.
+- No SQLite, no dynamic Go plugin loading, no self-updater, and no OS sandboxing are introduced in this plan. M9–M12 add only event delivery, CPU/memory/swap monitoring, and the first release; history, alerts, and other monitors are later work.
+- Each milestone ends with a commit of the form `feat: … (Mn)`; planning changes are committed separately as `docs: …`.
 
 ## Milestone sequence overview
 
-| ID | Title | Purpose |
-|----|-------|---------|
-| M1 | Go project scaffold & build system | Establish the Go module, entrypoint, and build tooling |
-| M2 | Logging & configuration loading | slog logging and TOML config with defaults and validation |
-| M3 | Unix domain socket server & IPC framing | Socket security, stale-socket handling, newline-delimited framing, graceful shutdown |
-| M4 | JSON-RPC 2.0 protocol & handshake | Request/response framing, handshake, error codes, protocol versioning |
-| M5 | Module registry (static registration) | ModuleInfo, registry, lifecycle states, panic recovery at module boundaries |
-| M6 | Quickshell QML UI & socket client | Minimal QML shell, Quickshell.Io.Socket connection, handshake, offline mode, reconnection |
-| M7 | End-to-end integration & verification | Backend + UI together, full handshake + request/response, graceful shutdown, integration tests |
-| M8 | Packaging & systemd user service | PKGBUILD, omnibar.service, config.toml.example installation, local makepkg verification |
+| ID | Title | Purpose | Status |
+|----|-------|---------|--------|
+| M1 | Go project scaffold & build system | Establish the Go module, entrypoint, and build tooling | Done |
+| M2 | Logging & configuration loading | slog logging and TOML config with defaults and validation | Done |
+| M3 | Unix domain socket server & IPC framing | Socket security, stale-socket handling, newline-delimited framing, graceful shutdown | Done |
+| M4 | JSON-RPC 2.0 protocol & handshake | Request/response framing, handshake, error codes, protocol versioning | Done |
+| M5 | Module registry (static registration) | ModuleInfo, registry, lifecycle states, panic recovery at module boundaries | Done |
+| M6 | Quickshell QML UI & socket client | Minimal QML shell, Quickshell.Io.Socket connection, handshake, offline mode, reconnection | Done |
+| M7 | End-to-end integration & verification | Backend + UI together, full handshake + request/response, graceful shutdown, integration tests | Done |
+| M8 | Packaging & systemd user service | PKGBUILD, omnibar.service, config.toml.example installation, local makepkg verification | Done |
+| M9 | Event subscription & delivery | Event hub, `module.subscribe`/`module.unsubscribe`, `module.event` push, slow-client policy, UI re-subscribe | Planned |
+| M10 | System monitor module (CPU, memory, swap) | First real module and capability consumer; on-demand sampling; `system.getSnapshot` and events | Planned |
+| M11 | UI for system monitoring | Live CPU/memory/swap cards, stale/offline/denied states, reusable components | Planned |
+| M12 | Release v0.1.0 | Tag, release, real checksums, install verification | Planned |
 
 ---
 
@@ -461,10 +466,243 @@ Create the Arch PKGBUILD, systemd user service unit, and config.toml.example ins
 
 ---
 
+## M9 — Event subscription & delivery
+
+### Purpose
+Let the backend push `module.event` notifications to subscribed clients, and let the UI subscribe and re-subscribe, so Phase 2 monitors can stream live data. Semantics are fixed in ADR-0009.
+
+### Scope
+- `internal/events`: in-process event hub (publish, subscribe, per-module subscriber tracking).
+- Per-connection session in `internal/ipc`: subscription set, bounded outbound queue (default 64), single writer goroutine per connection.
+- Handlers receive the calling session through the request context. Existing `ipc.New`, `Dispatcher.Register`, and handler call sites keep working.
+- `module.subscribe` and `module.unsubscribe` with the params, results, and errors from ADR-0009 (-32602, -32600, -32001, -32002).
+- `module.event` notifications: `{module, event, data}`, no `id`.
+- Slow-client policy: never block `Publish`; disconnect a client whose queue is full.
+- UI: subscribe to every module from the handshake result, track per-module subscription state, handle `module.event`, and re-subscribe after every successful handshake.
+- Protocol version stays `omnibar.ipc/v1` and backend version stays `0.1.0` (the first release is M12).
+- Out of scope: any real event producer (M10), event history or replay, persistent subscriptions.
+
+### Prerequisites
+- M1 through M8 complete.
+- ADR-0009 accepted.
+
+### Implementation tasks
+1. Add `internal/events` with `Hub`: `Publish`, `Subscribe`/unsubscribe handles, `HasSubscribers(module)`, and a change callback for none↔some transitions. Unit tests including `-race`.
+2. Add the IPC session: one writer goroutine per connection fed by a bounded queue; route replies and notifications through it; drop the client on overflow.
+3. Pass the session to handlers via context; add context-aware registration to the dispatcher without changing existing signatures.
+4. Implement `module.subscribe` / `module.unsubscribe` with capability and module-state checks.
+5. Add a way for modules to publish through the hub as a running module only (publishing from a stopped module is a no-op logged at debug).
+6. UI: add a small pure-JS protocol helper (build requests, classify responses vs notifications, plan subscriptions) with Qt Test coverage; wire `BackendClient.qml` to subscribe after handshake and expose a `moduleEvent` signal and subscription state.
+7. Extend integration tests with an in-process backend and a test-only publisher module.
+8. Extend `scripts/e2e-ui.sh` so the UI logs a subscription after the first handshake and again after the backend restart.
+9. Update docs: `local-development.md`, `ARCHITECTURE.md` if the implementation deviates, `CHANGELOG.md`.
+
+### Expected files/packages
+- `internal/events/` (hub and tests)
+- `internal/ipc/session.go`, `internal/ipc/subscribe.go` (names indicative) and tests
+- `internal/ipc/jsonrpc/` (context-aware dispatch)
+- `ui/qml/components/protocol.js`, `ui/qml/components/BackendClient.qml`, `ui/qml/tests/tst_protocol.qml`
+- `tests/integration/events_test.go`
+
+### Testing strategy
+- Unit: hub publish/subscribe/unsubscribe, filtering, subscriber counts, panic isolation, concurrency under `-race`.
+- Unit: session queue overflow disconnects only the slow client; frames never interleave.
+- Integration (real socket): subscribe, receive events in order, event filter, unsubscribe stops delivery, multiple clients, disconnect cleans up, permission denied, unknown module, module not running, invalid params, idempotent subscribe/unsubscribe.
+- Integration: a client that never reads does not delay a fast client or the publisher; graceful shutdown with active subscriptions exits 0 with no errors logged.
+- QML: Qt Test for the protocol helper.
+- End to end: `make e2e-ui` shows subscribe, restart, then re-subscribe in the UI log.
+- Real events from a real module are verified end to end in M10/M11, not here; the shipped `core` module publishes none.
+
+### Acceptance criteria
+- Subscription semantics match ADR-0009 exactly, including error codes.
+- Events reach only subscribed clients, filtered and in per-module order.
+- A slow client is disconnected without blocking the publisher or other clients.
+- Subscriptions end when the connection closes (no leaked goroutines or entries).
+- The UI re-subscribes after each reconnect.
+- Fail-closed: a module with ungranted capabilities cannot be subscribed to.
+- `go test -race ./...` and `make ui-test` pass.
+
+### Definition of done
+- Acceptance criteria met and covered by tests.
+- ADR-0009 and any deviations documented.
+- Code committed; `go build ./...`, `go vet ./...`, and `go test ./...` pass; `make e2e-ui` passes.
+
+### Risks and dependencies
+- Adding a writer goroutine touches the connection code that M3 hardened (shutdown races, ownership-verified cleanup). The existing server tests must keep passing unchanged.
+- Context plumbing must not change behavior for existing handlers.
+- Overflow handling must not deadlock against shutdown.
+
+---
+
+## M10 — System monitor module (CPU, memory, swap)
+
+### Purpose
+Add the first real module: read-only CPU, memory, and swap monitoring, published as events and available as a snapshot. It is also the first production consumer of a capability, replacing the test-only stand-in from M7. Design is fixed in ADR-0010.
+
+### Scope
+- Built-in `system_monitor` module declaring `system.info`.
+- Parsers for `/proc/stat` (total and per-core CPU) and `/proc/meminfo` (memory, swap), testable against fixture files.
+- `system.getSnapshot` request; `cpu` and `memory` events through the hub.
+- On-demand sampler: runs only while the module is running and has subscribers; configurable `interval_ms` (default 2000, 500-60000).
+- Module-specific configuration validated at load; `modules.<name>.enabled` unchanged.
+- Fail-closed: without the `system.info` grant, `system.getSnapshot` and subscriptions are denied.
+- Update `config/config.toml.example`.
+- Out of scope: history, alerts, per-process data, GPU, disk, network, battery.
+
+### Prerequisites
+- M9 complete.
+- ADR-0010 accepted.
+
+### Implementation tasks
+1. Add parsers with table-driven tests: normal, missing fields, no swap, counter wrap or reset, malformed lines.
+2. Add the module, its lifecycle, and the sampler goroutine with clean stop.
+3. Hook the sampler to the hub's subscriber transitions.
+4. Add `system.getSnapshot` and the `cpu`/`memory` events with permission checks.
+5. Extend configuration with `interval_ms` and validation.
+6. Register the module and update `config.toml.example`.
+7. Integration tests over the real binary: snapshot, subscription events, denial without grant, disabled module, interval validation failing startup.
+8. Replace the test-only capability method in the fail-closed integration test with `system.getSnapshot`; keep the other denial cases.
+9. Measure idle backend CPU and RAM with no subscribers and with one, and record the result in `local-development.md`.
+
+### Expected files/packages
+- `internal/modules/systemmonitor/` (module, parsers, sampler, tests, fixtures)
+- `internal/config/` (module settings and validation)
+- `tests/integration/systemmonitor_test.go`
+- `config/config.toml.example`
+
+### Testing strategy
+- Unit: parsers against fixtures; CPU percentage math, including a zero-delta interval; sampler start/stop and interval handling with a fake clock or injected sampler; no goroutine leak.
+- Unit: configuration validation for `interval_ms`.
+- Integration (real binary, real `/proc`): `system.getSnapshot` returns plausible values (percentages 0-100, `used <= total`); a subscriber receives events at roughly the configured interval; a second subscriber does not double the sampling rate; denial without a grant.
+- Manual: with no UI connected, backend CPU stays near zero.
+
+### Acceptance criteria
+- Snapshot and events carry correct CPU, memory, and swap values.
+- Sampling happens only while subscribed, and stops afterwards.
+- Requests and subscriptions are denied unless `system.info` is granted.
+- Invalid `interval_ms` fails configuration validation.
+- Idle backend stays within the architecture targets (< 1% CPU, < 20 MB RAM) with no subscribers.
+- `go test -race ./...` passes.
+
+### Definition of done
+- Acceptance criteria met and covered by tests.
+- Idle measurements recorded.
+- Code committed; `go build ./...`, `go vet ./...`, and `go test ./...` pass.
+
+### Risks and dependencies
+- `/proc/stat` wrap and reset cases and very short intervals can produce odd percentages; clamp to 0-100 and test.
+- Container or unusual kernels may lack fields; parsers must return a clear error, not panic.
+- Per-core arrays make event size depend on core count; stay well under the 1 MiB frame limit and test with a large synthetic core count.
+
+---
+
+## M11 — UI for system monitoring
+
+### Purpose
+Show live CPU, memory, and swap in the Quickshell UI, behave sensibly while offline or denied, and give the shell a layout that later modules can join.
+
+### Scope
+- Replace the connection-demo panel content with module cards: connection status header, a `system_monitor` card with CPU, memory, and swap readings, and the module list.
+- Subscribe on connect (M9), fetch `system.getSnapshot` after subscribing, then apply `cpu` and `memory` events.
+- Offline: keep the last values, mark them stale, disable backend-dependent actions.
+- Denied (-32001) or unavailable (-32002): show a clear message on the card, no crash, no retry storm.
+- Reusable components (metric bar, module card) and a pure-JS formatting helper with Qt Test coverage (bytes, percentages).
+- Out of scope: history graphs, alerts, theme integration, settings UI.
+
+### Prerequisites
+- M9 and M10 complete.
+
+### Implementation tasks
+1. Split `shell.qml` into components under `ui/qml/components/` (module card, metric bar).
+2. Add a formatting helper (`format.js`) with unit tests.
+3. Wire the card to snapshot and events with stale/offline/denied states.
+4. Extend `scripts/e2e-ui.sh` to assert that live values arrive and stop arriving as stale values after the backend stops.
+5. Update the packaging file list if components are added; `tests/packaging` must still pass.
+6. Manual check on the real session: values change under load, restart behavior, denied state with the permission turned off.
+
+### Expected files/packages
+- `ui/qml/shell.qml`, `ui/qml/components/*`, `ui/qml/components/format.js`
+- `ui/qml/tests/tst_format.qml`
+- `scripts/e2e-ui.sh`
+
+### Testing strategy
+- Qt Test for formatting and state logic.
+- `make e2e-ui` for live values, stale after backend stop, and recovery after restart.
+- Manual: screenshot and visual check; run a CPU load and watch the card; revoke `system.info` and confirm the denied message.
+
+### Acceptance criteria
+- CPU, memory, and swap update live while connected.
+- Offline shows stale values marked as stale; reconnect resumes updates without user action.
+- Denied and unavailable states are explained on the card.
+- UI never crashes with the backend absent, restarting, or denying access.
+- `make ui-test`, `make e2e-ui`, and `go test ./...` pass.
+
+### Definition of done
+- Acceptance criteria met.
+- Packaging still installs every shipped QML file.
+- Code committed.
+
+### Risks and dependencies
+- A layout that suits one card must still hold more later; keep components generic.
+- Updating the UI at event rate must not cause visible jank or idle CPU in Quickshell; check with one subscriber at the default interval.
+
+---
+
+## M12 — Release v0.1.0
+
+### Purpose
+Turn the work so far into a tagged, installable release and complete the package verification that M8 could not do without installing.
+
+### Scope
+- Version `0.1.0` in `PKGBUILD` and the backend (already equal; `tests/packaging` enforces it).
+- Update `CHANGELOG.md` for the release; tick completed Phase 2 items in `ROADMAP.md` (CPU monitoring, RAM and swap monitoring).
+- Tag `v0.1.0`, push, and create a GitHub release.
+- Set real checksums with `updpkgsums` and verify a clean build from the GitHub tag tarball.
+- Install and exercise the real package on the machine.
+- Publishing to OPR remains separate and requires maintainer acceptance.
+- No self-updater.
+
+### Prerequisites
+- M1 through M11 complete; all tests green.
+- A public GitHub repository exists.
+
+### Implementation tasks
+1. Final pass: `go build ./...`, `go vet ./...`, `go test -race ./...`, `make ui-test`, `make e2e-ui`, `make package`.
+2. Update `CHANGELOG.md` (move Unreleased to 0.1.0) and `ROADMAP.md`.
+3. Commit, tag `v0.1.0`, push, create the GitHub release.
+4. In `pkgbuild/`, run `updpkgsums`, then `makepkg -f` against the tag tarball; commit the checksum update.
+5. Install with `sudo pacman -U`, enable the service, run `omnibar-ui`, and check connect, live values, restart, and uninstall (`pacman -Rs`) with user data preserved.
+6. Record the verification in `docs/development/packaging.md` and note anything learned.
+
+### Expected files/packages
+- `CHANGELOG.md`, `ROADMAP.md`, `pkgbuild/PKGBUILD`
+- Git tag `v0.1.0` and a GitHub release
+
+### Testing strategy
+- Full automated suite plus the manual install checklist in step 5.
+- Reinstall over the top of the same version, and downgrade with `pacman -U`, to confirm rollback.
+
+### Acceptance criteria
+- `makepkg` builds from the published tag tarball with real checksums.
+- The installed package runs the backend as a user service and the UI connects and shows live data.
+- Uninstalling keeps `$XDG_CONFIG_HOME/omnibar`, `$XDG_DATA_HOME/omnibar`, and `$XDG_STATE_HOME/omnibar`.
+- The tag, release notes, and changelog agree.
+
+### Definition of done
+- Release tagged and pushed; checksum commit pushed.
+- Install verification documented.
+
+### Risks and dependencies
+- The `sudo pacman -U` step needs the user's password and cannot be automated by the agent.
+- The GitHub tarball includes everything tracked at the tag, so anything the build needs must be committed (no ignored files).
+- OPR acceptance is outside this milestone and outside the repository.
+
+---
+
 ## Dependency graph
 
 ```
-M1 → M2 → M3 → M4 → M5 → M6 → M7 → M8
+M1 → M2 → M3 → M4 → M5 → M6 → M7 → M8 → M9 → M10 → M11 → M12
 ```
 
 Each milestone depends on all prior milestones. No milestone can begin until the previous one is complete, tested, reviewed, and committed.

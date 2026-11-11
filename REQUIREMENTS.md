@@ -43,6 +43,33 @@ The Phase 1 minimum viable product is the core foundation that proves the archit
 - OS-level security sandboxing (future work)
 - External plugin/extension support (future work)
 
+## Phase 2 first slice (M9-M12)
+
+The first slice of Phase 2 adds live system monitoring on top of the Phase 1 foundation and ships the first release (v0.1.0):
+
+1. The backend can push events to subscribed UI clients (ADR-0009).
+2. A built-in `system_monitor` module reports CPU, memory, and swap (ADR-0010).
+3. The module is gated by the `system.info` permission and fails closed without it.
+4. The UI shows live values, marks them stale when offline, and explains denied or unavailable states.
+5. The package installs, runs as a systemd user service, and the UI connects (verified on a real install).
+
+### Phase 2 first-slice acceptance criteria
+
+- A client that subscribes to a module receives its events; a client that does not, receives none.
+- A slow or stuck client never delays the backend or other clients.
+- Sampling happens only while at least one client is subscribed.
+- Without a `system.info` grant, snapshots and subscriptions are denied.
+- Idle backend (no subscribers) stays under 1% CPU and 20 MB RAM.
+- The UI keeps working with the backend absent, restarting, or denying access.
+
+### Phase 2 first-slice non-goals
+
+- Metric history, graphs over time, and alerts (need SQLite; decided with ADR-0006).
+- GPU, disk, network, and battery monitoring (later Phase 2 work, same module and capability).
+- Per-process data and process management (`process.manage`, Phase 8).
+- Event replay or persistence.
+- OPR publication (separate, needs maintainer acceptance).
+
 ## Functional requirements
 - Each feature must be independently configurable.
 - Modules must be enabled and disabled independently.
