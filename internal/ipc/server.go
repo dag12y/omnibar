@@ -280,6 +280,16 @@ func (s *Server) handleConn(conn net.Conn) {
 				s.logger.Warn("client disconnected with incomplete frame")
 				return
 			}
+			// Shutdown closes registered connections to unblock readers.
+			// That is expected connection teardown, not a protocol error.
+			if errors.Is(err, net.ErrClosed) {
+				return
+			}
+			select {
+			case <-s.ctx.Done():
+				return
+			default:
+			}
 			s.logger.Error("read frame error", "error", err)
 			return
 		}

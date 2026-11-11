@@ -148,6 +148,48 @@ func TestServerStartAndShutdown(t *testing.T) {
 	}
 }
 
+func TestServerShutdownDoesNotLogClientTeardownError(t *testing.T) {
+	path, restore := tempSocketPath(t)
+	defer restore()
+
+	logger, logs := newTestLogger()
+	handled := make(chan struct{}, 1)
+	s := New(path, logger, func([]byte) ([]byte, error) {
+		select {
+		case handled <- struct{}{}:
+		default:
+		}
+		return nil, nil
+	})
+	if err := s.Start(); err != nil {
+		t.Fatalf("Start() returned error: %v", err)
+	}
+
+	conn, err := net.Dial("unix", path)
+	if err != nil {
+		t.Fatalf("dial socket: %v", err)
+	}
+	defer conn.Close()
+
+	if _, err := conn.Write([]byte("ping\n")); err != nil {
+		t.Fatalf("write frame: %v", err)
+	}
+	select {
+	case <-handled:
+	case <-time.After(time.Second):
+		t.Fatal("handler was not called")
+	}
+
+	// The handler loop is now blocked reading. Shutdown closes the
+	// connection; that expected teardown must not be logged as an error.
+	if err := s.Shutdown(); err != nil {
+		t.Fatalf("Shutdown() returned error: %v", err)
+	}
+	if strings.Contains(logs.String(), "read frame error") {
+		t.Errorf("shutdown logged a client teardown error:\n%s", logs.String())
+	}
+}
+
 func TestServerSecondInstanceRejected(t *testing.T) {
 	path, restore := tempSocketPath(t)
 	defer restore()
