@@ -307,7 +307,7 @@ Create the Quickshell QML UI that connects to the Go backend via `Quickshell.Io.
 - Connect to `$XDG_RUNTIME_DIR/omnibar/omnibar.sock`.
 - Send `client.handshake` on connect.
 - Display "Connected", "Connecting…", or "Backend unavailable" status.
-- Reconnection with exponential backoff (1s, 2s, 4s, 8s, max 30s).
+- Reconnection with exponential backoff (1s, 2s, 4s, 8s, 16s, then capped at 30s).
 - Offline mode: UI remains responsive, backend-dependent actions disabled.
 - UI never crashes when backend is absent.
 
@@ -360,11 +360,13 @@ Verify the complete Phase 1 foundation works end-to-end: backend + UI together, 
 
 ### Scope
 - Run backend and UI together as separate processes.
-- Verify full connection lifecycle: UI connect → handshake → subscribe → notification → request/response.
-- Verify backend restart: UI reconnects and re-subscribes.
+- Verify full connection lifecycle: UI connect → handshake → request/response, plus no-response behavior for JSON-RPC notifications.
+- Verify backend restart: UI reconnects and re-handshakes.
+- **Deferred:** `module.subscribe` and backend-pushed `module.event` notifications. No Phase 1 milestone defines event payloads or an event-producing module, so subscription is implemented together with the first such module (Phase 2). Re-subscribe on reconnect moves with it.
 - Verify graceful shutdown: socket removed, exit 0.
-- Add integration tests that spawn backend and UI (or simulate UI client) and assert protocol-level behavior.
-- Verify fail-closed permissions end-to-end.
+- Add integration tests that spawn the backend and a simulated UI client and assert protocol-level behavior (`tests/integration/`).
+- Add `scripts/e2e-ui.sh` (`make e2e-ui`), which runs the real Quickshell UI against the real backend and asserts connect, handshake, offline backoff, and reconnect.
+- Verify fail-closed permissions end-to-end. The shipped `core` module declares no capabilities, so the test uses a test-only module and method that call the production `Registry.HasCapability`; a production capability-consuming method is deferred to the first module that needs one.
 
 ### Prerequisites
 - M1 through M6 complete.
@@ -389,7 +391,7 @@ Verify the complete Phase 1 foundation works end-to-end: backend + UI together, 
 - Backend and UI communicate over Unix socket with JSON-RPC 2.0.
 - Handshake completes with matching IDs and protocol version.
 - Request/response round-trip works (same ID, no `method` in response).
-- Backend restart triggers UI reconnection with backoff.
+- Backend restart triggers UI reconnection with backoff (verified by `make e2e-ui`).
 - Graceful shutdown removes socket and exits 0.
 - Fail-closed permissions enforced end-to-end.
 - `go test ./...` passes (unit + integration).
@@ -417,6 +419,7 @@ Create the Arch PKGBUILD, systemd user service unit, and config.toml.example ins
 - Verify local `makepkg` build produces a valid package.
 - Document that OPR publication requires maintainer acceptance (not part of this milestone).
 - No self-updater.
+- **Decisions:** the UI is installed to `/usr/share/omnibar/qml/` and launched with `quickshell -n -p` via an `omnibar-ui` wrapper (not `-c`, so `XDG_CONFIG_DIRS` and user configs cannot shadow it). The package is MIT-licensed and its `pkgver` must equal `ipc.ServerVersion` (enforced by `tests/packaging`). Only the backend gets a systemd unit; the UI is not autostarted. `make package` builds from the working tree; `makepkg` against the GitHub tag tarball happens at release time. See `docs/development/packaging.md`.
 
 ### Prerequisites
 - M1 through M7 complete (working backend + UI).

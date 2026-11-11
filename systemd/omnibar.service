@@ -1,0 +1,17 @@
+[Unit]
+Description=Omnibar backend
+Documentation=https://github.com/dag12y/omnibar
+# Stop retrying after repeated failures (for example an invalid config.toml)
+# instead of restarting forever.
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/omnibar
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

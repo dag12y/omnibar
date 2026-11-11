@@ -63,11 +63,13 @@ Quickshell loads the files directly.
 
 If the UI starts before the backend, it shows **Backend unavailable** (or
 **Connecting…**) and retries with exponential backoff: 1s, 2s, 4s, 8s, 16s,
-then every 30s.
+then every 30s (the delay doubles and is capped at 30s).
 
 ## Manual end-to-end checklist
 
-Use this sequence to verify the M7 acceptance criteria:
+`make e2e-ui` automates steps 1–6 below (see
+[Automated UI end-to-end check](#automated-ui-end-to-end-check)). Use this
+sequence to verify the same behavior by hand and look at the real window:
 
 1. Start the backend with `./build/omnibar`.
 2. Start the UI with `quickshell -p ui/qml/shell.qml`.
@@ -136,6 +138,27 @@ cover:
 - module disablement;
 - fail-closed capability checks.
 
+### Automated UI end-to-end check
+
+```sh
+make e2e-ui
+```
+
+`scripts/e2e-ui.sh` runs the real `build/omnibar` binary and the real
+`quickshell -p ui/qml/shell.qml` UI together, in an isolated
+`XDG_RUNTIME_DIR` and `XDG_CONFIG_HOME`, and checks the UI's own log output:
+
+1. the UI connects and completes the handshake;
+2. `SIGTERM` stops the backend with exit 0 and removes the socket;
+3. the UI reports the backend unavailable and retries after 1000 ms, then
+   2000 ms;
+4. after the backend restarts, the UI reconnects and handshakes again;
+5. the UI process survives the whole sequence.
+
+It needs a running Wayland session (a panel flashes on screen for a few
+seconds) and `quickshell` on `PATH`. It never touches your real Omnibar socket
+or configuration. It is not part of `make test` because it needs a display.
+
 Run the QML logic tests separately:
 
 ```sh
@@ -164,8 +187,9 @@ The test verifies that access is denied when:
 
 Access is granted only when the module declares the capability, the user
 grants the matching permission, and the module is enabled and healthy. A
-production capability-consuming method will replace the test-only method when
-the first such module lands.
+A production capability-consuming method will replace the test-only method when
+the first such module lands. This is a known limitation of Phase 1: the denial
+logic is covered end to end, but no shipped RPC method depends on it yet.
 
 ### Subscription/notification scope
 

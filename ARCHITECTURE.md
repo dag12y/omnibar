@@ -202,7 +202,7 @@ This framing prevents unbounded memory growth from a malformed or malicious send
 ### Connection lifecycle
 
 1. UI starts and attempts to connect to `$XDG_RUNTIME_DIR/omnibar/omnibar.sock`.
-2. If the backend is not running, the UI shows a "Connecting…" state and retries with exponential backoff (1s, 2s, 4s, 8s, max 30s).
+2. If the backend is not running, the UI shows a "Connecting…" state and retries with exponential backoff (1s, 2s, 4s, 8s, 16s, then capped at 30s).
 3. On connect, the UI sends `client.handshake` with client ID and protocol version (`omnibar.ipc/v1`).
 4. The backend replies with `server.handshake` including protocol version and available modules.
 5. The UI subscribes to events of interest via `module.subscribe`.

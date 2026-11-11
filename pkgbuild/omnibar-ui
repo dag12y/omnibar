@@ -1,0 +1,5 @@
+#!/bin/sh
+# Launch the Omnibar Quickshell UI. The backend runs separately as the
+# `omnibar` systemd user service; the UI shows "Backend unavailable" and
+# reconnects automatically until the backend is up.
+exec quickshell -n -p /usr/share/omnibar/qml/shell.qml "$@"

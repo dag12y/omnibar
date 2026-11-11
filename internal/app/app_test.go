@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"omnibar/internal/ipc"
 	"omnibar/internal/ipc/jsonrpc"
 )
 
@@ -44,6 +45,27 @@ func TestRunDoubleDashHelp(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "Usage:") {
 		t.Errorf("expected usage output, got: %q", out.String())
+	}
+}
+
+func TestRunVersion(t *testing.T) {
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+
+	server, err := Run([]string{"-version"}, &out, &errOut)
+	if err != nil {
+		t.Fatalf("Run(-version) returned error: %v", err)
+	}
+	if server != nil {
+		t.Fatal("expected nil server for -version")
+	}
+
+	want := "omnibar " + ipc.ServerVersion + "\n"
+	if out.String() != want {
+		t.Errorf("version output = %q, want %q", out.String(), want)
+	}
+	if errOut.Len() != 0 {
+		t.Errorf("expected no stderr output, got: %q", errOut.String())
 	}
 }
 

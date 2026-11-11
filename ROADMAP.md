@@ -8,14 +8,14 @@
 - [ ] Choose technology stack
 
 ## Phase 1 - Core Foundation
-- [ ] Go backend starts
-- [ ] Quickshell UI launches
-- [ ] UI connects to Go through the Unix socket
-- [ ] JSON-RPC handshake and request/response work
-- [ ] Basic module registry works
-- [ ] TOML configuration loads and validates
-- [ ] Logging and graceful shutdown work
-- [ ] A minimal working UI demonstrates the connection
+- [x] Go backend starts
+- [x] Quickshell UI launches
+- [x] UI connects to Go through the Unix socket
+- [x] JSON-RPC handshake and request/response work
+- [x] Basic module registry works
+- [x] TOML configuration loads and validates
+- [x] Logging and graceful shutdown work
+- [x] A minimal working UI demonstrates the connection
 
 ## Phase 2 - System Monitoring
 - [ ] CPU monitoring

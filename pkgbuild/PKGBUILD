@@ -1,0 +1,66 @@
+# Maintainer: dagm yibabe <dagimyibabe19@gmail.com>
+
+pkgname=omnibar
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Modular desktop utility suite for Omarchy: Go backend with a Quickshell UI'
+arch=('x86_64' 'aarch64')
+url='https://github.com/dag12y/omnibar'
+license=('MIT')
+depends=(
+  'glibc'
+  'qt6-declarative'
+  'quickshell'
+)
+makedepends=('go')
+options=('!debug')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+# Run `updpkgsums` after tagging v$pkgver. `make package` places a tarball of
+# the working tree at the source filename, which is why SKIP is used here.
+sha256sums=('SKIP')
+
+_go_env() {
+  export GOPATH="$srcdir/gopath"
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+  export CGO_LDFLAGS="${LDFLAGS}"
+  export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
+}
+
+prepare() {
+  cd "$srcdir/$pkgname-$pkgver"
+  _go_env
+  go mod download
+}
+
+build() {
+  cd "$srcdir/$pkgname-$pkgver"
+  _go_env
+  mkdir -p build
+  go build -o build/omnibar ./cmd/omnibar
+}
+
+check() {
+  cd "$srcdir/$pkgname-$pkgver"
+  _go_env
+  go test ./...
+}
+
+package() {
+  cd "$srcdir/$pkgname-$pkgver"
+
+  install -Dm755 build/omnibar "$pkgdir/usr/bin/omnibar"
+  install -Dm755 pkgbuild/omnibar-ui "$pkgdir/usr/bin/omnibar-ui"
+  install -Dm644 systemd/omnibar.service "$pkgdir/usr/lib/systemd/user/omnibar.service"
+
+  install -Dm644 ui/qml/shell.qml "$pkgdir/usr/share/omnibar/qml/shell.qml"
+  local f
+  for f in ui/qml/components/*; do
+    install -Dm644 "$f" "$pkgdir/usr/share/omnibar/qml/components/${f##*/}"
+  done
+
+  install -Dm644 config/config.toml.example "$pkgdir/usr/share/doc/$pkgname/config.toml.example"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

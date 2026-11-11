@@ -5,7 +5,7 @@ QMLTESTRUNNER ?= /usr/lib/qt6/bin/qmltestrunner
 BIN_DIR := build
 BINARY := $(BIN_DIR)/omnibar
 
-.PHONY: all build test ui-test run clean help
+.PHONY: all build test ui-test e2e-ui package run clean help
 
 all: build
 
@@ -19,11 +19,17 @@ test:
 ui-test:
 	QT_QPA_PLATFORM=offscreen $(QMLTESTRUNNER) -input ui/qml/tests -o -,txt
 
+e2e-ui: build
+	OMNIBAR_BIN=$(abspath $(BINARY)) ./scripts/e2e-ui.sh
+
+package:
+	./scripts/package-local.sh
+
 run: build
 	$(BINARY)
 
 clean:
-	@rm -rf $(BIN_DIR)
+	@rm -rf $(BIN_DIR) dist
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -32,5 +38,7 @@ help:
 build: ## Build the omnibar binary into build/omnibar
 test: ## Run all Go unit and integration tests
 ui-test: ## Run the QML logic tests with Qt Test
+e2e-ui: ## Run the real Quickshell UI against the real backend (needs Wayland)
+package: ## Build the Arch package into dist/ from the working tree (does not install)
 run: ## Build and run the omnibar backend
 clean: ## Remove generated build artifacts

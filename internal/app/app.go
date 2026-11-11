@@ -63,8 +63,8 @@ func (b *Backend) Shutdown() error {
 // appropriate (e.g., on signal in main, or in test cleanup).
 //
 // Startup sequence:
-//  1. Parse command-line arguments (--help, --config)
-//  2. Handle --help
+//  1. Parse command-line arguments (--help, --version, --config)
+//  2. Handle --help and --version
 //  3. Resolve configuration path ($XDG_CONFIG_HOME/omnibar/config.toml,
 //     or --config override)
 //  4. Load configuration (defaults if file missing)
@@ -78,6 +78,7 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 	fs := flag.NewFlagSet("omnibar", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	help := fs.Bool("help", false, "Show help and exit")
+	showVersion := fs.Bool("version", false, "Print the version and exit")
 	configPath := fs.String("config", "", "Path to configuration file")
 	if err := fs.Parse(args); err != nil {
 		return nil, fmt.Errorf("parse arguments: %w", err)
@@ -85,6 +86,11 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 
 	if *help {
 		printUsage(stdout)
+		return nil, nil
+	}
+
+	if *showVersion {
+		fmt.Fprintf(stdout, "omnibar %s\n", ipc.ServerVersion)
 		return nil, nil
 	}
 
@@ -208,4 +214,5 @@ func printUsage(w io.Writer) {
 	fmt.Fprintf(w, "Flags:\n")
 	fmt.Fprintf(w, "  -help     Show this help and exit\n")
 	fmt.Fprintf(w, "  -config   Path to configuration file\n")
+	fmt.Fprintf(w, "  -version  Print the version and exit\n")
 }

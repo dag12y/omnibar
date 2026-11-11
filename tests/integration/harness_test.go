@@ -10,7 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
+
 	"strings"
 	"sync"
 	"syscall"
@@ -69,13 +69,25 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// repoRoot returns the module root from this test file's location.
+// repoRoot returns the module root by walking up from the working directory
+// (`go test` runs in the package directory) to the first go.mod. It does not
+// use runtime.Caller because -trimpath, which package builds use, makes that
+// path relative.
 func repoRoot() (string, error) {
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		return "", errors.New("runtime.Caller failed")
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
 	}
-	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..")), nil
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", errors.New("go.mod not found in any parent of the working directory")
+		}
+		dir = parent
+	}
 }
 
 // testEnv is an isolated environment for one backend instance. runtimeDir
