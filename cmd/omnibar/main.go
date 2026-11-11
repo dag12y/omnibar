@@ -15,11 +15,11 @@ import (
 )
 
 func main() {
-	server, err := app.Run(os.Args[1:], os.Stdout, os.Stderr)
+	backend, err := app.Run(os.Args[1:], os.Stdout, os.Stderr)
 	if err != nil {
 		os.Exit(1)
 	}
-	if server == nil {
+	if backend == nil {
 		// --help was shown; exit successfully.
 		os.Exit(0)
 	}
@@ -29,8 +29,8 @@ func main() {
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
 	<-sigCh
 
-	// Gracefully shut down the IPC server.
-	if err := server.Shutdown(); err != nil {
+	// Gracefully shut down the IPC server and modules.
+	if err := backend.Shutdown(); err != nil {
 		os.Exit(1)
 	}
 	os.Exit(0)

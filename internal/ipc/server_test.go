@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"omnibar/internal/ipc/jsonrpc"
+	"omnibar/internal/modules"
 )
 
 // newTestLogger returns a slog logger writing to a buffer for tests.
@@ -1015,7 +1016,7 @@ func TestServerJSONRPCMultipleRequestsOneConnection(t *testing.T) {
 		return params, nil
 	})
 	// Register handshake so the server speaks the full protocol.
-	RegisterHandshake(d)
+	RegisterHandshake(d, modules.NewRegistry(nil, nil))
 
 	logger, _ := newTestLogger()
 	s := New(path, logger, d.Handle)

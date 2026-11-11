@@ -5,9 +5,11 @@
 package app
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -15,11 +17,50 @@ import (
 	"omnibar/internal/ipc"
 	"omnibar/internal/ipc/jsonrpc"
 	"omnibar/internal/logging"
+	"omnibar/internal/modules"
+	"omnibar/internal/modules/core"
 )
 
+// Backend is a running Omnibar backend: the IPC server plus its module
+// registry.
+type Backend struct {
+	Server  *ipc.Server
+	Modules *modules.Registry
+
+	logger *slog.Logger
+}
+
+// Shutdown gracefully stops the IPC server and then stops and disposes
+// the registered modules.
+//
+// Module shutdown errors are logged but do not change the process exit
+// status. Repeated calls are safe.
+func (b *Backend) Shutdown() error {
+	var serverErr error
+	if b.Server != nil {
+		serverErr = b.Server.Shutdown()
+	}
+
+	logger := b.logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+
+	if b.Modules != nil {
+		if err := b.Modules.Stop(context.Background()); err != nil {
+			logger.Error("stop modules", "error", err)
+		}
+		if err := b.Modules.Dispose(context.Background()); err != nil {
+			logger.Error("dispose modules", "error", err)
+		}
+	}
+
+	return serverErr
+}
+
 // Run executes the Omnibar backend startup sequence and returns the
-// started IPC server. The caller is responsible for shutting down the
-// server when appropriate (e.g., on signal in main, or in test cleanup).
+// started backend. The caller is responsible for shutting it down when
+// appropriate (e.g., on signal in main, or in test cleanup).
 //
 // Startup sequence:
 //  1. Parse command-line arguments (--help, --config)
@@ -29,10 +70,11 @@ import (
 //  4. Load configuration (defaults if file missing)
 //  5. Initialize structured logging (log/slog)
 //  6. Validate configuration
-//  7. Resolve IPC socket path ($XDG_RUNTIME_DIR/omnibar/omnibar.sock)
-//  8. Ensure runtime directory exists with mode 0700
-//  9. Start IPC server (Go owns the Unix domain socket server)
-func Run(args []string, stdout, stderr io.Writer) (*ipc.Server, error) {
+//  7. Create the module registry and register built-in modules
+//  8. Initialize and start enabled modules
+//  9. Resolve IPC socket path ($XDG_RUNTIME_DIR/omnibar/omnibar.sock)
+//  10. Start IPC server (Go owns the Unix domain socket server)
+func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 	fs := flag.NewFlagSet("omnibar", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	help := fs.Bool("help", false, "Show help and exit")
@@ -71,33 +113,71 @@ func Run(args []string, stdout, stderr io.Writer) (*ipc.Server, error) {
 		return nil, fmt.Errorf("validate configuration: %w", err)
 	}
 
+	// Build the static module registry.
+	registry := modules.NewRegistry(cfg, logger)
+	if err := registry.Register(core.New()); err != nil {
+		logger.Error("register built-in module", "module", core.Name, "error", err)
+		return nil, fmt.Errorf("register built-in module %q: %w", core.Name, err)
+	}
+	for name := range cfg.Modules {
+		if _, ok := registry.Info(name); !ok {
+			logger.Warn("configuration references unknown module", "module", name)
+		}
+	}
+
+	// Initialize and start enabled modules before accepting client
+	// connections. A failed module is marked failed by the registry and
+	// does not prevent other modules or the backend from starting.
+	if err := registry.Initialize(context.Background()); err != nil {
+		logger.Error("initialize modules", "error", err)
+	}
+	if err := registry.Start(context.Background()); err != nil {
+		logger.Error("start modules", "error", err)
+	}
+
 	logger.Info("omnibar backend starting",
 		"config", path,
 		"log_level", cfg.Core.LogLevel,
-		"modules", len(cfg.Modules),
+		"modules", len(registry.Names()),
+		"enabled_modules", len(registry.EnabledNames()),
 		"permissions", len(cfg.Permissions),
 	)
+
+	// Create the JSON-RPC dispatcher and register the handshake and
+	// module status methods.
+	dispatcher := jsonrpc.NewDispatcher()
+	ipc.RegisterHandshake(dispatcher, registry)
+	ipc.RegisterModuleMethods(dispatcher, registry)
 
 	// Resolve IPC socket path.
 	socketPath, err := ipc.SocketPath()
 	if err != nil {
 		logger.Error("resolve socket path", "error", err)
+		shutdownModules(registry, logger)
 		return nil, fmt.Errorf("resolve socket path: %w", err)
 	}
-
-	// Create the JSON-RPC dispatcher and register the handshake method.
-	dispatcher := jsonrpc.NewDispatcher()
-	ipc.RegisterHandshake(dispatcher)
 
 	// Create and start the IPC server. The JSON-RPC dispatcher adapts to
 	// the M3 Handler signature (func([]byte) ([]byte, error)).
 	server := ipc.New(socketPath, logger, dispatcher.Handle)
 	if err := server.Start(); err != nil {
 		logger.Error("start IPC server", "error", err)
+		shutdownModules(registry, logger)
 		return nil, fmt.Errorf("start IPC server: %w", err)
 	}
 
-	return server, nil
+	return &Backend{Server: server, Modules: registry, logger: logger}, nil
+}
+
+// shutdownModules stops and disposes modules after a partial startup
+// failure.
+func shutdownModules(registry *modules.Registry, logger *slog.Logger) {
+	if err := registry.Stop(context.Background()); err != nil {
+		logger.Error("stop modules", "error", err)
+	}
+	if err := registry.Dispose(context.Background()); err != nil {
+		logger.Error("dispose modules", "error", err)
+	}
 }
 
 // isHelpRequest reports whether args contains a help flag. It is

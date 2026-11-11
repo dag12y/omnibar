@@ -2,13 +2,14 @@
 //
 // The handshake lets a client (the Quickshell QML UI) verify that it is
 // communicating with Omnibar and learn the supported protocol version and
-// available modules.
+// registered modules.
 package ipc
 
 import (
 	"encoding/json"
 
 	"omnibar/internal/ipc/jsonrpc"
+	"omnibar/internal/modules"
 )
 
 // ServerVersion is the backend version reported during handshake.
@@ -28,7 +29,7 @@ type handshakeResult struct {
 // handleClientHandshake implements the client.handshake method (UI ->
 // backend). It validates the protocol version and returns the server's
 // handshake result.
-func handleClientHandshake(params json.RawMessage) (json.RawMessage, *jsonrpc.Error) {
+func handleClientHandshake(params json.RawMessage, registry *modules.Registry) (json.RawMessage, *jsonrpc.Error) {
 	var p handshakeParams
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, jsonrpc.NewError(jsonrpc.CodeInvalidParams, "Invalid handshake params", "")
@@ -40,18 +41,30 @@ func handleClientHandshake(params json.RawMessage) (json.RawMessage, *jsonrpc.Er
 			"",
 		)
 	}
+
+	names := []string{}
+	if registry != nil {
+		names = registry.Names()
+		if names == nil {
+			names = []string{}
+		}
+	}
+
 	result := handshakeResult{
 		Protocol: jsonrpc.ProtocolVersion,
 		Version:  ServerVersion,
-		Modules:  []string{},
+		Modules:  names,
 	}
 	out, _ := json.Marshal(result)
 	return out, nil
 }
 
 // RegisterHandshake registers the client.handshake method on the
-// dispatcher. A module registry is introduced in M5, so the module list is
-// empty until then.
-func RegisterHandshake(d *jsonrpc.Dispatcher) {
-	d.Register("client.handshake", handleClientHandshake)
+// dispatcher. The handshake reports every statically registered module,
+// including modules that are currently disabled; clients can query
+// module.getStatus for enablement and lifecycle state.
+func RegisterHandshake(d *jsonrpc.Dispatcher, registry *modules.Registry) {
+	d.Register("client.handshake", func(params json.RawMessage) (json.RawMessage, *jsonrpc.Error) {
+		return handleClientHandshake(params, registry)
+	})
 }

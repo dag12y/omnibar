@@ -12,8 +12,10 @@ log_level = "info"
 # Module configuration.
 # Each module can be enabled or disabled independently.
 # Modules are registered statically in Go code (see internal/modules/).
+# A module's ModuleInfo.Enabled value is its default; an entry here
+# overrides that default.
 [modules]
-  [modules.system_monitor]
+  [modules.core]
   enabled = true
 
 # Permissions granted to modules.

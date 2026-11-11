@@ -1,11 +1,16 @@
 package app
 
 import (
+	"bufio"
 	"bytes"
+	"encoding/json"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"omnibar/internal/ipc/jsonrpc"
 )
 
 func TestRunHelp(t *testing.T) {
@@ -184,5 +189,95 @@ func TestArgsWithoutProgram(t *testing.T) {
 	args = argsWithoutProgram([]string{"/usr/bin/omnibar", "-help"})
 	if len(args) != 1 || args[0] != "-help" {
 		t.Errorf("argsWithoutProgram(%v) = %v, expected [%q]", []string{"/usr/bin/omnibar", "-help"}, args, "-help")
+	}
+}
+
+func TestRunHandshakeIncludesCoreModule(t *testing.T) {
+	runtimeDir := t.TempDir()
+	oldRuntime := os.Getenv("XDG_RUNTIME_DIR")
+	if err := os.Setenv("XDG_RUNTIME_DIR", runtimeDir); err != nil {
+		t.Fatalf("set XDG_RUNTIME_DIR: %v", err)
+	}
+	defer func() {
+		if oldRuntime == "" {
+			os.Unsetenv("XDG_RUNTIME_DIR")
+		} else {
+			os.Setenv("XDG_RUNTIME_DIR", oldRuntime)
+		}
+	}()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+
+	backend, err := Run([]string{"-config", filepath.Join(t.TempDir(), "missing.toml")}, &out, &errOut)
+	if err != nil {
+		t.Fatalf("Run() returned error: %v", err)
+	}
+	if backend == nil {
+		t.Fatal("expected non-nil backend")
+	}
+	defer backend.Shutdown()
+
+	socketPath := filepath.Join(runtimeDir, "omnibar", "omnibar.sock")
+	conn, err := net.Dial("unix", socketPath)
+	if err != nil {
+		t.Fatalf("dial socket: %v", err)
+	}
+	defer conn.Close()
+
+	reader := bufio.NewReader(conn)
+	if _, err := conn.Write([]byte(`{"jsonrpc":"2.0","id":1,"method":"client.handshake","params":{"protocol":"omnibar.ipc/v1"}}` + "\n")); err != nil {
+		t.Fatalf("write handshake: %v", err)
+	}
+
+	line, err := reader.ReadBytes('\n')
+	if err != nil {
+		t.Fatalf("read handshake response: %v", err)
+	}
+
+	var resp jsonrpc.Response
+	if err := json.Unmarshal(line, &resp); err != nil {
+		t.Fatalf("unmarshal handshake response: %v", err)
+	}
+	if resp.Error != nil {
+		t.Fatalf("handshake error: %+v", resp.Error)
+	}
+
+	var result struct {
+		Modules []string `json:"modules"`
+	}
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		t.Fatalf("unmarshal handshake result: %v", err)
+	}
+	if len(result.Modules) != 1 || result.Modules[0] != "core" {
+		t.Errorf("handshake modules = %v, want [core]", result.Modules)
+	}
+
+	if _, err := conn.Write([]byte(`{"jsonrpc":"2.0","id":2,"method":"module.getStatus","params":{"module":"core"}}` + "\n")); err != nil {
+		t.Fatalf("write status request: %v", err)
+	}
+	line, err = reader.ReadBytes('\n')
+	if err != nil {
+		t.Fatalf("read status response: %v", err)
+	}
+
+	var statusResp jsonrpc.Response
+	if err := json.Unmarshal(line, &statusResp); err != nil {
+		t.Fatalf("unmarshal status response: %v", err)
+	}
+	if statusResp.Error != nil {
+		t.Fatalf("status error: %+v", statusResp.Error)
+	}
+
+	var status struct {
+		Name    string `json:"name"`
+		Enabled bool   `json:"enabled"`
+		Running bool   `json:"running"`
+	}
+	if err := json.Unmarshal(statusResp.Result, &status); err != nil {
+		t.Fatalf("unmarshal status result: %v", err)
+	}
+	if status.Name != "core" || !status.Enabled || !status.Running {
+		t.Errorf("core status = %+v, want enabled and running", status)
 	}
 }
