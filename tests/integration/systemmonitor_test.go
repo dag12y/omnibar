@@ -59,6 +59,13 @@ func TestSystemGetSnapshotGranted(t *testing.T) {
 			Total uint64 `json:"total"`
 			Used  uint64 `json:"used"`
 		} `json:"swap"`
+		Disk struct {
+			Total         uint64 `json:"total"`
+			Available     uint64 `json:"available"`
+			Used          uint64 `json:"used"`
+			ReadBytesSec  uint64 `json:"read_bytes_sec"`
+			WriteBytesSec uint64 `json:"write_bytes_sec"`
+		} `json:"disk"`
 		SampledAt string `json:"sampled_at"`
 	}
 	if err := json.Unmarshal(resp.Result, &snap); err != nil {
@@ -75,6 +82,9 @@ func TestSystemGetSnapshotGranted(t *testing.T) {
 	}
 	if snap.Memory.Used > snap.Memory.Total {
 		t.Errorf("Memory.Used (%d) > Memory.Total (%d)", snap.Memory.Used, snap.Memory.Total)
+	}
+	if snap.Disk.Total == 0 {
+		t.Error("Disk.Total should be non-zero")
 	}
 }
 

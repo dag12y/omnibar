@@ -23,7 +23,7 @@ ShellRoot {
         }
 
         implicitWidth: 460
-        implicitHeight: 330
+        implicitHeight: 380
         color: "transparent"
         exclusionMode: ExclusionMode.Ignore
 
@@ -201,6 +201,28 @@ ShellRoot {
                                     if (!swap || swap.total === 0)
                                         return 0
                                     return (swap.used / swap.total) * 100
+                                }
+                                stale: client.snapshotStates["system_monitor"] === "stale"
+                            }
+
+                            MetricBar {
+                                Layout.fillWidth: true
+                                label: "Disk"
+                                value: {
+                                    const disk = client.snapshots["system_monitor"]?.disk
+                                    if (!disk || !disk.total)
+                                        return "\u2014"
+                                    let str = Format.formatBytes(disk.used) + " / " + Format.formatBytes(disk.total)
+                                    if (disk.read_bytes_sec > 0 || disk.write_bytes_sec > 0) {
+                                        str += "  (R: " + Format.formatBytes(disk.read_bytes_sec) + "/s W: " + Format.formatBytes(disk.write_bytes_sec) + "/s)"
+                                    }
+                                    return str
+                                }
+                                percent: {
+                                    const disk = client.snapshots["system_monitor"]?.disk
+                                    if (!disk || disk.total === 0)
+                                        return 0
+                                    return (disk.used / disk.total) * 100
                                 }
                                 stale: client.snapshotStates["system_monitor"] === "stale"
                             }

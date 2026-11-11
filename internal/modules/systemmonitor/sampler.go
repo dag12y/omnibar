@@ -16,20 +16,24 @@ import (
 // Baseline readings are taken when the sampler starts so the first
 // published value is a real delta, not an average since boot.
 type sampler struct {
-	module     string
-	hub        *events.Hub
-	interval   time.Duration
-	logger     *slog.Logger
-	statPath   string
+	module      string
+	hub         *events.Hub
+	interval    time.Duration
+	logger      *slog.Logger
+	statPath    string
 	meminfoPath string
+	diskPath    string
+	fsPath      string
+	fsStat      FsStatFunc
 
-	mu     sync.Mutex
-	stopCh chan struct{}
-	done   chan struct{}
+	mu      sync.Mutex
+	stopCh  chan struct{}
+	done    chan struct{}
 	started bool
 
 	lastStat *StatSample
 	lastMem  *MemInfo
+	lastDisk *DiskSample
 	snapshot *Snapshot
 }
 
@@ -41,6 +45,9 @@ func newSampler(module string, interval time.Duration, hub *events.Hub, logger *
 		logger:      logger,
 		statPath:    "/proc/stat",
 		meminfoPath: "/proc/meminfo",
+		diskPath:    "/proc/diskstats",
+		fsPath:      "/",
+		fsStat:      DefaultFsStat,
 	}
 }
 
@@ -112,7 +119,7 @@ func (s *sampler) run() {
 	}
 }
 
-// takeBaseline reads /proc/stat and /proc/meminfo once to establish the
+// takeBaseline reads /proc/stat, /proc/meminfo, and /proc/diskstats once to establish the
 // delta baseline. Errors are ignored: the first real sample will still
 // produce a usable (possibly zero) result.
 func (s *sampler) takeBaseline() {
@@ -126,9 +133,14 @@ func (s *sampler) takeBaseline() {
 		s.lastMem = mem
 		s.mu.Unlock()
 	}
+	if disk, err := ParseDiskstatsFile(s.diskPath, time.Now()); err == nil {
+		s.mu.Lock()
+		s.lastDisk = disk
+		s.mu.Unlock()
+	}
 }
 
-// sample reads /proc/stat and /proc/meminfo, computes the delta from the
+// sample reads /proc/stat, /proc/meminfo, and /proc/diskstats, computes the delta from the
 // previous reading, stores the snapshot, and returns it.
 func (s *sampler) sample() (*Snapshot, error) {
 	stat, err := ParseStatFile(s.statPath)
@@ -139,13 +151,18 @@ func (s *sampler) sample() (*Snapshot, error) {
 	if err != nil {
 		return nil, err
 	}
+	now := time.Now()
+	disk, _ := ParseDiskstatsFile(s.diskPath, now)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	snap := computeSnapshot(stat, mem, s.lastStat)
+	snap := computeSnapshot(stat, mem, s.lastStat, disk, s.lastDisk, s.fsStat, s.fsPath)
 	s.lastStat = stat
 	s.lastMem = mem
+	if disk != nil {
+		s.lastDisk = disk
+	}
 	s.snapshot = snap
 	return snap, nil
 }
@@ -162,13 +179,18 @@ func (s *sampler) sampleOnce() (*Snapshot, error) {
 	if err != nil {
 		return nil, err
 	}
+	now := time.Now()
+	disk, _ := ParseDiskstatsFile(s.diskPath, now)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	snap := computeSnapshot(stat, mem, s.lastStat)
+	snap := computeSnapshot(stat, mem, s.lastStat, disk, s.lastDisk, s.fsStat, s.fsPath)
 	s.lastStat = stat
 	s.lastMem = mem
+	if disk != nil {
+		s.lastDisk = disk
+	}
 	s.snapshot = snap
 	return snap, nil
 }
@@ -180,7 +202,7 @@ func (s *sampler) currentSnapshot() *Snapshot {
 	return s.snapshot
 }
 
-// publish sends cpu and memory events for snap to subscribed clients.
+// publish sends cpu, memory, and disk events for snap to subscribed clients.
 func (s *sampler) publish(snap *Snapshot) {
 	cpuData := marshalCPUEvent(snap)
 	if err := s.hub.Publish(s.module, EventCPU, cpuData); err != nil {
@@ -190,5 +212,10 @@ func (s *sampler) publish(snap *Snapshot) {
 	memData := marshalMemoryEvent(snap)
 	if err := s.hub.Publish(s.module, EventMemory, memData); err != nil {
 		s.logger.Error("publish memory event", "module", s.module, "error", err)
+	}
+
+	diskData := marshalDiskEvent(snap)
+	if err := s.hub.Publish(s.module, EventDisk, diskData); err != nil {
+		s.logger.Error("publish disk event", "module", s.module, "error", err)
 	}
 }

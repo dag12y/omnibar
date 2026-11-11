@@ -26,7 +26,7 @@ This document breaks the approved architecture into small, sequential, independe
 | M9 | Event subscription & delivery | Event hub, `module.subscribe`/`module.unsubscribe`, `module.event` push, slow-client policy, UI re-subscribe | Done |
 | M10 | System monitor module (CPU, memory, swap) | First real module and capability consumer; on-demand sampling; `system.getSnapshot` and events | Done |
 | M11 | UI for system monitoring | Live CPU/memory/swap cards, stale/offline/denied states, reusable components | Done |
-| M12 | Disk monitoring (filesystem storage & I/O) | /proc/diskstats and Statfs, disk snapshot & events, UI disk card | In progress |
+| M12 | Disk monitoring (filesystem storage & I/O) | /proc/diskstats and Statfs, disk snapshot & events, UI disk card | Done |
 | M13 | Network monitoring (interfaces & transfer rates) | /proc/net/dev parser, bandwidth deltas, network snapshot & events, UI network card | Planned |
 | M14 | Battery and power monitoring | sysfs power_supply reader, charge level, status, battery snapshot & events, UI battery card | Planned |
 | M15 | Release v0.1.0 | Tag, release, real checksums, install verification | Planned |

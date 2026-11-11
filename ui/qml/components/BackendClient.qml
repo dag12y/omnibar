@@ -308,6 +308,8 @@ Item {
             if (data.swap_total !== undefined) {
                 snap.swap = { total: data.swap_total, used: data.swap_used }
             }
+        } else if (event === "disk") {
+            snap.disk = data
         }
         snap.sampled_at = new Date().toISOString()
         snapshots = Protocol.withState(snapshots, module, snap)

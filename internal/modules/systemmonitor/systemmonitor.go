@@ -28,6 +28,9 @@ const (
 
 	// EventMemory is the event name for memory and swap samples.
 	EventMemory = "memory"
+
+	// EventDisk is the event name for disk storage and I/O rate samples.
+	EventDisk = "disk"
 )
 
 var (
@@ -38,15 +41,16 @@ var (
 // Snapshot is the result of system.getSnapshot and the basis of published
 // events.
 type Snapshot struct {
-	CPU      CPUSnapshot      `json:"cpu"`
-	Memory   MemorySnapshot   `json:"memory"`
-	Swap     SwapSnapshot     `json:"swap"`
-	SampledAt string           `json:"sampled_at"`
+	CPU       CPUSnapshot    `json:"cpu"`
+	Memory    MemorySnapshot `json:"memory"`
+	Swap      SwapSnapshot   `json:"swap"`
+	Disk      DiskSnapshot   `json:"disk"`
+	SampledAt string         `json:"sampled_at"`
 }
 
 // CPUSnapshot holds overall and per-core CPU usage as percentages (0-100).
 type CPUSnapshot struct {
-	Percent float64  `json:"percent"`
+	Percent float64   `json:"percent"`
 	Cores   []float64 `json:"cores,omitempty"`
 }
 
@@ -63,10 +67,26 @@ type SwapSnapshot struct {
 	Used  uint64 `json:"used"`
 }
 
-// computeSnapshot builds a Snapshot from two consecutive readings. When
-// prev is nil (first reading), no CPU delta can be computed and percent
-// is zero.
-func computeSnapshot(stat *StatSample, mem *MemInfo, prev *StatSample) *Snapshot {
+// DiskSnapshot holds storage usage and I/O transfer rates in bytes and bytes/sec.
+type DiskSnapshot struct {
+	Total         uint64 `json:"total"`
+	Available     uint64 `json:"available"`
+	Used          uint64 `json:"used"`
+	ReadBytesSec  uint64 `json:"read_bytes_sec"`
+	WriteBytesSec uint64 `json:"write_bytes_sec"`
+}
+
+// computeSnapshot builds a Snapshot from consecutive readings. When
+// prev is nil (first reading), no CPU or disk delta can be computed.
+func computeSnapshot(
+	stat *StatSample,
+	mem *MemInfo,
+	prev *StatSample,
+	disk *DiskSample,
+	prevDisk *DiskSample,
+	fsStat FsStatFunc,
+	fsPath string,
+) *Snapshot {
 	snap := &Snapshot{
 		SampledAt: time.Now().UTC().Format(time.RFC3339),
 	}
@@ -74,7 +94,7 @@ func computeSnapshot(stat *StatSample, mem *MemInfo, prev *StatSample) *Snapshot
 	// CPU usage from delta between consecutive readings. Guard against
 	// counter wrap/reset (uint64 underflow): if the new total is below the
 	// previous total, the delta is invalid and percent stays at zero.
-	if prev != nil && stat.CPUTimes.Total() >= prev.CPUTimes.Total() {
+	if stat != nil && prev != nil && stat.CPUTimes.Total() >= prev.CPUTimes.Total() {
 		totalDelta := stat.CPUTimes.Total() - prev.CPUTimes.Total()
 		idleDelta := stat.CPUTimes.IdleTotal() - prev.CPUTimes.IdleTotal()
 		if idleDelta > totalDelta {
@@ -108,13 +128,31 @@ func computeSnapshot(stat *StatSample, mem *MemInfo, prev *StatSample) *Snapshot
 	}
 
 	// Memory: used = total - available (kernel MemAvailable).
-	snap.Memory.Total = mem.MemTotal * 1024
-	snap.Memory.Available = mem.MemAvailable * 1024
-	snap.Memory.Used = (mem.MemTotal - mem.MemAvailable) * 1024
+	if mem != nil {
+		snap.Memory.Total = mem.MemTotal * 1024
+		snap.Memory.Available = mem.MemAvailable * 1024
+		snap.Memory.Used = (mem.MemTotal - mem.MemAvailable) * 1024
 
-	// Swap: used = total - free; zero totals are valid (no swap).
-	snap.Swap.Total = mem.SwapTotal * 1024
-	snap.Swap.Used = (mem.SwapTotal - mem.SwapFree) * 1024
+		// Swap: used = total - free; zero totals are valid (no swap).
+		snap.Swap.Total = mem.SwapTotal * 1024
+		snap.Swap.Used = (mem.SwapTotal - mem.SwapFree) * 1024
+	}
+
+	// Disk storage: query filesystem if fsStat is provided.
+	if fsStat != nil && fsPath != "" {
+		if total, avail, used, err := fsStat(fsPath); err == nil {
+			snap.Disk.Total = total
+			snap.Disk.Available = avail
+			snap.Disk.Used = used
+		}
+	}
+
+	// Disk I/O throughput delta.
+	if disk != nil && prevDisk != nil {
+		rRate, wRate := computeDiskDelta(disk, prevDisk)
+		snap.Disk.ReadBytesSec = rRate
+		snap.Disk.WriteBytesSec = wRate
+	}
 
 	return snap
 }
@@ -238,6 +276,18 @@ func marshalMemoryEvent(snap *Snapshot) json.RawMessage {
 		"used":       snap.Memory.Used,
 		"swap_total": snap.Swap.Total,
 		"swap_used":  snap.Swap.Used,
+	})
+	return out
+}
+
+// marshalDiskEvent returns the JSON payload for a disk event.
+func marshalDiskEvent(snap *Snapshot) json.RawMessage {
+	out, _ := json.Marshal(map[string]any{
+		"total":           snap.Disk.Total,
+		"available":       snap.Disk.Available,
+		"used":            snap.Disk.Used,
+		"read_bytes_sec":  snap.Disk.ReadBytesSec,
+		"write_bytes_sec": snap.Disk.WriteBytesSec,
 	})
 	return out
 }
