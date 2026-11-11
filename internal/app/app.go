@@ -13,6 +13,7 @@ import (
 
 	"omnibar/internal/config"
 	"omnibar/internal/ipc"
+	"omnibar/internal/ipc/jsonrpc"
 	"omnibar/internal/logging"
 )
 
@@ -84,8 +85,13 @@ func Run(args []string, stdout, stderr io.Writer) (*ipc.Server, error) {
 		return nil, fmt.Errorf("resolve socket path: %w", err)
 	}
 
-	// Create and start the IPC server.
-	server := ipc.New(socketPath, logger, nil)
+	// Create the JSON-RPC dispatcher and register the handshake method.
+	dispatcher := jsonrpc.NewDispatcher()
+	ipc.RegisterHandshake(dispatcher)
+
+	// Create and start the IPC server. The JSON-RPC dispatcher adapts to
+	// the M3 Handler signature (func([]byte) ([]byte, error)).
+	server := ipc.New(socketPath, logger, dispatcher.Handle)
 	if err := server.Start(); err != nil {
 		logger.Error("start IPC server", "error", err)
 		return nil, fmt.Errorf("start IPC server: %w", err)

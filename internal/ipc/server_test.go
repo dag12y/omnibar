@@ -3,6 +3,7 @@ package ipc
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"log/slog"
 	"net"
 	"os"
@@ -12,6 +13,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"omnibar/internal/ipc/jsonrpc"
 )
 
 // newTestLogger returns a slog logger writing to a buffer for tests.
@@ -1000,4 +1003,120 @@ func TestServerShutdownAcceptRace(t *testing.T) {
 	if remaining != 0 {
 		t.Errorf("connection accepted during shutdown was registered: %d remaining", remaining)
 	}
+}
+
+func TestServerJSONRPCMultipleRequestsOneConnection(t *testing.T) {
+	path, restore := tempSocketPath(t)
+	defer restore()
+
+	// Echo handler: returns params unchanged.
+	d := jsonrpc.NewDispatcher()
+	d.Register("echo", func(params json.RawMessage) (json.RawMessage, *jsonrpc.Error) {
+		return params, nil
+	})
+	// Register handshake so the server speaks the full protocol.
+	RegisterHandshake(d)
+
+	logger, _ := newTestLogger()
+	s := New(path, logger, d.Handle)
+	if err := s.Start(); err != nil {
+		t.Fatalf("Start() returned error: %v", err)
+	}
+	defer s.Shutdown()
+
+	conn, err := net.Dial("unix", path)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+
+	writer := bufio.NewWriterSize(conn, 64*1024)
+	reader := bufio.NewReaderSize(conn, 64*1024)
+
+	send := func(id int, method string, params json.RawMessage) {
+		req := map[string]interface{}{
+			"jsonrpc": "2.0",
+			"id":      id,
+			"method":  method,
+		}
+		if params != nil {
+			req["params"] = params
+		}
+		data, _ := json.Marshal(req)
+		data = append(data, '\n')
+		if _, err := writer.Write(data); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+		if err := writer.Flush(); err != nil {
+			t.Fatalf("flush: %v", err)
+		}
+	}
+
+	// Send multiple sequential requests over the same connection.
+	// Request 1: handshake.
+	send(1, "client.handshake", []byte(`{"protocol":"omnibar.ipc/v1","client_id":"ui-1"}`))
+	resp1 := readResponse(t, reader)
+	if string(resp1.ID) != "1" || resp1.Error != nil {
+		t.Fatalf("handshake response = %+v", resp1)
+	}
+
+	// Request 2: echo with string result.
+	send(2, "echo", []byte(`"hello"`))
+	resp2 := readResponse(t, reader)
+	if string(resp2.ID) != "2" || resp2.Error != nil || string(resp2.Result) != `"hello"` {
+		t.Fatalf("echo response = %+v", resp2)
+	}
+
+	// Request 3: unknown method.
+	send(3, "no.such.method", nil)
+	resp3 := readResponse(t, reader)
+	if string(resp3.ID) != "3" || resp3.Error == nil || resp3.Error.Code != jsonrpc.CodeMethodNotFound {
+		t.Fatalf("unknown method response = %+v", resp3)
+	}
+
+	// Request 4: missing jsonrpc version (invalid request).
+	raw4 := `{"id":4,"method":"echo"}` + "\n"
+	if _, err := writer.Write([]byte(raw4)); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := writer.Flush(); err != nil {
+		t.Fatalf("flush: %v", err)
+	}
+	resp4 := readResponse(t, reader)
+	if string(resp4.ID) != "4" || resp4.Error == nil || resp4.Error.Code != jsonrpc.CodeInvalidRequest {
+		t.Fatalf("invalid request response = %+v", resp4)
+	}
+
+	// Notification: no response expected.
+	if _, err := writer.Write([]byte(`{"jsonrpc":"2.0","method":"echo","params":{}}\n`)); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := writer.Flush(); err != nil {
+		t.Fatalf("flush: %v", err)
+	}
+	// No frame should arrive for the notification.
+	conn.SetReadDeadline(nowPlus(100 * time.Millisecond))
+	_, err = reader.ReadByte()
+	if err == nil {
+		t.Error("expected no response for notification")
+	}
+}
+
+// readResponse reads one JSON-RPC response frame from reader.
+func readResponse(t *testing.T, r *bufio.Reader) jsonrpc.Response {
+	t.Helper()
+	frame, err := ReadFrame(r)
+	if err != nil {
+		t.Fatalf("read response: %v", err)
+	}
+	var resp jsonrpc.Response
+	if err := json.Unmarshal(frame, &resp); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	return resp
+}
+
+// nowPlus returns the current time plus d.
+func nowPlus(d time.Duration) time.Time {
+	return time.Now().Add(d)
 }
