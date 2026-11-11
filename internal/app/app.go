@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"omnibar/internal/config"
+	"omnibar/internal/events"
 	"omnibar/internal/ipc"
 	"omnibar/internal/ipc/jsonrpc"
 	"omnibar/internal/logging"
@@ -26,6 +27,7 @@ import (
 type Backend struct {
 	Server  *ipc.Server
 	Modules *modules.Registry
+	Events  *events.Hub
 
 	logger *slog.Logger
 }
@@ -151,9 +153,11 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 
 	// Create the JSON-RPC dispatcher and register the handshake and
 	// module status methods.
+	hub := events.New(logger)
 	dispatcher := jsonrpc.NewDispatcher()
 	ipc.RegisterHandshake(dispatcher, registry)
 	ipc.RegisterModuleMethods(dispatcher, registry)
+	ipc.RegisterEventMethods(dispatcher, registry, hub)
 
 	// Resolve IPC socket path.
 	socketPath, err := ipc.SocketPath()
@@ -163,16 +167,16 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 		return nil, fmt.Errorf("resolve socket path: %w", err)
 	}
 
-	// Create and start the IPC server. The JSON-RPC dispatcher adapts to
-	// the M3 Handler signature (func([]byte) ([]byte, error)).
-	server := ipc.New(socketPath, logger, dispatcher.Handle)
+	// Create and start the IPC server. The context-aware dispatcher gives
+	// handlers such as module.subscribe access to the client's session.
+	server := ipc.NewWithContext(socketPath, logger, dispatcher.HandleContext)
 	if err := server.Start(); err != nil {
 		logger.Error("start IPC server", "error", err)
 		shutdownModules(registry, logger)
 		return nil, fmt.Errorf("start IPC server: %w", err)
 	}
 
-	return &Backend{Server: server, Modules: registry, logger: logger}, nil
+	return &Backend{Server: server, Modules: registry, Events: hub, logger: logger}, nil
 }
 
 // shutdownModules stops and disposes modules after a partial startup

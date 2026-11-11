@@ -2,10 +2,11 @@
 # End-to-end check of the real Quickshell UI against the real backend.
 #
 # Verifies, using only an isolated XDG_RUNTIME_DIR/XDG_CONFIG_HOME:
-#   1. UI connects and completes the handshake.
+#   1. UI connects, completes the handshake, and subscribes to module events.
 #   2. Backend SIGTERM exits 0 and removes the socket.
 #   3. UI goes offline and retries with exponential backoff (1000 ms, 2000 ms).
-#   4. After the backend restarts, the UI reconnects and re-handshakes.
+#   4. After the backend restarts, the UI reconnects, re-handshakes, and
+#      subscribes again (subscriptions live in backend memory).
 #   5. The UI process survives the whole sequence.
 #
 # OMNIBAR_BIN and OMNIBAR_SHELL_QML override the backend binary and UI entry
@@ -128,7 +129,8 @@ ui_pid=$!
 
 wait_for_count "status: connected" 1 20 "UI to connect"
 wait_for_count "handshake complete; backend 0.1.0 modules: core" 1 5 "UI handshake"
-pass "UI connected and completed handshake"
+wait_for_count "subscribed to core" 1 5 "UI to subscribe to core events"
+pass "UI connected, completed handshake, and subscribed"
 
 stop_backend
 pass "backend SIGTERM exit 0 and socket removed"
@@ -141,7 +143,11 @@ pass "UI offline with exponential backoff (1000 ms, 2000 ms)"
 start_backend 2
 wait_for_count "status: connected" 2 30 "UI to reconnect after backend restart"
 wait_for_count "handshake complete; backend 0.1.0 modules: core" 2 5 "UI re-handshake"
-pass "UI reconnected and re-handshook after backend restart"
+wait_for_count "subscribed to core" 2 5 "UI to re-subscribe after backend restart"
+pass "UI reconnected, re-handshook, and re-subscribed after backend restart"
+
+[[ "$(count "\[omnibar-ui\] subscription to")" -eq 0 ]] ||
+    fail "UI reported a failed subscription: $(grep -- "subscription to" "$ui_log" | head -3)"
 
 kill -0 "$ui_pid" 2>/dev/null || fail "UI process died during the test"
 stop_backend

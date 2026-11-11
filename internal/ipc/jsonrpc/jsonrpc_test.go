@@ -1,6 +1,7 @@
 package jsonrpc
 
 import (
+	"context"
 	"encoding/json"
 	"strconv"
 	"strings"
@@ -311,5 +312,78 @@ func TestMultipleRequestsStatefulDispatcher(t *testing.T) {
 	}
 	if calls != 3 {
 		t.Errorf("expected 3 handler calls, got %d", calls)
+	}
+}
+
+type ctxKey struct{}
+
+func TestHandleContextPassesContextToHandler(t *testing.T) {
+	d := NewDispatcher()
+	d.RegisterContext("whoami", func(ctx context.Context, params json.RawMessage) (json.RawMessage, *Error) {
+		who, _ := ctx.Value(ctxKey{}).(string)
+		out, _ := json.Marshal(who)
+		return out, nil
+	})
+
+	ctx := context.WithValue(context.Background(), ctxKey{}, "session-7")
+	out, err := d.HandleContext(ctx, []byte(`{"jsonrpc":"2.0","id":1,"method":"whoami"}`))
+	if err != nil {
+		t.Fatalf("HandleContext() returned error: %v", err)
+	}
+	var resp Response
+	if err := json.Unmarshal(out, &resp); err != nil {
+		t.Fatalf("response unmarshal: %v", err)
+	}
+	if string(resp.Result) != `"session-7"` {
+		t.Errorf("result = %s, want the context value", resp.Result)
+	}
+}
+
+func TestHandleUsesBackgroundContext(t *testing.T) {
+	d := NewDispatcher()
+	d.RegisterContext("probe", func(ctx context.Context, params json.RawMessage) (json.RawMessage, *Error) {
+		if ctx == nil || ctx.Err() != nil {
+			return nil, NewError(CodeInternalError, "bad context", "")
+		}
+		return []byte(`true`), nil
+	})
+
+	out, _ := d.Handle([]byte(`{"jsonrpc":"2.0","id":1,"method":"probe"}`))
+	var resp Response
+	_ = json.Unmarshal(out, &resp)
+	if resp.Error != nil {
+		t.Fatalf("Handle gave the handler a bad context: %+v", resp.Error)
+	}
+}
+
+func TestContextHandlerReceivesNotifications(t *testing.T) {
+	d := NewDispatcher()
+	called := make(chan context.Context, 1)
+	d.RegisterContext("note", func(ctx context.Context, params json.RawMessage) (json.RawMessage, *Error) {
+		called <- ctx
+		return nil, nil
+	})
+
+	ctx := context.WithValue(context.Background(), ctxKey{}, "n")
+	out, err := d.HandleContext(ctx, []byte(`{"jsonrpc":"2.0","method":"note"}`))
+	if err != nil || out != nil {
+		t.Fatalf("notification produced out=%q err=%v, want neither", out, err)
+	}
+	if got := (<-called).Value(ctxKey{}); got != "n" {
+		t.Errorf("notification handler context value = %v", got)
+	}
+}
+
+func TestSessionErrorCodesAreInCustomRange(t *testing.T) {
+	for name, code := range map[string]int{
+		"CodePermissionDenied":  CodePermissionDenied,
+		"CodeModuleUnavailable": CodeModuleUnavailable,
+	} {
+		if !IsCustomCode(code) {
+			t.Errorf("%s = %d is outside the server-defined range", name, code)
+		}
+	}
+	if CodePermissionDenied != -32001 || CodeModuleUnavailable != -32002 {
+		t.Error("error codes must match ADR-0009 (-32001, -32002)")
 	}
 }

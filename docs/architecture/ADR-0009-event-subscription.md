@@ -32,6 +32,8 @@ Constraints from earlier decisions:
 - `module` is required.
 - `events` is optional. When omitted, the client subscribes to every event the module publishes, including events added later.
 - Subscribing is additive and idempotent: repeating a subscription is not an error.
+- A wildcard subscription (`events` omitted) absorbs named ones: later named subscriptions to the same module leave the filter at `["*"]`.
+- `events` must be a non-empty list of non-empty names when present. `[]`, empty names, and the reserved name `"*"` are invalid params.
 
 **Subscribe (response):**
 
@@ -41,7 +43,7 @@ Constraints from earlier decisions:
 
 `events` echoes the active filter for that module on this connection after the call. `["*"]` means all events.
 
-**Unsubscribe (request):** `module.unsubscribe` with the same params. Omitting `events` removes the whole module subscription. Removing something that is not subscribed succeeds. The result has the same shape as subscribe, with the remaining filter (`[]` when nothing remains).
+**Unsubscribe (request):** `module.unsubscribe` with the same params. Omitting `events` removes the whole module subscription. Removing something that is not subscribed succeeds. Named events cannot be carved out of a wildcard subscription: only removing the whole module ends it, and naming events leaves `["*"]` unchanged. The result has the same shape as subscribe, with the remaining filter (`[]` when nothing remains). Unsubscribing needs no grant and no running module, so a client can always leave; only an unknown module is an error.
 
 **Event notification (backend → client, no `id`, no response):**
 
@@ -62,7 +64,7 @@ Constraints from earlier decisions:
 
 Codes -32001 and -32002 are in the server-defined range and are assigned here so the UI can distinguish them.
 
-A subscription is checked once, when it is made. Events a module publishes are the module's responsibility to gate with `Registry.HasCapability`; a module that is not allowed to read something must not publish it.
+`module.subscribe` checks in this order: params, unknown module (-32600), module disabled or not running (-32002), then capabilities (-32001). A subscription is checked once, when it is made. Events a module publishes are the module's responsibility to gate with `Registry.HasCapability`; a module that is not allowed to read something must not publish it.
 
 ### Delivery guarantees
 
@@ -75,6 +77,8 @@ A subscription is checked once, when it is made. Events a module publishes are t
 ### Backpressure and failure isolation
 
 - Each session has a bounded outbound queue (default 64 messages) drained by a single writer goroutine. Responses and notifications share it, so frames can never interleave on the wire.
+- Replies apply backpressure to their own connection: while the queue is full, that connection's reader waits, as it did before sessions existed. Only event notifications are non-blocking.
+- A closing connection first flushes queued replies (bounded to 5 seconds), so a client that half-closes after sending a request still gets its answer.
 - `Publish` never blocks and never waits for a client. If a client's queue is full, that client is disconnected and a warning is logged. The client reconnects and resynchronizes as above. Other clients and the publishing module are unaffected.
 - An event whose encoded frame would exceed the frame limit is dropped and logged at error level. It does not disconnect anyone.
 - A panic in subscriber delivery is recovered at the hub boundary; it must not take down the publishing module.
@@ -82,7 +86,7 @@ A subscription is checked once, when it is made. Events a module publishes are t
 
 ### On-demand production
 
-The hub exposes whether a module currently has subscribers, and notifies the core when that changes from none to some or some to none. Producers that sample periodically (ADR-0010) use this to sample only while someone is listening, which keeps the idle cost near zero.
+The hub exposes whether a module currently has subscribers (`HasSubscribers`) and a `Watch(module)` channel that receives a value whenever the count moves between none and some. The channel holds one pending signal and sends never block, so rapid changes coalesce; after a receive the producer calls `HasSubscribers` to learn the current state. There are no callbacks into producers, so the hub cannot deadlock on them. Producers that sample periodically (ADR-0010) use this to sample only while someone is listening, which keeps the idle cost near zero.
 
 ### Versioning
 
@@ -119,7 +123,7 @@ Rejected for now: needs storage (SQLite is deliberately deferred, ADR-0006) and 
 
 - A disconnected-for-slowness client sees a reconnect cycle instead of a gap; the UI must handle resynchronization correctly.
 - No history: anything that needs missed events must add storage later.
-- Handlers that need the connection use the request context, a small extension to the Phase 1 dispatcher.
+- Handlers that need the connection use the request context, a small extension to the Phase 1 dispatcher (`Dispatcher.RegisterContext` / `HandleContext`, `ipc.NewWithContext`, `ipc.SessionFromContext`).
 
 ## References
 

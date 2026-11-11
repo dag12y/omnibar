@@ -23,6 +23,10 @@ All notable changes will be documented here.
 - Arch packaging (M8): `pkgbuild/PKGBUILD`, the `omnibar-ui` launcher, the `systemd/omnibar.service` user unit, and `make package` / `scripts/package-local.sh` to build a package from the working tree.
 - `tests/packaging`: keeps `pkgver` equal to the backend version and checks the unit file, installed files, example config, and that no self-updater exists.
 - Packaging, install, upgrade, rollback, uninstall, and release notes in `docs/development/packaging.md`.
+- Event subscription and delivery (M9, ADR-0009): `internal/events` hub, `module.subscribe` / `module.unsubscribe`, `module.event` notifications, per-connection sessions with a bounded outbound queue (a slow client is disconnected, never blocking publishers), error codes -32001 (permission denied) and -32002 (module not available).
+- `Dispatcher.RegisterContext` / `HandleContext`, `ipc.NewWithContext`, `ipc.SessionFromContext`, and `Session.OnClose`.
+- UI: subscribes to every module after each handshake, tracks per-module subscription state (shown as a dot on each module chip), and emits `moduleEvent`; pure-JS `protocol.js` with Qt Test coverage.
+- `make e2e-ui` now also checks that the UI subscribes and re-subscribes after a backend restart.
 
 ### Changed
 - The integration harness finds the repository root from the working directory, so it also works under `-trimpath` (package `check()`).

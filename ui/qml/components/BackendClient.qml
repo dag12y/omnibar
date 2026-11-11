@@ -2,13 +2,17 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import "backoff.js" as Backoff
+import "protocol.js" as Protocol
 
 // BackendClient owns the Unix socket connection to the Omnibar backend.
 //
 // It connects to $XDG_RUNTIME_DIR/omnibar/omnibar.sock, performs the
-// client.handshake exchange, and reconnects with exponential backoff
-// when the backend is unavailable. It never terminates the application
-// when the backend is missing.
+// client.handshake exchange, subscribes to every module's events, and
+// reconnects with exponential backoff when the backend is unavailable. It
+// never terminates the application when the backend is missing.
+//
+// Subscriptions live in the backend's memory, so they are made again after
+// every successful handshake (ADR-0009).
 Item {
     id: root
 
@@ -35,6 +39,13 @@ Item {
     property int pendingHandshakeId: -1
     property int nextRequestId: 1
 
+    // Per-module subscription state: "pending", "subscribed", "denied",
+    // "unavailable", or "failed". Cleared whenever the connection is lost.
+    property var subscriptions: ({})
+
+    // Request id -> module name for subscribe requests awaiting a response.
+    property var pendingSubscriptions: ({})
+
     readonly property bool backendConnected: status === "connected"
     readonly property bool connecting: status === "connecting"
     readonly property bool backendUnavailable: status === "unavailable"
@@ -43,6 +54,9 @@ Item {
 
     signal handshakeSucceeded()
     signal messageReceived(var message)
+
+    // A module.event notification from the backend.
+    signal moduleEvent(string module, string event, var data)
 
     property Socket socket: Socket {
         id: socket
@@ -151,8 +165,14 @@ Item {
             handleDisconnected()
     }
 
+    function resetSubscriptions() {
+        subscriptions = ({})
+        pendingSubscriptions = ({})
+    }
+
     function handleConnected() {
         retryTimer.stop()
+        resetSubscriptions()
         handshakeComplete = false
         lastError = ""
         status = "connecting"
@@ -161,6 +181,7 @@ Item {
 
     function handleDisconnected() {
         handshakeTimer.stop()
+        resetSubscriptions()
         pendingHandshakeId = -1
         handshakeComplete = false
 
@@ -174,6 +195,7 @@ Item {
 
     function handleSocketError(error) {
         handshakeTimer.stop()
+        resetSubscriptions()
         pendingHandshakeId = -1
         handshakeComplete = false
         lastError = describeSocketError(error)
@@ -198,6 +220,16 @@ Item {
             return
 
         messageReceived(message)
+
+        const parsed = Protocol.classify(message)
+        if (parsed.kind === "event") {
+            moduleEvent(parsed.module, parsed.event, parsed.data)
+            return
+        }
+        if (parsed.kind === "response" && pendingSubscriptions[parsed.id] !== undefined) {
+            handleSubscribeResponse(parsed)
+            return
+        }
 
         if (message.id === undefined || message.id !== pendingHandshakeId)
             return
@@ -226,11 +258,55 @@ Item {
 
         console.info("[omnibar-ui] handshake complete; backend", backendVersion,
                      "modules:", modules.join(", "))
+        subscribeToModules()
         handshakeSucceeded()
+    }
+
+    // Subscribe to every event of every module the backend reported. Safe
+    // to repeat: subscribing is idempotent on the backend.
+    function subscribeToModules() {
+        if (!socket.connected)
+            return
+
+        const plan = Protocol.subscriptionPlan(modules)
+        for (let i = 0; i < plan.length; i++) {
+            const module = plan[i]
+            const requestId = nextRequestId++
+
+            pendingSubscriptions = Protocol.withState(pendingSubscriptions, requestId, module)
+            if (subscriptions[module] === undefined)
+                subscriptions = Protocol.withState(subscriptions, module, Protocol.Pending)
+
+            socket.write(Protocol.buildRequest(requestId, "module.subscribe", { module: module }) + "\n")
+        }
+        if (plan.length > 0)
+            socket.flush()
+    }
+
+    function handleSubscribeResponse(response) {
+        const module = pendingSubscriptions[response.id]
+
+        const remaining = {}
+        for (const id in pendingSubscriptions) {
+            if (String(id) !== String(response.id))
+                remaining[id] = pendingSubscriptions[id]
+        }
+        pendingSubscriptions = remaining
+
+        const state = Protocol.subscriptionState(response)
+        subscriptions = Protocol.withState(subscriptions, module, state)
+
+        if (state === Protocol.Subscribed) {
+            console.info("[omnibar-ui] subscribed to", module)
+        } else {
+            const reason = response.error && response.error.message ? response.error.message : "unknown error"
+            console.warn("[omnibar-ui] subscription to", module, state + ":", reason)
+        }
     }
 
     function failConnection(reason) {
         handshakeTimer.stop()
+        resetSubscriptions()
         pendingHandshakeId = -1
         handshakeComplete = false
         lastError = reason

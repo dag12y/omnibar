@@ -8,6 +8,7 @@
 package jsonrpc
 
 import (
+	"context"
 	"encoding/json"
 	"sync"
 )
@@ -30,6 +31,14 @@ const (
 const (
 	CodeCustomMin = -32099
 	CodeCustomMax = -32000
+)
+
+// Server-defined error codes (ADR-0009).
+const (
+	// CodePermissionDenied means a required capability is not granted.
+	CodePermissionDenied = -32001
+	// CodeModuleUnavailable means the module is disabled or not running.
+	CodeModuleUnavailable = -32002
 )
 
 // IsStandardCode reports whether code is a standard JSON-RPC 2.0 error code.
@@ -88,21 +97,34 @@ func NewError(code int, message, module string) *Error {
 // field (nil when absent). It returns a raw JSON result or a protocol error.
 type MethodHandler func(params json.RawMessage) (json.RawMessage, *Error)
 
+// ContextMethodHandler is a MethodHandler that also receives the request
+// context. The IPC server puts the calling client session in the context,
+// which methods such as module.subscribe need.
+type ContextMethodHandler func(ctx context.Context, params json.RawMessage) (json.RawMessage, *Error)
+
 // Dispatcher maps method names to handlers and dispatches JSON-RPC requests.
 // It is safe for concurrent use by multiple connections.
 type Dispatcher struct {
 	mu      sync.RWMutex
-	methods map[string]MethodHandler
+	methods map[string]ContextMethodHandler
 }
 
 // NewDispatcher creates an empty dispatcher.
 func NewDispatcher() *Dispatcher {
-	return &Dispatcher{methods: make(map[string]MethodHandler)}
+	return &Dispatcher{methods: make(map[string]ContextMethodHandler)}
 }
 
 // Register associates a method name with a handler. Registering the same
 // method twice replaces the previous handler.
 func (d *Dispatcher) Register(method string, handler MethodHandler) {
+	d.RegisterContext(method, func(_ context.Context, params json.RawMessage) (json.RawMessage, *Error) {
+		return handler(params)
+	})
+}
+
+// RegisterContext is like Register for a handler that needs the request
+// context.
+func (d *Dispatcher) RegisterContext(method string, handler ContextMethodHandler) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.methods[method] = handler
@@ -116,6 +138,11 @@ func (d *Dispatcher) Register(method string, handler MethodHandler) {
 // JSON, invalid requests, unknown methods) are converted into JSON-RPC
 // error responses so malformed messages never crash the caller.
 func (d *Dispatcher) Handle(raw []byte) ([]byte, error) {
+	return d.HandleContext(context.Background(), raw)
+}
+
+// HandleContext is like Handle but passes ctx to the method handler.
+func (d *Dispatcher) HandleContext(ctx context.Context, raw []byte) ([]byte, error) {
 	req, parseErr := parseRequest(raw)
 	if parseErr != nil {
 		// The id could not be determined; per spec it is null for parse
@@ -132,7 +159,7 @@ func (d *Dispatcher) Handle(raw []byte) ([]byte, error) {
 	// response. An explicit id: null is not a notification and must be
 	// answered with "id": null.
 	if len(req.ID) == 0 {
-		_, _ = d.dispatch(req.Method, req.Params)
+		_, _ = d.dispatch(ctx, req.Method, req.Params)
 		return nil, nil
 	}
 
@@ -141,7 +168,7 @@ func (d *Dispatcher) Handle(raw []byte) ([]byte, error) {
 		return buildResponse(req.ID, nil, NewError(CodeInvalidRequest, "method is required", "")), nil
 	}
 
-	result, err := d.dispatch(req.Method, req.Params)
+	result, err := d.dispatch(ctx, req.Method, req.Params)
 	if err != nil {
 		return buildResponse(req.ID, nil, err), nil
 	}
@@ -159,14 +186,14 @@ func parseRequest(raw []byte) (*Request, error) {
 }
 
 // dispatch looks up and invokes the handler for method.
-func (d *Dispatcher) dispatch(method string, params json.RawMessage) (json.RawMessage, *Error) {
+func (d *Dispatcher) dispatch(ctx context.Context, method string, params json.RawMessage) (json.RawMessage, *Error) {
 	d.mu.RLock()
 	handler, ok := d.methods[method]
 	d.mu.RUnlock()
 	if !ok {
 		return nil, NewError(CodeMethodNotFound, "Method not found: "+method, "")
 	}
-	return handler(params)
+	return handler(ctx, params)
 }
 
 // buildResponse marshals a JSON-RPC 2.0 response. The response preserves the

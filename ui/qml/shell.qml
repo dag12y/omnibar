@@ -150,7 +150,7 @@ ShellRoot {
                             delegate: Rectangle {
                                 required property string modelData
 
-                                width: moduleName.implicitWidth + 20
+                                width: moduleName.implicitWidth + subscriptionDot.width + 28
                                 height: 26
                                 radius: 6
                                 color: "#1d222a"
@@ -158,9 +158,31 @@ ShellRoot {
                                 border.color: "#303744"
                                 opacity: client.backendConnected ? 1 : 0.55
 
+                                Rectangle {
+                                    id: subscriptionDot
+                                    width: 6
+                                    height: 6
+                                    radius: 3
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 9
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    color: {
+                                        const state = client.subscriptions[parent.modelData]
+                                        if (state === "subscribed")
+                                            return "#4ade80"
+                                        if (state === "pending")
+                                            return "#fbbf24"
+                                        if (state === "denied" || state === "unavailable" || state === "failed")
+                                            return "#f87171"
+                                        return "#4b5262"
+                                    }
+                                }
+
                                 Text {
                                     id: moduleName
-                                    anchors.centerIn: parent
+                                    anchors.left: subscriptionDot.right
+                                    anchors.leftMargin: 7
+                                    anchors.verticalCenter: parent.verticalCenter
                                     text: parent.modelData
                                     color: "#dfe4ec"
                                     font.pixelSize: 11

@@ -73,14 +73,15 @@ sequence to verify the same behavior by hand and look at the real window:
 
 1. Start the backend with `./build/omnibar`.
 2. Start the UI with `quickshell -p ui/qml/shell.qml`.
-3. Confirm the UI shows **Connected** and lists `core`.
+3. Confirm the UI shows **Connected** and lists `core` with a green dot, which
+   means the UI subscribed to its events.
 4. Stop the backend with `Ctrl+C` (`SIGINT`) or `kill -TERM <pid>`.
    - The process exits with status 0.
    - The socket file is removed.
    - The UI switches to offline mode and keeps cached module data.
 5. Start the backend again.
-6. Confirm the UI reconnects on its own, re-sends the handshake, and returns to
-   **Connected**. The reconnect may take up to 30 seconds because the backoff
+6. Confirm the UI reconnects on its own, re-sends the handshake, subscribes
+   again, and returns to **Connected** with a green dot. The reconnect may take up to 30 seconds because the backoff
    is intentionally capped.
 7. Run the automated checks below.
 
@@ -98,6 +99,19 @@ Expected response:
 ```json
 {"jsonrpc":"2.0","id":1,"result":{"protocol":"omnibar.ipc/v1","version":"0.1.0","modules":["core"]}}
 ```
+
+Subscribe to a module's events on the same connection (the connection must stay
+open to receive pushed `module.event` notifications, hence the `sleep`):
+
+```sh
+(printf '%s\n' \
+  '{"jsonrpc":"2.0","id":1,"method":"module.subscribe","params":{"module":"core"}}'
+ sleep 5) | socat - UNIX-CONNECT:"$SOCKET"
+```
+
+Expected response: `{"jsonrpc":"2.0","id":1,"result":{"module":"core","events":["*"]}}`.
+The shipped `core` module publishes no events yet, so nothing else arrives until
+a module that produces events lands (the system monitor, M10).
 
 Check socket security:
 
@@ -148,11 +162,12 @@ make e2e-ui
 `quickshell -p ui/qml/shell.qml` UI together, in an isolated
 `XDG_RUNTIME_DIR` and `XDG_CONFIG_HOME`, and checks the UI's own log output:
 
-1. the UI connects and completes the handshake;
+1. the UI connects, completes the handshake, and subscribes to module events;
 2. `SIGTERM` stops the backend with exit 0 and removes the socket;
 3. the UI reports the backend unavailable and retries after 1000 ms, then
    2000 ms;
-4. after the backend restarts, the UI reconnects and handshakes again;
+4. after the backend restarts, the UI reconnects, handshakes again, and
+   re-subscribes (subscriptions live in backend memory);
 5. the UI process survives the whole sequence.
 
 It needs a running Wayland session (a panel flashes on screen for a few
@@ -186,22 +201,29 @@ The test verifies that access is denied when:
 - the module's declared capability has no matching grant.
 
 Access is granted only when the module declares the capability, the user
-grants the matching permission, and the module is enabled and healthy. A
+grants the matching permission, and the module is enabled and healthy.
+
 A production capability-consuming method will replace the test-only method when
 the first such module lands. This is a known limitation of Phase 1: the denial
 logic is covered end to end, but no shipped RPC method depends on it yet.
 
-### Subscription/notification scope
+### Event subscription
 
-`ARCHITECTURE.md` and ADR-0003 describe a future `module.subscribe` method and
-backend-pushed `module.event` notifications. No milestone in the Phase 1
-foundation defines event payloads or an event-producing module, so the backend
-does not implement `module.subscribe` yet.
+`module.subscribe`, `module.unsubscribe`, and `module.event` notifications
+follow [ADR-0009](../architecture/ADR-0009-event-subscription.md). The shipped
+`core` module publishes no events, so the integration tests cover delivery two
+ways:
 
-The integration tests verify the notification behavior that does exist:
-JSON-RPC messages without an `id` are dispatched and produce no response, and
-reconnecting clients perform a fresh handshake. Subscription and event
-delivery should be added together with the first event-producing module.
+- Against the real binary (`tests/integration/events_test.go`): subscribe and
+  unsubscribe, error codes, a disabled module, graceful shutdown with a live
+  subscription, and re-subscribing after a restart.
+- Against an in-process backend with a real event publisher module: events
+  reach only subscribed clients, filtered and in publish order; denial without
+  a grant; no events from a stopped module; cleanup on disconnect.
+
+Slow-client disconnection, reply and event ordering on one connection, oversize
+events, and teardown races are covered by the unit tests in `internal/ipc` and
+`internal/events`, and are worth running under `go test -race`.
 
 ## Troubleshooting
 

@@ -19,14 +19,19 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 // Handler processes an incoming message frame and returns an optional
-// reply. A nil reply means no response is sent. This is used only for
-// testing framing and connection behavior; no application logic lives
-// here.
+// reply. A nil reply means no response is sent. No application logic
+// lives in the server itself.
 type Handler func([]byte) ([]byte, error)
+
+// ContextHandler is a Handler that also receives the connection context.
+// The context carries the client's Session (see SessionFromContext) and is
+// cancelled when the connection closes or the server shuts down.
+type ContextHandler func(ctx context.Context, msg []byte) ([]byte, error)
 
 // lifecycleState tracks the server lifecycle.
 type lifecycleState int
@@ -45,9 +50,12 @@ type Server struct {
 	path     string
 	lockPath string
 	logger   *slog.Logger
-	handler  Handler
+	handler  ContextHandler
+
+	nextSession atomic.Uint64
 
 	mu         sync.Mutex
+	queueSize  int
 	state      lifecycleState
 	listener   net.Listener
 	conns      map[net.Conn]struct{}
@@ -64,6 +72,18 @@ type Server struct {
 // lockFd is initialized to -1 so that Shutdown() on an unstarted server
 // never closes stdin or any other unrelated file descriptor.
 func New(path string, logger *slog.Logger, handler Handler) *Server {
+	var ctxHandler ContextHandler
+	if handler != nil {
+		ctxHandler = func(_ context.Context, msg []byte) ([]byte, error) {
+			return handler(msg)
+		}
+	}
+	return NewWithContext(path, logger, ctxHandler)
+}
+
+// NewWithContext is like New for a handler that needs the connection
+// context, for example to reach the client's Session.
+func NewWithContext(path string, logger *slog.Logger, handler ContextHandler) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Server{
 		path:     path,
@@ -75,7 +95,21 @@ func New(path string, logger *slog.Logger, handler Handler) *Server {
 		cancel:   cancel,
 		lockFd:   -1,
 		state:    stateNew,
+
+		queueSize: DefaultQueueSize,
 	}
+}
+
+// SetQueueSize sets how many outbound frames each client session buffers
+// before a slow client is disconnected. It applies to connections accepted
+// afterwards. Values below 1 are ignored.
+func (s *Server) SetQueueSize(n int) {
+	if n < 1 {
+		return
+	}
+	s.mu.Lock()
+	s.queueSize = n
+	s.mu.Unlock()
 }
 
 // Start binds the Unix domain socket and begins accepting connections.
@@ -251,24 +285,30 @@ func (s *Server) acceptLoop() {
 		}
 		s.conns[conn] = struct{}{}
 		s.wg.Add(1)
+		queueSize := s.queueSize
 		s.mu.Unlock()
 
-		go s.handleConn(conn)
+		go s.handleConn(conn, queueSize)
 	}
 }
 
 // handleConn reads frames from conn and dispatches them to the handler.
-func (s *Server) handleConn(conn net.Conn) {
+// Replies and event notifications are written by the connection's Session.
+func (s *Server) handleConn(conn net.Conn, queueSize int) {
+	sess := newSession(s.nextSession.Add(1), conn, s.logger, queueSize)
+	ctx, cancel := context.WithCancel(contextWithSession(s.ctx, sess))
+
 	defer func() {
-		conn.Close()
+		cancel()
+		sess.finish()
 		s.mu.Lock()
 		delete(s.conns, conn)
 		s.mu.Unlock()
 		s.wg.Done()
 	}()
 
+	sess.startWriter()
 	reader := bufio.NewReaderSize(conn, 64*1024)
-	writer := bufio.NewWriterSize(conn, 64*1024)
 
 	for {
 		msg, err := ReadFrame(reader)
@@ -280,13 +320,16 @@ func (s *Server) handleConn(conn net.Conn) {
 				s.logger.Warn("client disconnected with incomplete frame")
 				return
 			}
-			// Shutdown closes registered connections to unblock readers.
-			// That is expected connection teardown, not a protocol error.
+			// Shutdown closes registered connections to unblock readers,
+			// and a slow client is closed by its session. Both are
+			// expected connection teardown, not protocol errors.
 			if errors.Is(err, net.ErrClosed) {
 				return
 			}
 			select {
 			case <-s.ctx.Done():
+				return
+			case <-sess.dead:
 				return
 			default:
 			}
@@ -297,18 +340,13 @@ func (s *Server) handleConn(conn net.Conn) {
 		s.logger.Debug("received frame", "size", len(msg))
 
 		if s.handler != nil {
-			reply, err := s.handler(msg)
+			reply, err := s.handler(ctx, msg)
 			if err != nil {
 				s.logger.Error("handler error", "error", err)
 				continue
 			}
 			if reply != nil {
-				if err := WriteFrame(writer, reply); err != nil {
-					s.logger.Error("write frame error", "error", err)
-					return
-				}
-				if err := writer.Flush(); err != nil {
-					s.logger.Error("flush error", "error", err)
+				if !sess.reply(reply) {
 					return
 				}
 			}
