@@ -21,15 +21,27 @@ Phase 2 adds system monitoring. ARCHITECTURE.md classifies read-only monitors th
 | CPU usage | `/proc/stat` | Delta of idle and total jiffies between two samples, as a percentage; also per core |
 | Memory | `/proc/meminfo` | `total`, `available`, `used = total - available` (kernel `MemAvailable`) |
 | Swap | `/proc/meminfo` | `total`, `free`, `used = total - free`; zero totals are valid (no swap) |
+| Disk space | `syscall.Statfs("/")` | `total = blocks * bsize`, `available = bavail * bsize`, `used = total - available` |
+| Disk I/O | `/proc/diskstats` | Sectors read and written delta converted to byte rates (`bytes/sec`) |
+| Network | `/proc/net/dev` | Byte counters delta for active non-loopback interfaces (`rx_bytes_sec`, `tx_bytes_sec`) |
+| Battery | `/sys/class/power_supply` | `capacity` (%), `status` (Charging/Discharging/Full), `power_now` (watts) |
 
-Reads use plain files, no external commands and no new dependencies. Parsers take an `io.Reader` or a root directory so tests use fixture files and never depend on the real `/proc`.
+Reads use plain files and kernel interfaces, with no external commands and no new dependencies. Parsers take an `io.Reader` or root path so tests use fixture files and never depend on host state.
 
 ### RPC surface
 
 - `system.getSnapshot` (request, no params). Returns the latest values:
 
   ```json
-  {"cpu":{"percent":4.2,"cores":[3.1,5.0]},"memory":{"total":16000000000,"available":9000000000,"used":7000000000},"swap":{"total":0,"used":0},"sampled_at":"2026-01-01T12:00:00Z"}
+  {
+    "cpu": { "percent": 4.2, "cores": [3.1, 5.0] },
+    "memory": { "total": 16000000000, "available": 9000000000, "used": 7000000000 },
+    "swap": { "total": 0, "used": 0 },
+    "disk": { "total": 512110190592, "available": 361786335232, "used": 150323855360, "read_bytes_sec": 0, "write_bytes_sec": 1048576 },
+    "network": { "rx_bytes_sec": 12450, "tx_bytes_sec": 3410 },
+    "battery": { "present": true, "percent": 88, "state": "Discharging", "power_watts": 12.4 },
+    "sampled_at": "2026-01-01T12:00:00Z"
+  }
   ```
 
   Sizes are bytes. Percentages are 0-100 with one decimal. Requires the `system.info` grant, otherwise error -32001.
@@ -37,6 +49,9 @@ Reads use plain files, no external commands and no new dependencies. Parsers tak
 - Events (ADR-0009), published only while subscribed:
   - `cpu`: `{"percent":4.2,"cores":[...]}`
   - `memory`: `{"total":...,"available":...,"used":...,"swap_total":...,"swap_used":...}`
+  - `disk`: `{"total":...,"available":...,"used":...,"read_bytes_sec":...,"write_bytes_sec":...}`
+  - `network`: `{"rx_bytes_sec":...,"tx_bytes_sec":...}`
+  - `battery`: `{"present":...,"percent":...,"state":...,"power_watts":...}`
 
 ### Sampling
 

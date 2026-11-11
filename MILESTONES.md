@@ -1,6 +1,6 @@
 # Omnibar Implementation Milestone Plan
 
-This document breaks the approved architecture into small, sequential, independently verifiable implementation milestones. It is a planning document only — no implementation code, Go module, or dependencies are introduced here. M1–M8 form Phase 1 (core foundation) and are complete. M9–M12 start Phase 2 (system monitoring) and finish with the first release.
+This document breaks the approved architecture into small, sequential, independently verifiable implementation milestones. It is a planning document only — no implementation code, Go module, or dependencies are introduced here. M1–M8 form Phase 1 (core foundation) and are complete. M9–M15 implement Phase 2 (system monitoring: CPU, RAM, swap, disk, network, battery) and conclude with the v0.1.0 release.
 
 ## Conventions
 
@@ -8,7 +8,7 @@ This document breaks the approved architecture into small, sequential, independe
 - Milestones are deliberately small: each should be implementable, testable, reviewable, and committable independently.
 - "Expected files" describes likely paths; exact implementation decisions are made during the milestone.
 - Testing strategy distinguishes unit tests (Go `testing`), integration tests (backend+UI together), and manual verification steps.
-- No SQLite, no dynamic Go plugin loading, no self-updater, and no OS sandboxing are introduced in this plan. M9–M12 add only event delivery, CPU/memory/swap monitoring, and the first release; history, alerts, and other monitors are later work.
+- No SQLite, no dynamic Go plugin loading, no self-updater, and no OS sandboxing are introduced in this plan. M9–M15 add event delivery, system metrics monitoring (CPU, RAM, swap, disk, network, battery), and the first release; history, alerts, and other monitors are later work.
 - Each milestone ends with a commit of the form `feat: … (Mn)`; planning changes are committed separately as `docs: …`.
 
 ## Milestone sequence overview
@@ -26,7 +26,10 @@ This document breaks the approved architecture into small, sequential, independe
 | M9 | Event subscription & delivery | Event hub, `module.subscribe`/`module.unsubscribe`, `module.event` push, slow-client policy, UI re-subscribe | Done |
 | M10 | System monitor module (CPU, memory, swap) | First real module and capability consumer; on-demand sampling; `system.getSnapshot` and events | Done |
 | M11 | UI for system monitoring | Live CPU/memory/swap cards, stale/offline/denied states, reusable components | Done |
-| M12 | Release v0.1.0 | Tag, release, real checksums, install verification | Planned |
+| M12 | Disk monitoring (filesystem storage & I/O) | /proc/diskstats and Statfs, disk snapshot & events, UI disk card | In progress |
+| M13 | Network monitoring (interfaces & transfer rates) | /proc/net/dev parser, bandwidth deltas, network snapshot & events, UI network card | Planned |
+| M14 | Battery and power monitoring | sysfs power_supply reader, charge level, status, battery snapshot & events, UI battery card | Planned |
+| M15 | Release v0.1.0 | Tag, release, real checksums, install verification | Planned |
 
 ---
 
@@ -648,14 +651,102 @@ Show live CPU, memory, and swap in the Quickshell UI, behave sensibly while offl
 
 ---
 
-## M12 — Release v0.1.0
+## M12 — Disk monitoring (filesystem storage & I/O)
+
+### Purpose
+Add disk storage usage and disk I/O throughput monitoring to `system_monitor`, extending the backend sampler, RPC snapshot, and Quickshell UI.
+
+### Scope
+- Parse `/proc/diskstats` in `internal/modules/systemmonitor`: compute read and write throughput (bytes/second) across physical block devices.
+- Query root filesystem storage via `syscall.Statfs` (total, available, used bytes).
+- Extend `system.getSnapshot` with the `disk` snapshot: storage bytes and I/O rates.
+- Publish `disk` events (`module: "system_monitor"`, `event: "disk"`) through the event hub during sampling.
+- Gated by the existing `system.info` capability.
+- Quickshell UI: update `BackendClient.qml` and `shell.qml` to display disk storage and I/O throughput bars.
+- Unit tests with `/proc/diskstats` fixtures and delta calculations.
+
+### Implementation tasks
+1. Add `internal/modules/systemmonitor/proc_diskstats.go` and table-driven tests with fixtures.
+2. Implement root filesystem storage sampler using `syscall.Statfs`.
+3. Integrate disk metrics into `computeSnapshot` and `sampler.go`.
+4. Update `BackendClient.qml` to merge `disk` events and expose disk data.
+5. Add disk metric representation in `shell.qml`.
+6. Add unit and integration tests for disk snapshot and event delivery.
+
+### Expected files/packages
+- `internal/modules/systemmonitor/proc_diskstats.go`
+- `internal/modules/systemmonitor/proc_diskstats_test.go`
+- `internal/modules/systemmonitor/fixtures/diskstats_*`
+- `ui/qml/shell.qml`
+- `ui/qml/components/BackendClient.qml`
+
+### Acceptance criteria
+- Disk total, available, used bytes, and I/O rates update live in the UI.
+- Idle disks report 0 B/s read and write without division errors or negative rates.
+- Gated by `system.info` permission (denied without grant).
+- `go test -race ./...`, `make ui-test`, and `make e2e-ui` all pass.
+
+---
+
+## M13 — Network monitoring (interfaces & transfer rates)
+
+### Purpose
+Add network bandwidth and interface transfer rate monitoring to `system_monitor`.
+
+### Scope
+- Parse `/proc/net/dev` in `internal/modules/systemmonitor`: calculate RX and TX byte transfer rates (bytes/second) across non-loopback interfaces.
+- Extend `system.getSnapshot` with the `network` snapshot: per-interface and total RX/TX rates.
+- Publish `network` events (`module: "system_monitor"`, `event: "network"`) through the event hub during sampling.
+- UI: display live download and upload transfer rates in `shell.qml`.
+- Unit tests with `/proc/net/dev` fixtures.
+
+### Expected files/packages
+- `internal/modules/systemmonitor/proc_netdev.go`
+- `internal/modules/systemmonitor/proc_netdev_test.go`
+- `internal/modules/systemmonitor/fixtures/netdev_*`
+- `ui/qml/shell.qml`
+- `ui/qml/components/BackendClient.qml`
+
+### Acceptance criteria
+- Live RX/TX rates update in the UI.
+- Loopback interface (`lo`) is excluded from total network bandwidth.
+- `go test -race ./...`, `make ui-test`, and `make e2e-ui` pass.
+
+---
+
+## M14 — Battery and power monitoring
+
+### Purpose
+Add battery level, charging status, and power draw monitoring to `system_monitor`.
+
+### Scope
+- Read `/sys/class/power_supply` in `internal/modules/systemmonitor`: detect batteries (`BAT*`) and AC line status.
+- Gracefully handle desktop systems without batteries (report `present: false`).
+- Capture capacity percentage, charge/discharge status, and power consumption rate in watts.
+- Extend `system.getSnapshot` with `battery` payload and publish `battery` events.
+- UI: battery card/badge in `shell.qml` with charging state indicator.
+- Unit tests using a mock filesystem root.
+
+### Expected files/packages
+- `internal/modules/systemmonitor/sysfs_battery.go`
+- `internal/modules/systemmonitor/sysfs_battery_test.go`
+- `ui/qml/shell.qml`
+- `ui/qml/components/BackendClient.qml`
+
+### Acceptance criteria
+- Laptop systems display battery charge percent, state, and power rate; desktops cleanly hide or report absent battery without error.
+- All tests pass.
+
+---
+
+## M15 — Release v0.1.0
 
 ### Purpose
 Turn the work so far into a tagged, installable release and complete the package verification that M8 could not do without installing.
 
 ### Scope
 - Version `0.1.0` in `PKGBUILD` and the backend (already equal; `tests/packaging` enforces it).
-- Update `CHANGELOG.md` for the release; tick completed Phase 2 items in `ROADMAP.md` (CPU monitoring, RAM and swap monitoring).
+- Update `CHANGELOG.md` for the release; tick completed Phase 2 items in `ROADMAP.md`.
 - Tag `v0.1.0`, push, and create a GitHub release.
 - Set real checksums with `updpkgsums` and verify a clean build from the GitHub tag tarball.
 - Install and exercise the real package on the machine.
@@ -663,7 +754,7 @@ Turn the work so far into a tagged, installable release and complete the package
 - No self-updater.
 
 ### Prerequisites
-- M1 through M11 complete; all tests green.
+- M1 through M14 complete; all tests green.
 - A public GitHub repository exists.
 
 ### Implementation tasks
@@ -702,7 +793,7 @@ Turn the work so far into a tagged, installable release and complete the package
 ## Dependency graph
 
 ```
-M1 → M2 → M3 → M4 → M5 → M6 → M7 → M8 → M9 → M10 → M11 → M12
+M1 → M2 → M3 → M4 → M5 → M6 → M7 → M8 → M9 → M10 → M11 → M12 → M13 → M14 → M15
 ```
 
 Each milestone depends on all prior milestones. No milestone can begin until the previous one is complete, tested, reviewed, and committed.

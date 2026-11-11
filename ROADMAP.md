@@ -18,15 +18,16 @@
 - [x] A minimal working UI demonstrates the connection
 
 ## Phase 2 - System Monitoring
-First slice (M9-M12 in `MILESTONES.md`): event delivery, CPU, RAM and swap, UI, and the v0.1.0 release.
+System monitoring suite: event delivery, resource metrics, UI cards, and the v0.1.0 release.
 - [x] Event subscription and delivery (M9)
 - [x] CPU monitoring (M10, M11)
 - [x] RAM and swap monitoring (M10, M11)
-- [ ] GPU monitoring
-- [ ] Disk monitoring
-- [ ] Network monitoring
-- [ ] Battery and power monitoring
-- [ ] System alerts and history
+- [ ] Disk monitoring: filesystem storage and I/O throughput (M12)
+- [ ] Network monitoring: interface throughput and transfer rates (M13)
+- [ ] Battery and power monitoring: charge levels, status, and power draw (M14)
+- [ ] Release v0.1.0 (M15)
+- [ ] GPU monitoring (future Phase 2 milestone)
+- [ ] System alerts and history (requires storage / SQLite)
 
 ## Phase 3 - Window Management
 - [ ] Application switcher

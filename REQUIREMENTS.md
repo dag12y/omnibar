@@ -43,17 +43,21 @@ The Phase 1 minimum viable product is the core foundation that proves the archit
 - OS-level security sandboxing (future work)
 - External plugin/extension support (future work)
 
-## Phase 2 first slice (M9-M12)
+## Phase 2 System Monitoring (M9-M15)
 
-The first slice of Phase 2 adds live system monitoring on top of the Phase 1 foundation and ships the first release (v0.1.0):
+Phase 2 adds live system monitoring on top of the Phase 1 foundation and prepares the first release (v0.1.0):
 
 1. The backend can push events to subscribed UI clients (ADR-0009).
-2. A built-in `system_monitor` module reports CPU, memory, and swap (ADR-0010).
+2. A built-in `system_monitor` module reports system metrics (ADR-0010):
+   - CPU, memory, and swap (M10, M11)
+   - Disk space and I/O rates (M12)
+   - Network throughput and interface transfer rates (M13)
+   - Battery level, state, and power consumption (M14)
 3. The module is gated by the `system.info` permission and fails closed without it.
 4. The UI shows live values, marks them stale when offline, and explains denied or unavailable states.
-5. The package installs, runs as a systemd user service, and the UI connects (verified on a real install).
+5. The package installs, runs as a systemd user service, and the UI connects (M15 release verification).
 
-### Phase 2 first-slice acceptance criteria
+### Phase 2 acceptance criteria
 
 - A client that subscribes to a module receives its events; a client that does not, receives none.
 - A slow or stuck client never delays the backend or other clients.
@@ -62,10 +66,10 @@ The first slice of Phase 2 adds live system monitoring on top of the Phase 1 fou
 - Idle backend (no subscribers) stays under 1% CPU and 20 MB RAM.
 - The UI keeps working with the backend absent, restarting, or denying access.
 
-### Phase 2 first-slice non-goals
+### Phase 2 non-goals
 
 - Metric history, graphs over time, and alerts (need SQLite; decided with ADR-0006).
-- GPU, disk, network, and battery monitoring (later Phase 2 work, same module and capability).
+- GPU monitoring (deferred to later Phase 2 work due to vendor-specific tooling).
 - Per-process data and process management (`process.manage`, Phase 8).
 - Event replay or persistence.
 - OPR publication (separate, needs maintainer acceptance).
