@@ -18,6 +18,14 @@ log_level = "info"
   [modules.core]
   enabled = true
 
+  # System monitor: CPU, memory, and swap.
+  # interval_ms is the sampling interval in milliseconds (default 2000,
+  # valid range 500-60000). Sampling only runs while a client is
+  # subscribed, so idle cost is near zero.
+  [modules.system_monitor]
+  enabled = true
+  interval_ms = 2000
+
 # Permissions granted to modules.
 #
 # Permissions are quoted dotted strings because TOML bare keys cannot

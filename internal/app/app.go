@@ -20,6 +20,7 @@ import (
 	"omnibar/internal/logging"
 	"omnibar/internal/modules"
 	"omnibar/internal/modules/core"
+	"omnibar/internal/modules/systemmonitor"
 )
 
 // Backend is a running Omnibar backend: the IPC server plus its module
@@ -127,6 +128,18 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 		logger.Error("register built-in module", "module", core.Name, "error", err)
 		return nil, fmt.Errorf("register built-in module %q: %w", core.Name, err)
 	}
+
+	// Create the event hub before registering modules that publish events.
+	hub := events.New(logger)
+
+	// Register the system_monitor module. It declares the system.info
+	// capability and publishes cpu/memory events while subscribed.
+	sm := systemmonitor.New(cfg.Modules[systemmonitor.Name], logger, hub)
+	if err := registry.Register(sm); err != nil {
+		logger.Error("register built-in module", "module", systemmonitor.Name, "error", err)
+		return nil, fmt.Errorf("register built-in module %q: %w", systemmonitor.Name, err)
+	}
+
 	for name := range cfg.Modules {
 		if _, ok := registry.Info(name); !ok {
 			logger.Warn("configuration references unknown module", "module", name)
@@ -151,13 +164,13 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 		"permissions", len(cfg.Permissions),
 	)
 
-	// Create the JSON-RPC dispatcher and register the handshake and
-	// module status methods.
-	hub := events.New(logger)
+	// Create the JSON-RPC dispatcher and register the handshake, module
+	// status, event, and system methods.
 	dispatcher := jsonrpc.NewDispatcher()
 	ipc.RegisterHandshake(dispatcher, registry)
 	ipc.RegisterModuleMethods(dispatcher, registry)
 	ipc.RegisterEventMethods(dispatcher, registry, hub)
+	ipc.RegisterSystemMethods(dispatcher, registry, sm)
 
 	// Resolve IPC socket path.
 	socketPath, err := ipc.SocketPath()

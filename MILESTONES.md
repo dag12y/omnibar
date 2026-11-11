@@ -24,7 +24,7 @@ This document breaks the approved architecture into small, sequential, independe
 | M7 | End-to-end integration & verification | Backend + UI together, full handshake + request/response, graceful shutdown, integration tests | Done |
 | M8 | Packaging & systemd user service | PKGBUILD, omnibar.service, config.toml.example installation, local makepkg verification | Done |
 | M9 | Event subscription & delivery | Event hub, `module.subscribe`/`module.unsubscribe`, `module.event` push, slow-client policy, UI re-subscribe | Done |
-| M10 | System monitor module (CPU, memory, swap) | First real module and capability consumer; on-demand sampling; `system.getSnapshot` and events | Planned |
+| M10 | System monitor module (CPU, memory, swap) | First real module and capability consumer; on-demand sampling; `system.getSnapshot` and events | Done |
 | M11 | UI for system monitoring | Live CPU/memory/swap cards, stale/offline/denied states, reusable components | Planned |
 | M12 | Release v0.1.0 | Tag, release, real checksums, install verification | Planned |
 

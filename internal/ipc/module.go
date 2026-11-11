@@ -1,10 +1,12 @@
 package ipc
 
 import (
+	"context"
 	"encoding/json"
 
 	"omnibar/internal/ipc/jsonrpc"
 	"omnibar/internal/modules"
+	"omnibar/internal/modules/systemmonitor"
 )
 
 type moduleStatusParams struct {
@@ -70,5 +72,24 @@ func handleModuleGetStatus(params json.RawMessage, registry *modules.Registry) (
 func RegisterModuleMethods(d *jsonrpc.Dispatcher, registry *modules.Registry) {
 	d.Register("module.getStatus", func(params json.RawMessage) (json.RawMessage, *jsonrpc.Error) {
 		return handleModuleGetStatus(params, registry)
+	})
+}
+
+// RegisterSystemMethods registers system.* JSON-RPC methods, beginning with
+// system.getSnapshot (M10). It requires the system.info capability.
+func RegisterSystemMethods(d *jsonrpc.Dispatcher, registry *modules.Registry, sm *systemmonitor.Module) {
+	d.RegisterContext("system.getSnapshot", func(ctx context.Context, params json.RawMessage) (json.RawMessage, *jsonrpc.Error) {
+		if !registry.HasCapability(systemmonitor.Name, systemmonitor.Capability) {
+			return nil, jsonrpc.NewError(jsonrpc.CodePermissionDenied, "Permission denied: system.info", systemmonitor.Name)
+		}
+		snap := sm.Snapshot()
+		if snap == nil {
+			return nil, jsonrpc.NewError(jsonrpc.CodeInternalError, "Snapshot unavailable", systemmonitor.Name)
+		}
+		out, err := json.Marshal(snap)
+		if err != nil {
+			return nil, jsonrpc.NewError(jsonrpc.CodeInternalError, "marshal snapshot: "+err.Error(), systemmonitor.Name)
+		}
+		return out, nil
 	})
 }

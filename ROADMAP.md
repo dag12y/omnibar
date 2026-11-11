@@ -20,8 +20,8 @@
 ## Phase 2 - System Monitoring
 First slice (M9-M12 in `MILESTONES.md`): event delivery, CPU, RAM and swap, UI, and the v0.1.0 release.
 - [x] Event subscription and delivery (M9)
-- [ ] CPU monitoring (M10, M11)
-- [ ] RAM and swap monitoring (M10, M11)
+- [x] CPU monitoring (M10, M11)
+- [x] RAM and swap monitoring (M10, M11)
 - [ ] GPU monitoring
 - [ ] Disk monitoring
 - [ ] Network monitoring

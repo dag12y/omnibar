@@ -232,6 +232,78 @@ func TestConfigPathWithXDG(t *testing.T) {
 	}
 }
 
+func TestValidateIntervalMsTooLow(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Modules["system_monitor"] = ModuleConfig{Enabled: true, IntervalMs: 100}
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected error for interval_ms below minimum")
+	}
+	if !contains(err.Error(), "interval_ms") {
+		t.Errorf("expected interval_ms error, got: %v", err)
+	}
+}
+
+func TestValidateIntervalMsTooHigh(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Modules["system_monitor"] = ModuleConfig{Enabled: true, IntervalMs: 99999}
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected error for interval_ms above maximum")
+	}
+	if !contains(err.Error(), "interval_ms") {
+		t.Errorf("expected interval_ms error, got: %v", err)
+	}
+}
+
+func TestValidateIntervalMsBoundariesAccepted(t *testing.T) {
+	for _, ms := range []int{0, 500, 2000, 60000} {
+		cfg := DefaultConfig()
+		cfg.Modules["system_monitor"] = ModuleConfig{Enabled: true, IntervalMs: ms}
+		if err := cfg.Validate(); err != nil {
+			t.Errorf("Validate() returned error for interval_ms=%d: %v", ms, err)
+		}
+	}
+}
+
+func TestLoadIntervalMs(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	content := `
+config_version = 1
+[modules]
+  [modules.system_monitor]
+  enabled = true
+  interval_ms = 1000
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+	mod, ok := cfg.Modules["system_monitor"]
+	if !ok {
+		t.Fatal("expected module system_monitor, not found")
+	}
+	if mod.IntervalMs != 1000 {
+		t.Errorf("IntervalMs = %d, want 1000", mod.IntervalMs)
+	}
+}
+
+func contains(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
 func TestPermissionsFailClosed(t *testing.T) {
 	// Missing permissions table → empty map → all denied.
 	p := Permissions{}

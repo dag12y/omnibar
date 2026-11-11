@@ -25,6 +25,16 @@ const (
 	// DefaultLogLevel is the log level applied when log_level is absent.
 	DefaultLogLevel = "info"
 
+	// DefaultIntervalMs is the default system monitor sampling interval
+	// in milliseconds when interval_ms is not configured.
+	DefaultIntervalMs = 2000
+
+	// MinIntervalMs is the smallest allowed sampling interval.
+	MinIntervalMs = 500
+
+	// MaxIntervalMs is the largest allowed sampling interval.
+	MaxIntervalMs = 60000
+
 	// configFileName is the name of the configuration file.
 	configFileName = "config.toml"
 
@@ -55,7 +65,8 @@ type CoreConfig struct {
 
 // ModuleConfig contains per-module settings.
 type ModuleConfig struct {
-	Enabled bool `toml:"enabled"`
+	Enabled    bool   `toml:"enabled"`
+	IntervalMs int    `toml:"interval_ms"`
 }
 
 // Permissions maps a quoted dotted permission name to its granted state.
@@ -124,6 +135,13 @@ func (c *Config) Validate() error {
 	for key := range c.Permissions {
 		if key == "" {
 			return fmt.Errorf("permission key must not be empty")
+		}
+	}
+
+	for name, mc := range c.Modules {
+		if mc.IntervalMs != 0 && (mc.IntervalMs < MinIntervalMs || mc.IntervalMs > MaxIntervalMs) {
+			return fmt.Errorf("module %q interval_ms %d: must be between %d and %d",
+				name, mc.IntervalMs, MinIntervalMs, MaxIntervalMs)
 		}
 	}
 
