@@ -16,8 +16,8 @@ func TestHandshakeAndCoreStatus(t *testing.T) {
 
 	c := dial(t, env.socketPath)
 	result := handshake(t, c)
-	if len(result.Modules) != 2 || result.Modules[0] != "core" || result.Modules[1] != "system_monitor" {
-		t.Fatalf("handshake modules = %v, want [core system_monitor]", result.Modules)
+	if len(result.Modules) != 3 || result.Modules[0] != "core" || result.Modules[1] != "system_monitor" || result.Modules[2] != "keep_awake" {
+		t.Fatalf("handshake modules = %v, want [core system_monitor keep_awake]", result.Modules)
 	}
 
 	resp, raw := c.request("module.getStatus", map[string]string{"module": "core"})

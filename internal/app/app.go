@@ -20,6 +20,7 @@ import (
 	"omnibar/internal/logging"
 	"omnibar/internal/modules"
 	"omnibar/internal/modules/core"
+	"omnibar/internal/modules/keepawake"
 	"omnibar/internal/modules/systemmonitor"
 )
 
@@ -140,6 +141,11 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 		return nil, fmt.Errorf("register built-in module %q: %w", systemmonitor.Name, err)
 	}
 
+	awake := keepawake.New(hub, nil)
+	if err := registry.Register(awake); err != nil {
+		return nil, fmt.Errorf("register keep awake: %w", err)
+	}
+
 	for name := range cfg.Modules {
 		if _, ok := registry.Info(name); !ok {
 			logger.Warn("configuration references unknown module", "module", name)
@@ -171,6 +177,7 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 	ipc.RegisterModuleMethods(dispatcher, registry)
 	ipc.RegisterEventMethods(dispatcher, registry, hub)
 	ipc.RegisterSystemMethods(dispatcher, registry, sm)
+	ipc.RegisterKeepAwakeMethods(dispatcher, registry, awake)
 
 	// Resolve IPC socket path.
 	socketPath, err := ipc.SocketPath()

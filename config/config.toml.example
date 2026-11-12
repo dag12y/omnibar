@@ -26,6 +26,9 @@ log_level = "info"
   enabled = true
   interval_ms = 2000
 
+[modules.keep_awake]
+enabled = true
+
 # Permissions granted to modules.
 #
 # Permissions are quoted dotted strings because TOML bare keys cannot
@@ -39,6 +42,8 @@ log_level = "info"
 # [permissions] table grants no permissions at all.
 [permissions]
 "system.info" = true
+# Allows explicitly requested, timed idle/sleep inhibition.
+"power.inhibit" = true
 "window.manage" = false
 "clipboard.read" = false
 "clipboard.write" = false
