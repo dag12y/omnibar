@@ -16,3 +16,5 @@ MixerRow 1.0 MixerRow.qml
 OutputPicker 1.0 OutputPicker.qml
 DevicePicker 1.0 DevicePicker.qml
 MicrophonePage 1.0 MicrophonePage.qml
+ClipboardController 1.0 ClipboardController.qml
+ClipboardPage 1.0 ClipboardPage.qml

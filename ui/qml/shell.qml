@@ -62,6 +62,11 @@ ShellRoot {
         client: client
         active: root.opened && root.page === "audio"
     }
+    ClipboardController {
+        id: history
+        client: client
+        active: root.opened && root.page === "clipboard"
+    }
     // A separate mapped surface keeps display-idle inhibition alive when the
     // dashboard is hidden. It takes no keyboard focus or pointer input.
     PanelWindow {
@@ -90,6 +95,10 @@ ShellRoot {
     }
     IpcHandler {
         target: "panel"
+        function showClipboard(): void {
+            root.page = "clipboard";
+            root.opened = true;
+        }
         function showMicrophone(): void {
             root.page = "audio";
             root.opened = true;
@@ -102,7 +111,7 @@ ShellRoot {
             root.opened = true;
         }
         function selectPage(name: string): void {
-            if (name === "system" || name === "audio")
+            if (name === "system" || name === "audio" || name === "clipboard")
                 root.page = name;
         }
         function hide(): void {
@@ -178,7 +187,7 @@ ShellRoot {
                                     font.weight: Font.DemiBold
                                 }
                                 Text {
-                                    text: root.page === "audio" ? "YOUR SOUND, YOUR CONTROL" : "YOUR SYSTEM, AT A GLANCE"
+                                    text: root.page === "audio" ? "YOUR SOUND, YOUR CONTROL" : root.page === "clipboard" ? "COPIED, KEPT WITHIN REACH" : "YOUR SYSTEM, AT A GLANCE"
                                     color: Theme.muted
                                     font.pixelSize: 9
                                     font.letterSpacing: 1
@@ -210,6 +219,32 @@ ShellRoot {
                                 description: "Show audio mixer"
                                 onClicked: root.page = "audio"
                             }
+                            PanelButton {
+                                Layout.fillWidth: true
+                                text: "Clipboard"
+                                selected: root.page === "clipboard"
+                                description: "Show clipboard history"
+                                onClicked: root.page = "clipboard"
+                            }
+                        }
+                        ClipboardPage {
+                            visible: root.page === "clipboard"
+                            Layout.fillWidth: true
+                            snapshot: history.snapshot
+                            state: history.state
+                            busy: history.busy
+                            errorText: history.errorText
+                            onCollectionRequested: collecting => history.request("clipboard.setCollecting", {
+                                    collecting: collecting
+                                })
+                            onCopyRequested: id => history.request("clipboard.copy", {
+                                    id: id
+                                })
+                            onDeleteRequested: id => history.request("clipboard.delete", {
+                                    id: id
+                                })
+                            onClearRequested: history.request("clipboard.clear")
+                            onRefreshRequested: history.request("clipboard.getSnapshot")
                         }
                         AudioPage {
                             id: audioPage
@@ -383,7 +418,7 @@ ShellRoot {
                                 color: root.stale ? Theme.muted : Theme.accent
                             }
                             Text {
-                                text: !client.backendConnected ? "Offline" : root.page === "audio" ? (audio.state === "ready" ? "Audio connected" : "Audio " + audio.state) : root.state === "fresh" ? "Live monitoring" : "Waiting for metrics"
+                                text: !client.backendConnected ? "Offline" : root.page === "audio" ? (audio.state === "ready" ? "Audio connected" : "Audio " + audio.state) : root.page === "clipboard" ? "Session clipboard history" : root.state === "fresh" ? "Live monitoring" : "Waiting for metrics"
                                 color: Theme.muted
                                 font.pixelSize: 10
                                 Layout.fillWidth: true
