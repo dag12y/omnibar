@@ -46,7 +46,8 @@ Item {
         pendingId = client.nextRequestId++;
         pendingMethod = method;
         busy = true;
-        errorText = "";
+        if (method !== "clipboard.getSnapshot")
+            errorText = "";
         client.socket.write(Protocol.buildRequest(pendingId, method, params || {}) + "\n");
         client.socket.flush();
         timeout.restart();
@@ -115,6 +116,8 @@ Item {
                 if (parsed.result && parsed.result.revision >= root.revision) {
                     root.revision = parsed.result.revision;
                     root.snapshot = parsed.result;
+                    if (root.state !== "ready")
+                        root.errorText = "";
                     root.state = "ready";
                 }
                 if (root.queue.length > 0) {

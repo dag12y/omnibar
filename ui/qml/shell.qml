@@ -237,6 +237,10 @@ ShellRoot {
                             onCollectionRequested: collecting => history.request("clipboard.setCollecting", {
                                     collecting: collecting
                                 })
+                            onFavoriteRequested: (id, favorite) => history.request("clipboard.setFavorite", {
+                                    id: id,
+                                    favorite: favorite
+                                })
                             onCopyRequested: id => history.request("clipboard.copy", {
                                     id: id
                                 })
@@ -418,7 +422,7 @@ ShellRoot {
                                 color: root.stale ? Theme.muted : Theme.accent
                             }
                             Text {
-                                text: !client.backendConnected ? "Offline" : root.page === "audio" ? (audio.state === "ready" ? "Audio connected" : "Audio " + audio.state) : root.page === "clipboard" ? "Session clipboard history" : root.state === "fresh" ? "Live monitoring" : "Waiting for metrics"
+                                text: !client.backendConnected ? "Offline" : root.page === "audio" ? (audio.state === "ready" ? "Audio connected" : "Audio " + audio.state) : root.page === "clipboard" ? "Clipboard · recent and saved" : root.state === "fresh" ? "Live monitoring" : "Waiting for metrics"
                                 color: Theme.muted
                                 font.pixelSize: 10
                                 Layout.fillWidth: true

@@ -13,9 +13,12 @@ ColumnLayout {
     property string state: "pending"
     property string errorText: ""
     property bool busy: false
+    property bool favoritesOnly: false
+    readonly property int favoriteCount: (snapshot.entries || []).filter(entry => entry.favorite === true).length
     readonly property bool ready: state === "ready"
     signal collectionRequested(bool collecting)
     signal copyRequested(string entryId)
+    signal favoriteRequested(string entryId, bool favorite)
     signal deleteRequested(string entryId)
     signal clearRequested
     signal refreshRequested
@@ -25,7 +28,7 @@ ColumnLayout {
     }
     function syncRows() {
         const query = search.text.toLowerCase();
-        const wanted = (snapshot.entries || []).filter(entry => entry.text.toLowerCase().includes(query));
+        const wanted = (snapshot.entries || []).filter(entry => (!favoritesOnly || entry.favorite === true) && entry.text.toLowerCase().includes(query));
         for (let i = entries.count - 1; i >= 0; i--)
             if (!wanted.some(entry => entry.id === entries.get(i).entryId))
                 entries.remove(i);
@@ -40,7 +43,8 @@ ColumnLayout {
             const row = {
                 entryId: entry.id,
                 preview: Array.from(entry.text).slice(0, 500).join(""),
-                copiedAt: entry.copied_at
+                copiedAt: entry.copied_at,
+                favorite: entry.favorite === true
             };
             if (current < 0)
                 entries.insert(i, row);
@@ -52,6 +56,7 @@ ColumnLayout {
         }
     }
     onSnapshotChanged: syncRows()
+    onFavoritesOnlyChanged: syncRows()
     Component.onCompleted: syncRows()
     RowLayout {
         Layout.fillWidth: true
@@ -64,7 +69,7 @@ ColumnLayout {
                 font.weight: Font.DemiBold
             }
             Text {
-                text: "Copied text, kept for this session"
+                text: "Recent copies and saved favorites"
                 color: Theme.muted
                 font.pixelSize: 11
             }
@@ -81,8 +86,8 @@ ColumnLayout {
     }
     Text {
         Layout.fillWidth: true
-        visible: !root.ready || root.errorText.length > 0 || !!root.snapshot.error
-        text: root.state === "denied" ? "Enable clipboard.read in your Omnibar config and restart the backend." : root.state === "disabled" ? "Clipboard history is disabled in your config." : root.state === "offline" ? "Backend unavailable. Reconnecting…" : root.errorText || root.snapshot.error || "Loading clipboard history…"
+        visible: !root.ready || root.errorText.length > 0 || !!root.snapshot.error || !!root.snapshot.favorites_error
+        text: root.state === "denied" ? "Enable clipboard.read in your Omnibar config and restart the backend." : root.state === "disabled" ? "Clipboard history is disabled in your config." : root.state === "offline" ? "Backend unavailable. Reconnecting…" : root.errorText || root.snapshot.error || root.snapshot.favorites_error || "Loading clipboard history…"
         color: Theme.muted
         font.pixelSize: 12
         wrapMode: Text.WordWrap
@@ -109,7 +114,7 @@ ColumnLayout {
                 wrapMode: Text.WordWrap
             }
             Text {
-                text: "Kept in memory until Omnibar restarts. Collection continues when the panel is hidden."
+                text: "Recent copies stay for this session. Save favorite writes an item to disk for next time. Collection continues while hidden."
                 color: Theme.muted
                 font.pixelSize: 11
                 wrapMode: Text.WordWrap
@@ -128,11 +133,29 @@ ColumnLayout {
                 }
                 PanelButton {
                     objectName: "clearHistory"
-                    text: "Clear history"
-                    enabled: root.ready && (root.snapshot.entries || []).length > 0
+                    text: "Clear recent"
+                    enabled: root.ready && (root.snapshot.entries || []).some(entry => entry.favorite !== true)
                     onClicked: root.clearRequested()
                 }
             }
+        }
+    }
+    RowLayout {
+        Layout.fillWidth: true
+        PanelButton {
+            objectName: "allHistory"
+            text: "All copies"
+            selected: !root.favoritesOnly
+            onClicked: root.favoritesOnly = false
+        }
+        PanelButton {
+            objectName: "favoritesFilter"
+            text: "Favorites · " + root.favoriteCount
+            selected: root.favoritesOnly
+            onClicked: root.favoritesOnly = true
+        }
+        Item {
+            Layout.fillWidth: true
         }
     }
     TextField {
@@ -158,7 +181,7 @@ ColumnLayout {
     }
     Text {
         visible: root.ready && entries.count === 0
-        text: search.text ? "No matching copied text." : "Copied text will appear here after you start history."
+        text: search.text ? "No matching copied text." : root.favoritesOnly ? "Save a favorite to keep it here across restarts." : "Copied text will appear here after you start history."
         Layout.fillWidth: true
         wrapMode: Text.WordWrap
         color: Theme.muted
@@ -170,12 +193,13 @@ ColumnLayout {
             required property string entryId
             required property string preview
             required property string copiedAt
+            required property bool favorite
             objectName: "history-" + entryId
             Layout.fillWidth: true
             implicitHeight: item.implicitHeight + 24
             radius: 14
             color: Qt.alpha(Theme.surface, 0.55)
-            border.color: Theme.border
+            border.color: favorite ? Qt.alpha(Theme.accent, 0.55) : Theme.border
             ColumnLayout {
                 id: item
                 x: 12
@@ -195,10 +219,17 @@ ColumnLayout {
                 RowLayout {
                     Layout.fillWidth: true
                     Text {
-                        text: copiedAt ? Qt.formatTime(new Date(copiedAt), "hh:mm") : ""
+                        text: favorite ? "★ SAVED" : copiedAt ? Qt.formatTime(new Date(copiedAt), "hh:mm") : ""
                         color: Theme.muted
                         font.pixelSize: 10
                         Layout.fillWidth: true
+                    }
+                    PanelButton {
+                        objectName: "favoriteHistory"
+                        text: favorite ? "Unsave" : "Save favorite"
+                        description: favorite ? "Stop saving this item across restarts" : "Save this text to disk as a favorite"
+                        enabled: root.ready && root.snapshot.can_favorite === true
+                        onClicked: root.favoriteRequested(entryId, !favorite)
                     }
                     PanelButton {
                         objectName: "copyHistory"
@@ -209,8 +240,8 @@ ColumnLayout {
                     }
                     PanelButton {
                         objectName: "deleteHistory"
-                        text: "Delete"
-                        description: "Remove this history item"
+                        text: favorite ? "Remove" : "Delete"
+                        description: favorite ? "Remove this saved favorite from disk and history" : "Remove this history item"
                         enabled: root.ready
                         onClicked: root.deleteRequested(entryId)
                     }

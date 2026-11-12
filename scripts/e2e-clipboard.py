@@ -39,7 +39,7 @@ def main():
     env = dict(os.environ)
     env.update(
         XDG_RUNTIME_DIR=str(trial / "run"), XDG_CONFIG_HOME=str(trial / "config"),
-        XDG_STATE_HOME=str(trial / "state"), WAYLAND_DISPLAY=host_wayland,
+        XDG_STATE_HOME=str(trial / "state"), XDG_DATA_HOME=str(trial / "data"), WAYLAND_DISPLAY=host_wayland,
         AQ_DRM_DEVICES="/dev/null", HYPRLAND_NO_SD_VARS="1", HYPRLAND_NO_SD_NOTIFY="1",
         QT_QPA_PLATFORM="wayland", QT_QPA_PLATFORMTHEME="", QT_QUICK_CONTROLS_STYLE="Basic",
     )
@@ -140,13 +140,23 @@ def main():
         rpc("clipboard.setCollecting", dict(collecting=True))
         copy("Omnibar clipboard history\nText stays in memory for this session.")
         wait_until(lambda: any("Omnibar clipboard history" in entry["text"] for entry in snapshot()["entries"]), "resume did not collect")
+        saved_text = "Omnibar clipboard history\nText stays in memory for this session."
+        saved_id = next(entry["id"] for entry in snapshot()["entries"] if entry["text"] == saved_text)
+        rpc("clipboard.setFavorite", dict(id=saved_id, favorite=True))
+        assert snapshot()["entries"][0]["favorite"]
+        rpc("clipboard.clear")
+        assert len(snapshot()["entries"]) == 1
+        saved_file = trial / "data/omnibar/clipboard-favorites.json"
+        assert saved_file.stat().st_mode & 0o777 == 0o600
+        assert saved_file.parent.stat().st_mode & 0o777 == 0o700
+        print("PASS: explicit favorite save, private file permissions, and Clear recent preserves favorites")
         ui = launch("ui", "quickshell", "-p", qml)
         wait_until(lambda: "handshake complete" in (trial / "ui.log").read_text(), "UI did not connect")
         subprocess.run(["quickshell", "-p", qml, "ipc", "call", "--", "panel", "showClipboard"], env=env, check=True, stdout=subprocess.DEVNULL)
         time.sleep(0.3)
         subprocess.run(["quickshell", "-p", qml, "ipc", "call", "--", "panel", "hide"], env=env, check=True, stdout=subprocess.DEVNULL)
         copy("Copied while the panel is hidden")
-        wait_until(lambda: newest_is("text", "Copied while the panel is hidden"), "hidden UI stopped collection")
+        wait_until(lambda: any(entry["text"] == "Copied while the panel is hidden" for entry in snapshot()["entries"]), "hidden UI stopped collection")
         subprocess.run(["quickshell", "-p", qml, "ipc", "call", "--", "panel", "show"], env=env, check=True, stdout=subprocess.DEVNULL)
         print("PASS: real Clipboard page and hidden-panel collection")
         if args.capture:
@@ -168,8 +178,15 @@ def main():
         wait_until(path.exists, "backend did not restart")
         conn = socket.socket(socket.AF_UNIX); conn.settimeout(8); conn.connect(str(path))
         stream = conn.makefile("rwb", buffering=0)
-        assert not snapshot()["entries"] and not snapshot()["collecting"]
-        print("PASS: restart forgets history, starts paused, and preserves clipboard selection")
+        restored = snapshot()
+        assert not restored["collecting"] and len(restored["entries"]) == 1
+        assert restored["entries"][0]["text"] == saved_text and restored["entries"][0]["favorite"]
+        assert "Copied while the panel is hidden" not in saved_file.read_text()
+        rpc("clipboard.copy", dict(id=restored["entries"][0]["id"]))
+        assert paste() == saved_text
+        rpc("clipboard.delete", dict(id=restored["entries"][0]["id"]))
+        assert not snapshot()["entries"] and not json.loads(saved_file.read_text())["entries"]
+        print("PASS: restart restores only favorites, stays paused, and saved text can be copied and removed")
     finally:
         if stream:
             stream.close()
