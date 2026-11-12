@@ -172,3 +172,16 @@ copies remain session-only; saved favorites restore after upgrade/restart while
 collection stays paused. Package removal preserves user data. Back up this JSON
 file for favorites; it contains unencrypted saved text. Invalid saved data is
 reported and preserved. See [ADR-0016](../architecture/ADR-0016-clipboard-favorites.md).
+
+
+### File shelf dependency and grants
+
+M22 adds `xdg-utils` for directory opening. File shelf uses the existing
+`wl-clipboard` dependency to copy path text. All shelf access requires
+`filesystem.access`; copying additionally requires `clipboard.write`. The
+example leaves both false and enables the module without accessing user paths.
+Users set grants in their existing config and restart the backend; upgrades do
+not replace that config. References remain session-only. Clear/remove/package
+removal never remove originals. `make e2e-shelf` verifies synthetic files in a
+private Wayland environment and records opener arguments without opening a host
+file manager. See [ADR-0017](../architecture/ADR-0017-file-shelf.md).

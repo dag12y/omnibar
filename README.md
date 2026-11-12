@@ -28,7 +28,8 @@ network throughput, and battery status/power. The floating Quickshell dashboard
 uses the active Omarchy theme, live CPU/memory graphs, and expandable details.
 Timed Keep Awake, an audio mixer, microphone controls, and session clipboard
 history with saved favorites are also implemented. System, Audio, and Clipboard
-share the same panel. The v0.1.0 release verification is still pending.
+share the same panel alongside a session File shelf. The v0.1.0 release
+verification is still pending.
 
 Run the backend with `make run` and launch the panel with
 `quickshell -n -p ui/qml/shell.qml`. Click the CPU or memory card for details.
@@ -156,6 +157,35 @@ file with mode 0600 in a private directory. Up to 20 favorites and 32 KiB of
 favorite text are supported within the overall history limits. Save failures are
 shown without changing the item; invalid saved data is preserved and reported.
 See [favorites storage and protocol](docs/architecture/ADR-0016-clipboard-favorites.md).
+
+## File shelf
+
+Open **Files** to keep local files and folders within reach for this backend
+session. Under the existing `[permissions]` section in
+`~/.config/omnibar/config.toml`, set `"filesystem.access" = true`, then restart
+`omnibar.service`. Copy path additionally uses your existing `clipboard.write`
+grant. The example keeps both grants false.
+
+Enter an absolute path (such as `/home/you/Documents/notes.pdf`) or drop local
+files/folders onto the drop zone. Local `file:///` URLs also work. Search by name
+or path, use **Open folder** to open a directory or a file's containing folder,
+and **Copy path** for its exact absolute path. Copy path copies text; it does not
+copy a file payload for pasting into a file manager. **Remove** and **Clear shelf**
+only remove references. Originals remain in place and backend restart clears
+the shelf.
+
+The shelf holds at most 50 items and 32 KiB of paths (4096 bytes per path).
+Re-adding a path moves it to the top without duplication. Missing files are
+marked unavailable, recover when the path returns, and remain removable. No
+file contents, persistent shelf, directory scans, or file transfers are included.
+Open folder requires `xdg-utils` and a configured desktop file manager.
+
+```sh
+quickshell -p /absolute/path/to/omnibar/ui/qml/shell.qml ipc call -- panel showFiles
+make e2e-shelf  # private nested Wayland session and synthetic files
+```
+
+See [File shelf design and protocol](docs/architecture/ADR-0017-file-shelf.md).
 
 ## Documentation
 

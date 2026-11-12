@@ -438,3 +438,29 @@ cover filtering, saved controls, clear enablement, and errors surviving polling.
 For invalid data, save controls are disabled; correct/restore the file and restart
 the backend. Recent collection remains available. See
 [ADR-0016](../architecture/ADR-0016-clipboard-favorites.md).
+
+
+## File shelf (M22)
+
+Enable `filesystem.access` in the existing `[permissions]` table of your Omnibar
+config, restart the backend, and select Files. Add an absolute path/local file URL
+or drop file URLs onto the box. Copy path additionally requires `clipboard.write`.
+The module stores references and metadata in memory only, with no content reads,
+recursive scans, file transfers, or changes to originals. Clear/remove/restart
+only drop references; missing paths remain removable and recover when restored.
+
+```sh
+make e2e-shelf
+python3 scripts/e2e-clipboard.py --shelf --capture
+quickshell -p "$PWD/ui/qml/shell.qml" ipc call -- panel showFiles
+```
+
+The shelf test reuses the private nested Wayland/config/data environment and
+clipboard checks. Synthetic files exercise URI decoding, batches, stable IDs,
+real copy-path, unavailable/recovery, preservation, and restart reset. A private
+`xdg-open` shim records the directory argument instead of launching a host file
+manager. Normal desktop clipboard contents and user files are untouched. The
+optional image is `files.png` in the printed artifact directory. QML tests cover
+copy-only drop handling and URL submission; manually verify native file-manager
+pointer delivery and your desktop opener. `xdg-utils` is a runtime dependency.
+See [ADR-0017](../architecture/ADR-0017-file-shelf.md).

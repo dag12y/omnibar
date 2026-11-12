@@ -36,6 +36,7 @@ This document breaks the approved architecture into small, sequential, independe
 | M19 | Microphone controls and recording apps | Default input, gain/mute, capture metadata, Microphone view, isolated virtual-mic verification | Done |
 | M20 | Session clipboard history | Explicit collection, bounded text history, search/copy/delete/clear, separate grants, nested Wayland verification | Done |
 | M21 | Clipboard favorites | Explicit bounded persistence, protected favorites, filter, restore, and removal | Done |
+| M22 | Session File shelf | Local references, URL drops/path input, search, open folder, copy path, and missing-item recovery | Done |
 
 ---
 
@@ -923,3 +924,19 @@ history stays usable. Existing read/write grants are unchanged; startup remains
 paused. Go race/permission/storage tests, 94 QML tests, and private nested Wayland
 restart/copy/removal checks verify the increment. See
 [ADR-0016](docs/architecture/ADR-0016-clipboard-favorites.md).
+
+
+## M22 — Session File shelf (implemented)
+
+Adds a static `file_shelf` module and Files page with explicit path/URL input,
+copy-only drop handling, search, metadata/status, Open folder, Copy path,
+Remove, and Clear shelf. References are memory-only and bounded to 50 entries,
+4096 bytes/path, and 32 KiB total paths. Original contents stay unchanged; batch
+validation is atomic and missing paths recover without losing row identity.
+Every method requires `filesystem.access`; copy additionally requires
+`clipboard.write`. Shared visible-only snapshot requests support independent
+clipboard/file-shelf permissions. Go race/permission/bounds tests, 109 QML tests,
+private nested Wayland copy/lifecycle checks, and recorded folder-opener
+arguments verify the increment. Native file-manager drag delivery still needs
+manual verification. Persistence and file transfer operations remain deferred.
+See [ADR-0017](docs/architecture/ADR-0017-file-shelf.md).

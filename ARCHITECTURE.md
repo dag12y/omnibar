@@ -142,7 +142,8 @@ Registered → Initialized → Started → Running → Stopped → Disposed
 
 ### Current shipped utility modules
 
-`system_monitor`, `keep_awake`, `audio`, and `clipboard` are static in-process Go modules.
+`system_monitor`, `keep_awake`, `audio`, `clipboard`, and `file_shelf` are static
+in-process Go modules.
 System sampling and audio watching follow client demand; Keep Awake owns an
 explicit timed lease independently of visible pages. Audio uses short `pactl`
 commands and a cancellable `pactl subscribe` child process against PipeWire's
@@ -164,6 +165,12 @@ separate-service clipboard path for this increment. See
 [ADR-0015](docs/architecture/ADR-0015-clipboard-history.md). Explicitly saved
 favorites extend it in [ADR-0016](docs/architecture/ADR-0016-clipboard-favorites.md),
 using bounded private JSON, atomic replacement, and no ordinary-history persistence.
+
+The File shelf holds bounded session path references under `filesystem.access`,
+with separate `clipboard.write` checks for path copying. Visible snapshot polls
+refresh metadata; explicit actions invoke wl-copy or a directory-only xdg-open
+adapter. Clipboard and shelf share a frontend snapshot controller without sharing
+backend state. See [ADR-0017](docs/architecture/ADR-0017-file-shelf.md).
 
 ### Inter-module communication
 
@@ -394,7 +401,8 @@ omnibar/
 │   │   ├── ADR-0013-stream-routing.md
 │   │   ├── ADR-0014-microphone-controls.md
 │   │   ├── ADR-0015-clipboard-history.md
-│   │   └── ADR-0016-clipboard-favorites.md
+│   │   ├── ADR-0016-clipboard-favorites.md
+│   │   └── ADR-0017-file-shelf.md
 │   ├── development/
 │   └── features/
 ├── internal/

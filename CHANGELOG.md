@@ -6,6 +6,9 @@ All notable changes will be documented here.
 
 ### Added
 
+- Session File shelf with path/URL additions, copy-only drop handling, search, folder opening, path copy, and removal; ADR-0017.
+- Files navigation and `panel showFiles`, filesystem/clipboard grants, unavailable-path recovery, shared visible snapshot controller, and xdg-utils dependency.
+- `make e2e-shelf` for private Wayland copy-path, recorded opener arguments, untouched originals, and session reset; Go/QML coverage.
 - Clipboard favorites: explicit Save/Unsave, protected saved entries, Favorites filter, private atomic JSON, restart restore, and Remove; ADR-0016.
 - Storage rollback, corrupt-file preservation, bounded favorites tests, and nested Wayland restore/copy/removal verification.
 - Session-only clipboard history with explicit Start/Pause, local search, exact copy-back, Delete, and Clear.

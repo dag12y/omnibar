@@ -176,3 +176,22 @@ Phase 2 adds live system monitoring on top of the Phase 1 foundation and prepare
 - Display saved badges, a Favorites filter, local search, and storage errors.
 - Use isolated data directories and synthetic text for tests; no full persistent
   clipboard history or encrypted storage is introduced.
+
+
+## File shelf increment (implemented)
+
+- Hold explicit session references to local regular files and directories,
+  accepting absolute paths or local file URLs and copy-only URL drops.
+- Validate batches atomically, retain stable IDs on duplicate/reordered paths,
+  and reject remote, unsupported, malformed, or missing add targets.
+- Bound references to 50 entries, 4096 bytes/path, and 32 KiB total path bytes.
+- Show name/path/type/size and unavailable status; recover when paths return.
+- Search locally, open containing folders, copy exact paths, remove references,
+  and clear the shelf without modifying or reading original contents.
+- Gate all methods with `filesystem.access`, copy with `clipboard.write` too;
+  keep example grants false and reject access before filesystem/desktop calls.
+- Clear references on backend shutdown and frontend caches on hide/disconnect;
+  refresh metadata only while visible. No recursive scans or file watchers.
+- Verify with synthetic files/private Wayland, fake opener arguments, and
+  permission/UI tests. Persistent shelf, file payload copying, drag-out, and
+  destructive file operations remain deferred.
