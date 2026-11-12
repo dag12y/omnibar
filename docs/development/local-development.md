@@ -311,3 +311,40 @@ prints the temporary log directory. The regular Go/QML tests use fake leases.
 For live IPC, use `keepAwake.getStatus`, `keepAwake.start` with
 `{"seconds":900}`, and `keepAwake.stop`. API durations range from 1 to 86400
 seconds. See [ADR-0011](../architecture/ADR-0011-keep-awake.md).
+
+
+## Playback audio mixer
+
+Select **Audio** in the panel, or call
+`quickshell -p ui/qml/shell.qml ipc call -- panel selectPage audio`.
+Grant `"audio.control" = true` in `[permissions]` and restart the backend.
+`[modules.audio] enabled = false` disables this module. Reading, subscribing,
+and actions all require the grant; without it, no audio commands are started.
+
+The module uses `pactl` (`libpulse` on Arch) and `pipewire-pulse`. Verify the
+existing service with `pactl info`. Rows represent playback streams, so an app
+can have multiple rows or disappear when it closes its stream. Paused streams
+can remain listed. Set a row's volume/mute, or select the default output. The
+output selector does not implement explicit per-app routing: movement of
+existing streams follows WirePlumber/session-manager policy.
+
+Updates are event-driven with a three-second resync while subscribed. Hiding
+Audio or switching to System stops this client's audio demand. A missing audio
+service shows unavailable state and retries automatically; the Go backend and
+other features remain available. A failed action leaves an error with Refresh.
+Normal playback is never modified merely by opening Audio.
+
+`make e2e-audio` builds the backend and runs a real UI test against isolated
+PipeWire core/pulse services, WirePlumber's policy-only profile, virtual outputs,
+and a silent stream. It checks volume/mute, default selection, output and stream
+removal, pulse/core restarts, and hide/show demand. It needs Python 3, `pactl`,
+`pacat`, `pipewire`, `pipewire-pulse`, `wireplumber`, `quickshell`, and `hyprctl`.
+It never restarts the user's audio stack or changes real playback/output devices.
+Run `python3 scripts/e2e-audio.py --capture` after building to additionally save
+a cropped panel screenshot (requires `grim`). Artifacts/logs are under `/tmp`.
+Physical Bluetooth reconnection still needs hardware verification; the isolated
+hotplug test verifies the device-list path with virtual outputs.
+
+RPC examples and the snapshot/event schema are in
+[ADR-0012](../architecture/ADR-0012-audio-mixer.md). No levels or device preferences
+are persisted by Omnibar; the audio server/session manager owns that behavior.

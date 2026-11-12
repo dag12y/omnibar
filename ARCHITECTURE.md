@@ -140,6 +140,17 @@ Registered → Initialized → Started → Running → Stopped → Disposed
 - The core detects exit via `waitpid`/exit channel and restarts with exponential backoff.
 - A crashing service cannot corrupt core memory.
 
+### Current shipped utility modules
+
+`system_monitor`, `keep_awake`, and `audio` are static in-process Go modules.
+System sampling and audio watching follow client demand; Keep Awake owns an
+explicit timed lease independently of visible pages. Audio uses short `pactl`
+commands and a cancellable `pactl subscribe` child process against PipeWire's
+PulseAudio compatibility service. Its snapshots, actions, permissions, retries,
+and UI behavior are specified in [ADR-0012](docs/architecture/ADR-0012-audio-mixer.md).
+This is the implemented audio path; a separate supervised audio service remains
+a possible future design. Keep Awake is described in [ADR-0011](docs/architecture/ADR-0011-keep-awake.md).
+
 ### Inter-module communication
 
 All inter-module communication goes through the core (hub-and-spoke). Module A → Core → Module B. No direct module-to-module references, keeping modules decoupled.
@@ -196,7 +207,7 @@ This framing prevents unbounded memory growth from a malformed or malicious send
 
 **Notification (backend → UI, no `id`):**
 ```json
-{"jsonrpc":"2.0","method":"module.event","params":{"module":"audio","event":"volume_changed","data":{"volume":45}}}
+{"jsonrpc":"2.0","method":"module.event","params":{"module":"audio","event":"snapshot","data":{"revision":1,"available":true,"default_output":"","outputs":[],"streams":[]}}}
 ```
 
 ### Connection lifecycle
@@ -363,7 +374,9 @@ omnibar/
 │   │   ├── ADR-0007-permissions-security.md
 │   │   ├── ADR-0008-packaging-updates.md
 │   │   ├── ADR-0009-event-subscription.md
-│   │   └── ADR-0010-system-monitor.md
+│   │   ├── ADR-0010-system-monitor.md
+│   │   ├── ADR-0011-keep-awake.md
+│   │   └── ADR-0012-audio-mixer.md
 │   ├── development/
 │   └── features/
 ├── internal/

@@ -59,3 +59,13 @@ Relevant source locations (relative to upstream):
 
 The macOS app cannot be validated or run on this Linux host. This checkout is
 for source and screenshot inspection; no upstream build scripts were executed.
+
+
+## Audio follow-up (2026-11-12)
+
+Reviewed `UI/MenuPanel/MixerSection.swift`, including app identity, percentage,
+slider, mute, reset, and output controls. Omnibar now independently implements
+playback-stream volume/mute and default output selection using PipeWire's Pulse
+compatibility layer, with a separate Audio page. Boost, grouping, reset controls,
+and per-app output routing remain outside this increment. See
+[ADR-0012](../architecture/ADR-0012-audio-mixer.md).

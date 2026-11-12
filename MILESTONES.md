@@ -1,6 +1,6 @@
 # Omnibar Implementation Milestone Plan
 
-This document breaks the approved architecture into small, sequential, independently verifiable implementation milestones. It is a planning document only — no implementation code, Go module, or dependencies are introduced here. M1–M8 form Phase 1 (core foundation) and are complete. M9–M15 implement Phase 2 (system monitoring: CPU, RAM, swap, disk, network, battery) and conclude with the v0.1.0 release.
+This document breaks the approved architecture into small, sequential, independently verifiable implementation milestones. It records both planned work and verified implementation progress. M1–M8 form Phase 1 (core foundation) and are complete. M9–M15 implement Phase 2 (system monitoring: CPU, RAM, swap, disk, network, battery) and conclude with the v0.1.0 release.
 
 ## Conventions
 
@@ -28,8 +28,10 @@ This document breaks the approved architecture into small, sequential, independe
 | M11 | UI for system monitoring | Live CPU/memory/swap cards, stale/offline/denied states, reusable components | Done |
 | M12 | Disk monitoring (filesystem storage & I/O) | /proc/diskstats and Statfs, disk snapshot & events, UI disk card | Done |
 | M13 | Network monitoring (interfaces & transfer rates) | /proc/net/dev parser, bandwidth deltas, network snapshot & events, UI network card | Done |
-| M14 | Battery and power monitoring | sysfs power_supply reader, charge level, status, battery snapshot & events, UI battery card | Planned |
+| M14 | Battery and power monitoring | sysfs power_supply reader, charge level, status, battery snapshot & events, UI battery card | Done |
 | M15 | Release v0.1.0 | Tag, release, real checksums, install verification | Planned |
+| M16 | Panel usability and Keep Awake | Keyboard controls, bounded scrolling, visibility-aware monitoring, timed logind/Wayland inhibition | Done |
+| M17 | Playback audio mixer | PipeWire compatibility adapter, volume/mute, default output, Audio page, isolated service-recovery checks | Done |
 
 ---
 
@@ -851,3 +853,16 @@ A repeatable local development workflow:
 - No architecture decisions were silently changed.
 
 This plan is ready for review before implementation begins.
+
+
+## M16 and M17 — Implemented utility increments before release
+
+These user-requested increments landed before M15 release work. M16 adds panel
+keyboard/scrolling behavior, demand-aware system sampling, and timed Keep Awake
+([ADR-0011](docs/architecture/ADR-0011-keep-awake.md)). M17 adds playback-stream
+volume/mute, default-output selection, System/Audio navigation, live updates,
+and audio-service recovery ([ADR-0012](docs/architecture/ADR-0012-audio-mixer.md)).
+Go unit/integration and race tests, QML tests, real UI lifecycle checks, and an
+isolated audio-stack smoke test cover these increments. Per-app output routing,
+master-output volume, microphone controls, volume boost, and persistent app
+levels are not part of M17. M15 remains pending until release/install verification.

@@ -9,6 +9,7 @@ rollbacks.
 | Path | Purpose |
 |------|---------|
 | `/usr/bin/omnibar` | Go backend |
+| `/usr/bin/omnibar-toggle` | Toggle the panel or launch it if absent |
 | `/usr/bin/omnibar-ui` | Launcher: `quickshell -n -p /usr/share/omnibar/qml/shell.qml` |
 | `/usr/lib/systemd/user/omnibar.service` | Per-user backend service (not a template unit) |
 | `/usr/share/omnibar/qml/` | Quickshell UI (`shell.qml`, `components/`) |
@@ -27,9 +28,14 @@ The UI is launched with `quickshell -p` and an absolute path rather than
 stops a stray `~/.config/quickshell/omnibar` from shadowing the packaged UI. It
 is also how Omarchy launches its own shell (`/usr/share/omarchy/shell`).
 
-Runtime dependencies are `quickshell`, `qt6-declarative`, and `glibc`. The only
-build dependency is `go`. The Go module dependency (`BurntSushi/toml`) is
-downloaded in `prepare()` into `$srcdir`, so `makepkg` needs network access.
+Runtime dependencies are `quickshell`, `qt6-declarative`, `glibc`, `systemd`,
+`libpulse` (provides `pactl`), and `pipewire-pulse`. The audio module uses the
+user's existing PipeWire service and session manager. Installing Omnibar does
+not restart audio services or change output selection. The only build dependency
+is `go`. Go dependencies (`BurntSushi/toml` and `godbus/dbus/v5`) are downloaded
+in `prepare()` into `$srcdir`, so `makepkg` needs network access. Existing user
+configs are preserved: add an `audio.control` grant explicitly after upgrading
+if it is absent/false, then restart the backend.
 
 ## Build a package from your working tree
 

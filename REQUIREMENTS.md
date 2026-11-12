@@ -68,7 +68,7 @@ Phase 2 adds live system monitoring on top of the Phase 1 foundation and prepare
 
 ### Phase 2 non-goals
 
-- Metric history, graphs over time, and alerts (need SQLite; decided with ADR-0006).
+- Persistent metric history and alerts (need storage; decided with ADR-0006). Live in-memory CPU/memory graphs are implemented.
 - GPU monitoring (deferred to later Phase 2 work due to vendor-specific tooling).
 - Per-process data and process management (`process.manage`, Phase 8).
 - Event replay or persistence.
@@ -96,3 +96,20 @@ Phase 2 adds live system monitoring on top of the Phase 1 foundation and prepare
 - Local-first by default.
 - No unnecessary telemetry.
 - No collection of personal data without consent.
+
+
+## Playback audio increment (implemented)
+
+- The Audio page lists current playback streams with app/media identity and icons
+  when available; distinct streams remain independently controllable.
+- Users can set volume from 0–100%, mute/unmute, and select a default playback
+  output. Pointer volume changes commit on release; keyboard steps work.
+- `audio.control` is required for reading, subscribing, and changing audio.
+  Missing grants fail closed; disabled modules cannot contact the audio service.
+- Stream/device creation and removal update the UI. An audio service restart
+  recovers without restarting Omnibar. Unavailable/empty/offline states are clear.
+- Background watching stops when no clients subscribe. Switching pages pauses
+  the previous page's demand; active Keep Awake sessions continue independently.
+- Automated tests use isolated drivers/services and do not change normal playback.
+- Per-app output routing, grouped app controls, microphone controls, master-output
+  volume, boost, and persistent app levels remain future work.
