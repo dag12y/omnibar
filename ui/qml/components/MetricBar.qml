@@ -30,7 +30,7 @@ Item {
         MetricIcon {
             name: root.iconName
             size: 15
-            color: root.stale ? "#7b8291" : "#e7ebf2"
+            color: root.stale ? Theme.muted : Theme.foreground
             Layout.alignment: Qt.AlignVCenter
         }
 
@@ -44,7 +44,7 @@ Item {
 
                 Text {
                     text: root.label
-                    color: root.stale ? "#7b8291" : "#c5ccd6"
+                    color: root.stale ? Theme.muted : Theme.foreground
                     font.pixelSize: 12
                     font.weight: Font.Medium
                 }
@@ -53,7 +53,7 @@ Item {
 
                 Text {
                     text: root.value
-                    color: root.stale ? "#8b93a3" : "#f4f6f8"
+                    color: root.stale ? Theme.muted : Theme.foreground
                     font.pixelSize: 12
                     font.weight: Font.DemiBold
                     horizontalAlignment: Text.AlignRight
@@ -65,7 +65,7 @@ Item {
             Text {
                 visible: root.detail.length > 0
                 text: root.detail
-                color: "#8b93a3"
+                color: Theme.muted
                 font.pixelSize: 10
                 elide: Text.ElideRight
                 Layout.fillWidth: true
@@ -80,13 +80,13 @@ Item {
         anchors.bottom: parent.bottom
         height: 3
         radius: 1.5
-        color: "#2a3038"
+        color: Theme.border
 
         Rectangle {
             width: parent.width * Math.max(0, Math.min(1, root.percent / 100))
             height: parent.height
             radius: 1.5
-            color: root.percent > 80 ? "#f07178" : "#7dcea0"
+            color: root.percent > 80 ? Theme.urgent : Theme.accent
             opacity: root.stale ? 0.45 : 1
             Behavior on width { NumberAnimation { duration: 240 } }
         }

@@ -1,0 +1,9 @@
+singleton Theme 1.0 Theme.qml
+ActionButton 1.0 ActionButton.qml
+BackendClient 1.0 BackendClient.qml
+ConnectionStatus 1.0 ConnectionStatus.qml
+MetricBar 1.0 MetricBar.qml
+MetricIcon 1.0 MetricIcon.qml
+ModuleCard 1.0 ModuleCard.qml
+Sparkline 1.0 Sparkline.qml
+SummaryCard 1.0 SummaryCard.qml

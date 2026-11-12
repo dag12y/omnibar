@@ -17,7 +17,7 @@ test:
 	$(GO) test ./...
 
 ui-test:
-	QT_QPA_PLATFORM=offscreen $(QMLTESTRUNNER) -input ui/qml/tests -o -,txt
+	QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME= QT_QUICK_CONTROLS_STYLE=Basic $(QMLTESTRUNNER) -input ui/qml/tests -o -,txt
 
 e2e-ui: build
 	OMNIBAR_BIN=$(abspath $(BINARY)) ./scripts/e2e-ui.sh
