@@ -279,6 +279,10 @@ ShellRoot {
                                     id: id,
                                     favorite: favorite
                                 })
+                            onTransformRequested: (id, operation) => history.request("clipboard.transformCopy", {
+                                    id: id,
+                                    operation: operation
+                                })
                             onCopyRequested: id => history.request("clipboard.copy", {
                                     id: id
                                 })

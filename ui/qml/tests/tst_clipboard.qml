@@ -35,6 +35,11 @@ Item {
         target: page
         signalName: "collectionRequested"
     }
+    SignalSpy {
+        id: transformSpy
+        target: page
+        signalName: "transformRequested"
+    }
     TestCase {
         name: "ClipboardPage"
         when: windowShown
@@ -63,6 +68,7 @@ Item {
                 }
             });
             verify(page !== null);
+            transformSpy.clear();
             copySpy.clear();
             deleteSpy.clear();
             collectSpy.clear();
@@ -199,6 +205,90 @@ Item {
             };
             verify(!findChild(findChild(page, "history-1"), "favoriteHistory").enabled);
             verify(findChild(findChild(page, "history-1"), "deleteHistory").enabled);
+        }
+        function test_transform_choices_emit_id_and_operation() {
+            const row = findChild(page, "history-1");
+            const toggle = findChild(row, "transformHistory");
+            toggle.forceActiveFocus();
+            keyClick(Qt.Key_Space);
+            compare(page.transformEntryId, "1");
+            waitForPolish(page);
+            const operations = ["trim", "lowercase", "uppercase", "remove_line_breaks"];
+            for (let i = 0; i < operations.length; i++) {
+                const button = findChild(row, "transform-" + operations[i]);
+                verify(button !== null);
+                button.forceActiveFocus();
+                keyClick(Qt.Key_Return);
+                compare(transformSpy.signalArguments[i][0], "1");
+                compare(transformSpy.signalArguments[i][1], operations[i]);
+            }
+            compare(page.snapshot.entries[0].text, "Alpha <b>plain</b>");
+        }
+        function test_transform_read_only_and_busy() {
+            const row = findChild(page, "history-1");
+            page.snapshot = {
+                entries: [
+                    {
+                        id: "1",
+                        text: "Source",
+                        copied_at: ""
+                    }
+                ],
+                collecting: false,
+                state: "paused",
+                can_copy: false
+            };
+            verify(!findChild(row, "transformHistory").enabled);
+            page.snapshot = {
+                entries: [
+                    {
+                        id: "1",
+                        text: "Source",
+                        copied_at: ""
+                    }
+                ],
+                collecting: false,
+                state: "paused",
+                can_copy: true
+            };
+            page.transformEntryId = "1";
+            page.busy = true;
+            verify(!findChild(row, "transform-trim").enabled);
+            verify(!findChild(row, "transformHistory").enabled);
+        }
+        function test_transform_panel_keeps_focus_then_clears_on_removal() {
+            const row = findChild(page, "history-1");
+            page.transformEntryId = "1";
+            waitForPolish(page);
+            const button = findChild(row, "transform-uppercase");
+            button.forceActiveFocus();
+            page.snapshot = {
+                entries: [
+                    {
+                        id: "2",
+                        text: "Newest",
+                        copied_at: ""
+                    },
+                    {
+                        id: "1",
+                        text: "Same source",
+                        copied_at: ""
+                    }
+                ],
+                collecting: false,
+                state: "paused",
+                can_copy: true
+            };
+            compare(page.transformEntryId, "1");
+            compare(findChild(page, "history-1"), row);
+            verify(button.activeFocus);
+            page.snapshot = {
+                entries: [],
+                collecting: false,
+                state: "paused",
+                can_copy: true
+            };
+            compare(page.transformEntryId, "");
         }
         function test_refresh_keeps_focused_entry() {
             const row = findChild(page, "history-1");

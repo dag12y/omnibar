@@ -100,6 +100,14 @@ def main():
         assert "error" not in response, response
         return response["result"]
 
+    def rpc_error(method, params):
+        nonlocal request_id
+        request_id += 1
+        stream.write((json.dumps(dict(jsonrpc="2.0", id=request_id, method=method, params=params)) + "\n").encode())
+        response = json.loads(stream.readline())
+        assert "error" in response, response
+        return response["error"]
+
     def snapshot():
         return rpc("clipboard.getSnapshot")
 
@@ -161,6 +169,34 @@ def main():
         assert saved_file.stat().st_mode & 0o777 == 0o600
         assert saved_file.parent.stat().st_mode & 0o777 == 0o700
         print("PASS: explicit favorite save, private file permissions, and Clear recent preserves favorites")
+        rpc("clipboard.setCollecting", dict(collecting=False))
+        favorite_bytes = saved_file.read_bytes()
+        source = next(entry for entry in snapshot()["entries"] if entry["id"] == saved_id)
+        for operation, expected in [
+            ("trim", saved_text), ("lowercase", saved_text.lower()),
+            ("uppercase", saved_text.upper()), ("remove_line_breaks", saved_text.replace("\n", " ")),
+        ]:
+            rpc("clipboard.transformCopy", dict(id=saved_id, operation=operation))
+            assert paste() == expected
+            assert next(entry for entry in snapshot()["entries"] if entry["id"] == saved_id) == source
+            assert saved_file.read_bytes() == favorite_bytes
+        rpc("clipboard.setCollecting", dict(collecting=True))
+        rpc("clipboard.transformCopy", dict(id=saved_id, operation="uppercase"))
+        wait_until(lambda: any(entry["text"] == saved_text.upper() for entry in snapshot()["entries"]), "transformed copy did not enter recent history")
+        assert next(entry for entry in snapshot()["entries"] if entry["id"] == saved_id) == source
+        copy(" \t\n ")
+        wait_until(lambda: any(entry["text"] == " \t\n " for entry in snapshot()["entries"]), "whitespace fixture not collected")
+        rpc("clipboard.setCollecting", dict(collecting=False))
+        empty_id = next(entry["id"] for entry in snapshot()["entries"] if entry["text"] == " \t\n ")
+        before_empty = paste()
+        assert rpc_error("clipboard.transformCopy", dict(id=empty_id, operation="trim"))["code"] == -32603
+        assert paste() == before_empty
+        assert rpc_error("clipboard.transformCopy", dict(id=saved_id, operation="unknown"))["code"] == -32602
+        assert paste() == before_empty
+        rpc("clipboard.clear")
+        assert saved_file.read_bytes() == favorite_bytes
+        rpc("clipboard.setCollecting", dict(collecting=True))
+        print("PASS: all real transform copies, unchanged source/favorite file, active collection, and empty/invalid result rejection")
         ui = launch("ui", "quickshell", "-p", qml)
         wait_until(lambda: "handshake complete" in (trial / "ui.log").read_text(), "UI did not connect")
         subprocess.run(["quickshell", "-p", qml, "ipc", "call", "--", "panel", "showClipboard"], env=env, check=True, stdout=subprocess.DEVNULL)

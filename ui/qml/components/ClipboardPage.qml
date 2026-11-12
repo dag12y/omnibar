@@ -14,10 +14,12 @@ ColumnLayout {
     property string errorText: ""
     property bool busy: false
     property bool favoritesOnly: false
+    property string transformEntryId: ""
     readonly property int favoriteCount: (snapshot.entries || []).filter(entry => entry.favorite === true).length
     readonly property bool ready: state === "ready"
     signal collectionRequested(bool collecting)
     signal copyRequested(string entryId)
+    signal transformRequested(string entryId, string operation)
     signal favoriteRequested(string entryId, bool favorite)
     signal deleteRequested(string entryId)
     signal clearRequested
@@ -27,6 +29,8 @@ ColumnLayout {
         id: entries
     }
     function syncRows() {
+        if (!(snapshot.entries || []).some(entry => entry.id === transformEntryId))
+            transformEntryId = "";
         const query = search.text.toLowerCase();
         const wanted = (snapshot.entries || []).filter(entry => (!favoritesOnly || entry.favorite === true) && entry.text.toLowerCase().includes(query));
         for (let i = entries.count - 1; i >= 0; i--)
@@ -244,6 +248,65 @@ ColumnLayout {
                         description: favorite ? "Remove this saved favorite from disk and history" : "Remove this history item"
                         enabled: root.ready
                         onClicked: root.deleteRequested(entryId)
+                    }
+                }
+                PanelButton {
+                    objectName: "transformHistory"
+                    text: root.transformEntryId === entryId ? "Close transforms" : "Transform & copy…"
+                    description: root.snapshot.can_copy ? "Copy a transformed version without editing this item" : "Enable clipboard.write to transform and copy"
+                    selected: root.transformEntryId === entryId
+                    enabled: root.ready && root.snapshot.can_copy === true && !root.busy
+                    onClicked: root.transformEntryId = root.transformEntryId === entryId ? "" : entryId
+                }
+                ColumnLayout {
+                    visible: root.transformEntryId === entryId
+                    Layout.fillWidth: true
+                    spacing: 6
+                    Text {
+                        text: "Copy a new version. This item stays unchanged."
+                        color: Theme.muted
+                        font.pixelSize: 11
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+                    GridLayout {
+                        columns: 2
+                        Layout.fillWidth: true
+                        columnSpacing: 8
+                        rowSpacing: 4
+                        Repeater {
+                            model: [
+                                {
+                                    operation: "trim",
+                                    label: "Trim edges",
+                                    detail: "Remove whitespace at the start and end"
+                                },
+                                {
+                                    operation: "lowercase",
+                                    label: "lowercase",
+                                    detail: "Copy in lowercase"
+                                },
+                                {
+                                    operation: "uppercase",
+                                    label: "UPPERCASE",
+                                    detail: "Copy in uppercase"
+                                },
+                                {
+                                    operation: "remove_line_breaks",
+                                    label: "Remove line breaks",
+                                    detail: "Replace each line break with a space"
+                                }
+                            ]
+                            PanelButton {
+                                required property var modelData
+                                objectName: "transform-" + modelData.operation
+                                Layout.fillWidth: true
+                                text: modelData.label
+                                description: modelData.detail
+                                enabled: root.ready && root.snapshot.can_copy === true && !root.busy
+                                onClicked: root.transformRequested(entryId, modelData.operation)
+                            }
+                        }
                     }
                 }
             }
