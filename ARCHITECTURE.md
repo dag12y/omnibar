@@ -165,6 +165,9 @@ separate-service clipboard path for this increment. See
 [ADR-0015](docs/architecture/ADR-0015-clipboard-history.md). Explicitly saved
 favorites extend it in [ADR-0016](docs/architecture/ADR-0016-clipboard-favorites.md),
 using bounded private JSON, atomic replacement, and no ordinary-history persistence.
+Fixed in-memory Transform & copy operations reuse backend-owned text, existing
+read/write checks, and the serialized copy driver without editing saved sources;
+see [ADR-0018](docs/architecture/ADR-0018-clipboard-transforms.md).
 
 The File shelf holds bounded session path references under `filesystem.access`,
 with separate `clipboard.write` checks for path copying. Visible snapshot polls
@@ -402,7 +405,8 @@ omnibar/
 │   │   ├── ADR-0014-microphone-controls.md
 │   │   ├── ADR-0015-clipboard-history.md
 │   │   ├── ADR-0016-clipboard-favorites.md
-│   │   └── ADR-0017-file-shelf.md
+│   │   ├── ADR-0017-file-shelf.md
+│   │   └── ADR-0018-clipboard-transforms.md
 │   ├── development/
 │   └── features/
 ├── internal/

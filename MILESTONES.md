@@ -37,6 +37,7 @@ This document breaks the approved architecture into small, sequential, independe
 | M20 | Session clipboard history | Explicit collection, bounded text history, search/copy/delete/clear, separate grants, nested Wayland verification | Done |
 | M21 | Clipboard favorites | Explicit bounded persistence, protected favorites, filter, restore, and removal | Done |
 | M22 | Session File shelf | Local references, URL drops/path input, search, open folder, copy path, and missing-item recovery | Done |
+| M23 | Clipboard utilities | Transform & copy: trim edges, lowercase, uppercase, and line-break removal | Done |
 
 ---
 
@@ -940,3 +941,17 @@ private nested Wayland copy/lifecycle checks, and recorded folder-opener
 arguments verify the increment. Native file-manager drag delivery still needs
 manual verification. Persistence and file transfer operations remain deferred.
 See [ADR-0017](docs/architecture/ADR-0017-file-shelf.md).
+
+
+## M23 — Clipboard utilities (implemented)
+
+Adds fixed Transform & copy operations on recent entries and favorites. Resolve
+full source text by ID, transform in memory, and copy with the existing read/write
+grants and deadline. Source text and saved files remain unchanged; active
+collection can capture the derived result normally. Empty/oversized outputs and
+invalid operations never touch the clipboard. Expandable keyboard controls fit
+the existing panel and preserve focus through refresh. Verification includes Go
+race/permission/Unicode/bounds/source-preservation tests, 112 QML tests, and real
+private Wayland copies with paused/active collection and rejected results.
+No new dependency, config grant, persistence format, or automatic paste is added.
+See [ADR-0018](docs/architecture/ADR-0018-clipboard-transforms.md).

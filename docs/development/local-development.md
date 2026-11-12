@@ -464,3 +464,22 @@ optional image is `files.png` in the printed artifact directory. QML tests cover
 copy-only drop handling and URL submission; manually verify native file-manager
 pointer delivery and your desktop opener. `xdg-utils` is a runtime dependency.
 See [ADR-0017](../architecture/ADR-0017-file-shelf.md).
+
+
+## Clipboard utilities (M23)
+
+Transform & copy expands four actions on a Clipboard row. The backend transforms
+the full stored source by ID, with the existing read/write grants. Trim removes
+outer Unicode whitespace only; case operations use simple locale-independent
+Unicode mappings. Line-break removal replaces CRLF/LF/CR/Unicode separators with
+spaces and preserves other spacing. Empty or >16-KiB results are rejected before
+copy. Saved text stays unchanged. Active collection can capture the output as a
+recent item; paused collection does not resume.
+
+`make e2e-clipboard` (also included by `make e2e-shelf`) now verifies all four
+real outputs, paused source/favorite-file preservation, active capture, and
+empty/unknown operation errors without changing the private clipboard. Go tests
+cover UTF-8 byte expansion, stale IDs, grants, parameters, deadlines, source
+lookup, and driver errors. QML tests cover signals, keyboard actions, busy/grant
+state, and stable focus/removal. No new config or dependency is needed. See
+[ADR-0018](../architecture/ADR-0018-clipboard-transforms.md).

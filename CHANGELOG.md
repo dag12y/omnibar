@@ -6,6 +6,9 @@ All notable changes will be documented here.
 
 ### Added
 
+- Clipboard Transform & copy: trim edges, Unicode lower/uppercase, and line-break replacement, with expandable keyboard controls; ADR-0018.
+- Backend-owned source lookup, existing read/write grants and deadlines, empty/oversized output rejection, and source/favorite preservation tests.
+- Real private Wayland checks for transformed clipboard outputs, active collection, paused history, and rejected transforms.
 - Session File shelf with path/URL additions, copy-only drop handling, search, folder opening, path copy, and removal; ADR-0017.
 - Files navigation and `panel showFiles`, filesystem/clipboard grants, unavailable-path recovery, shared visible snapshot controller, and xdg-utils dependency.
 - `make e2e-shelf` for private Wayland copy-path, recorded opener arguments, untouched originals, and session reset; Go/QML coverage.

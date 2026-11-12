@@ -195,3 +195,20 @@ Phase 2 adds live system monitoring on top of the Phase 1 foundation and prepare
 - Verify with synthetic files/private Wayland, fake opener arguments, and
   permission/UI tests. Persistent shelf, file payload copying, drag-out, and
   destructive file operations remain deferred.
+
+
+## Clipboard utilities increment (implemented)
+
+- Transform & copy full backend-owned source text by ID using fixed trim,
+  lowercase, uppercase, and remove-line-breaks operations.
+- Preserve source/favorite text and collection settings; active collection can
+  capture derived results under normal deduplication and eviction bounds.
+- Trim outer Unicode whitespace, use simple locale-independent Unicode case
+  mappings, and replace line breaks with spaces without merging adjacent words.
+- Gate with both existing clipboard grants. Reject unknown/malformed operations,
+  stale IDs, empty output, and UTF-8 expansion beyond the item byte limit.
+- Keep clipboard state on pre-copy rejection, propagate driver failures, and use
+  existing copy deadlines without automatic paste or arbitrary expressions.
+- Provide keyboard-accessible expandable actions, read-only/busy states, and
+  stable source focus. Verify synthetic real copies and untouched saved files in
+  the private Wayland test.

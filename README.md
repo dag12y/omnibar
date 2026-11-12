@@ -158,6 +158,23 @@ favorite text are supported within the overall history limits. Save failures are
 shown without changing the item; invalid saved data is preserved and reported.
 See [favorites storage and protocol](docs/architecture/ADR-0016-clipboard-favorites.md).
 
+## Clipboard utilities
+
+On a Clipboard item, select **Transform & copy…**, then choose:
+
+- **Trim edges**: remove whitespace at the start and end, keeping interior spacing.
+- **lowercase** or **UPPERCASE**: convert letter case using Unicode mappings.
+- **Remove line breaks**: replace line breaks with spaces (CRLF is one break).
+
+The full source text is used, including text beyond the preview. The source item
+and saved favorite text stay unchanged. Paste the transformed text normally in
+your destination app. If collection is running, the result can appear as a new
+recent copy under normal history limits; paused collection remains paused.
+Empty results and results exceeding 16 KiB leave the clipboard unchanged and
+show an error. The existing read/write grants are required; no config changes
+or new dependencies are needed. See
+[transform design and protocol](docs/architecture/ADR-0018-clipboard-transforms.md).
+
 ## File shelf
 
 Open **Files** to keep local files and folders within reach for this backend

@@ -185,3 +185,11 @@ not replace that config. References remain session-only. Clear/remove/package
 removal never remove originals. `make e2e-shelf` verifies synthetic files in a
 private Wayland environment and records opener arguments without opening a host
 file manager. See [ADR-0017](../architecture/ADR-0017-file-shelf.md).
+
+
+### Clipboard utilities
+
+M23 reuses `wl-clipboard` and the existing `clipboard.read`/`clipboard.write`
+grants for Transform & copy. Package/config/storage formats are unchanged.
+Reinstall the rebuilt package, restart the backend, and relaunch the UI to use
+the new actions. See [ADR-0018](../architecture/ADR-0018-clipboard-transforms.md).

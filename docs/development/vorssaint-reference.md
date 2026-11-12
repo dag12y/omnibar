@@ -110,3 +110,9 @@ metadata, search, directory opening, path text copy, and reference removal. It
 uses filesystem capability checks and no persistent file/content storage.
 No upstream source, branding, or assets were copied. See
 [ADR-0017](../architecture/ADR-0017-file-shelf.md).
+
+
+M23 adds original fixed text Transform & copy actions on clipboard entries and
+favorites, with existing grants and preserved source text. No upstream source,
+branding, or assets were copied. See
+[ADR-0018](../architecture/ADR-0018-clipboard-transforms.md).

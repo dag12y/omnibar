@@ -39,7 +39,7 @@ System monitoring suite: event delivery, resource metrics, UI cards, and the v0.
 - [x] Session-only text clipboard history, search, copy, delete, and clear (M20)
 - [x] Explicitly saved text favorites, restart restore, filter, and removal (M21)
 - [x] Session File shelf: local references, search, folder opening, and path copy (M22)
-- [ ] Clipboard utilities
+- [x] Clipboard utilities: trim, case conversion, and remove-line-breaks copy (M23)
 
 ## Phase 5 - Audio and Input
 - [x] Per-application playback-stream volume and mute
