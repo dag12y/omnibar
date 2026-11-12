@@ -1,0 +1,200 @@
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+
+ColumnLayout {
+    id: root
+    property var snapshot: ({
+            windows: [],
+            truncated: false
+        })
+    property string state: "pending"
+    property string errorText: ""
+    property bool busy: false
+    readonly property bool ready: state === "ready"
+    signal focusRequested(string address)
+    signal refreshRequested
+    spacing: 14
+    ListModel {
+        id: rows
+    }
+    function syncRows() {
+        const query = search.text.toLowerCase();
+        const wanted = (snapshot.windows || []).filter(window => (window.title + " " + window.class + " " + window.workspace).toLowerCase().includes(query));
+        for (let i = rows.count - 1; i >= 0; i--)
+            if (!wanted.some(window => window.address === rows.get(i).address))
+                rows.remove(i);
+        for (let i = 0; i < wanted.length; i++) {
+            const window = wanted[i];
+            let current = -1;
+            for (let j = i; j < rows.count; j++)
+                if (rows.get(j).address === window.address) {
+                    current = j;
+                    break;
+                }
+            const row = {
+                address: window.address,
+                windowTitle: window.title,
+                appClass: window.class,
+                workspace: window.workspace,
+                monitor: window.monitor,
+                active: window.active === true
+            };
+            if (current < 0)
+                rows.insert(i, row);
+            else {
+                if (current !== i)
+                    rows.move(current, i, 1);
+                rows.set(i, row);
+            }
+        }
+    }
+    onSnapshotChanged: syncRows()
+    Component.onCompleted: syncRows()
+    RowLayout {
+        Layout.fillWidth: true
+        ColumnLayout {
+            Layout.fillWidth: true
+            Text {
+                text: "Windows"
+                color: Theme.foreground
+                font.pixelSize: 17
+                font.weight: Font.DemiBold
+            }
+            Text {
+                text: "Find your place and switch back"
+                color: Theme.muted
+                font.pixelSize: 11
+            }
+        }
+        PanelButton {
+            text: "Refresh ↻"
+            enabled: !root.busy && root.state !== "offline"
+            onClicked: root.refreshRequested()
+        }
+    }
+    Text {
+        Layout.fillWidth: true
+        visible: !root.ready || root.errorText.length > 0
+        text: root.state === "denied" ? "Enable window.manage in ~/.config/omnibar/config.toml and restart the backend." : root.state === "disabled" ? "Window switcher is disabled in your config." : root.state === "offline" ? "Backend unavailable. Reconnecting…" : root.errorText || "Loading running windows…"
+        color: Theme.muted
+        font.pixelSize: 12
+        wrapMode: Text.WordWrap
+        textFormat: Text.PlainText
+    }
+    TextField {
+        id: search
+        objectName: "windowSearch"
+        Layout.fillWidth: true
+        implicitHeight: 38
+        placeholderText: "Search app, title, or workspace…"
+        Accessible.name: "Search running windows"
+        enabled: root.ready
+        color: Theme.foreground
+        placeholderTextColor: Theme.muted
+        selectionColor: Theme.accent
+        selectedTextColor: Theme.background
+        leftPadding: 12
+        rightPadding: 12
+        background: Rectangle {
+            radius: 10
+            color: Theme.surface
+            border.color: search.activeFocus ? Theme.accent : Theme.border
+        }
+        onTextChanged: root.syncRows()
+        onAccepted: if (root.ready && !root.busy && rows.count > 0)
+            root.focusRequested(rows.get(0).address)
+    }
+    Text {
+        text: "Switch focuses an existing window and closes this panel."
+        Layout.fillWidth: true
+        wrapMode: Text.WordWrap
+        color: Theme.muted
+        font.pixelSize: 11
+    }
+    Text {
+        visible: root.ready && root.snapshot.truncated === true
+        text: "Showing the first 100 windows. Close unused windows to see more."
+        Layout.fillWidth: true
+        wrapMode: Text.WordWrap
+        color: Theme.muted
+        font.pixelSize: 11
+    }
+    Text {
+        visible: root.ready && rows.count === 0
+        text: search.text ? "No matching windows." : "No switchable windows are open."
+        color: Theme.muted
+        font.pixelSize: 12
+        Layout.fillWidth: true
+        wrapMode: Text.WordWrap
+    }
+    Repeater {
+        model: rows
+        delegate: Rectangle {
+            required property string address
+            required property string windowTitle
+            required property string appClass
+            required property string workspace
+            required property int monitor
+            required property bool active
+            objectName: "window-" + address
+            Layout.fillWidth: true
+            implicitHeight: card.implicitHeight + 24
+            radius: 14
+            color: Qt.alpha(Theme.surface, 0.55)
+            border.color: active ? Qt.alpha(Theme.accent, 0.55) : Theme.border
+            ColumnLayout {
+                id: card
+                x: 12
+                y: 12
+                width: parent.width - 24
+                spacing: 6
+                RowLayout {
+                    Layout.fillWidth: true
+                    Text {
+                        text: appClass
+                        textFormat: Text.PlainText
+                        color: Theme.accent
+                        font.pixelSize: 12
+                        font.weight: Font.DemiBold
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
+                    }
+                    Text {
+                        text: active ? "● ACTIVE" : ""
+                        color: Theme.muted
+                        font.pixelSize: 10
+                    }
+                }
+                Text {
+                    text: windowTitle
+                    textFormat: Text.PlainText
+                    color: Theme.foreground
+                    font.pixelSize: 13
+                    wrapMode: Text.WrapAnywhere
+                    maximumLineCount: 2
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    Text {
+                        text: "Workspace " + (workspace || "?") + " · Monitor " + monitor
+                        textFormat: Text.PlainText
+                        color: Theme.muted
+                        font.pixelSize: 10
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
+                    }
+                    PanelButton {
+                        objectName: "switchWindow"
+                        text: "Switch →"
+                        description: "Switch to " + appClass
+                        enabled: root.ready && !root.busy
+                        onClicked: root.focusRequested(address)
+                    }
+                }
+            }
+        }
+    }
+}

@@ -72,6 +72,12 @@ ShellRoot {
         client: client
         active: root.opened && root.page === "files"
     }
+    WindowController {
+        id: windows
+        client: client
+        active: root.opened && root.page === "windows"
+        onWindowFocused: root.opened = false
+    }
     // A separate mapped surface keeps display-idle inhibition alive when the
     // dashboard is hidden. It takes no keyboard focus or pointer input.
     PanelWindow {
@@ -100,6 +106,10 @@ ShellRoot {
     }
     IpcHandler {
         target: "panel"
+        function showWindows(): void {
+            root.page = "windows";
+            root.opened = true;
+        }
         function showFiles(): void {
             root.page = "files";
             root.opened = true;
@@ -120,7 +130,7 @@ ShellRoot {
             root.opened = true;
         }
         function selectPage(name: string): void {
-            if (name === "system" || name === "audio" || name === "clipboard" || name === "files")
+            if (name === "system" || name === "audio" || name === "clipboard" || name === "files" || name === "windows")
                 root.page = name;
         }
         function hide(): void {
@@ -196,7 +206,7 @@ ShellRoot {
                                     font.weight: Font.DemiBold
                                 }
                                 Text {
-                                    text: root.page === "audio" ? "YOUR SOUND, YOUR CONTROL" : root.page === "files" ? "FILES WITHIN REACH" : root.page === "clipboard" ? "COPIED, KEPT WITHIN REACH" : "YOUR SYSTEM, AT A GLANCE"
+                                    text: root.page === "audio" ? "YOUR SOUND, YOUR CONTROL" : root.page === "windows" ? "PICK UP WHERE YOU LEFT OFF" : root.page === "files" ? "FILES WITHIN REACH" : root.page === "clipboard" ? "COPIED, KEPT WITHIN REACH" : "YOUR SYSTEM, AT A GLANCE"
                                     color: Theme.muted
                                     font.pixelSize: 9
                                     font.letterSpacing: 1
@@ -230,6 +240,17 @@ ShellRoot {
                             }
                             PanelButton {
                                 Layout.fillWidth: true
+                                text: "Windows"
+                                selected: root.page === "windows"
+                                description: "Switch between running windows"
+                                onClicked: root.page = "windows"
+                            }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+                            PanelButton {
+                                Layout.fillWidth: true
                                 text: "Clipboard"
                                 selected: root.page === "clipboard"
                                 description: "Show clipboard history"
@@ -242,6 +263,18 @@ ShellRoot {
                                 description: "Show file shelf"
                                 onClicked: root.page = "files"
                             }
+                        }
+                        WindowPage {
+                            visible: root.page === "windows"
+                            Layout.fillWidth: true
+                            snapshot: windows.snapshot
+                            state: windows.state
+                            errorText: windows.errorText
+                            busy: windows.busy
+                            onFocusRequested: address => windows.request("windows.focus", {
+                                    address: address
+                                })
+                            onRefreshRequested: windows.request("windows.getSnapshot")
                         }
                         FileShelfPage {
                             visible: root.page === "files"
@@ -464,7 +497,7 @@ ShellRoot {
                                 color: root.stale ? Theme.muted : Theme.accent
                             }
                             Text {
-                                text: !client.backendConnected ? "Offline" : root.page === "audio" ? (audio.state === "ready" ? "Audio connected" : "Audio " + audio.state) : root.page === "files" ? "Session file shelf" : root.page === "clipboard" ? "Clipboard · recent and saved" : root.state === "fresh" ? "Live monitoring" : "Waiting for metrics"
+                                text: !client.backendConnected ? "Offline" : root.page === "audio" ? (audio.state === "ready" ? "Audio connected" : "Audio " + audio.state) : root.page === "windows" ? "Running Hyprland windows" : root.page === "files" ? "Session file shelf" : root.page === "clipboard" ? "Clipboard · recent and saved" : root.state === "fresh" ? "Live monitoring" : "Waiting for metrics"
                                 color: Theme.muted
                                 font.pixelSize: 10
                                 Layout.fillWidth: true

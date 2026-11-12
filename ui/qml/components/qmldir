@@ -21,3 +21,5 @@ ClipboardPage 1.0 ClipboardPage.qml
 FileShelfController 1.0 FileShelfController.qml
 FileShelfPage 1.0 FileShelfPage.qml
 SnapshotController 1.0 SnapshotController.qml
+WindowController 1.0 WindowController.qml
+WindowPage 1.0 WindowPage.qml

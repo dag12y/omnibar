@@ -300,7 +300,7 @@ Item {
             return
         }
         if (parsed.kind === "event") {
-            if (parsed.module === "audio" || parsed.module === "clipboard" || parsed.module === "file_shelf") return
+            if (parsed.module === "audio" || parsed.module === "clipboard" || parsed.module === "file_shelf" || parsed.module === "window_switcher") return
             if (parsed.module === "keep_awake") {
                 if (parsed.event === "state") keepAwakeStatus = parsed.data
                 return
@@ -368,7 +368,7 @@ Item {
         const plan = Protocol.subscriptionPlan(modules)
         for (let i = 0; i < plan.length; i++) {
             const module = plan[i]
-            if (module === "audio" || module === "clipboard" || module === "file_shelf") continue
+            if (module === "audio" || module === "clipboard" || module === "file_shelf" || module === "window_switcher") continue
             if (module === "system_monitor" && !monitoringActive) continue
             const requestId = nextRequestId++
 

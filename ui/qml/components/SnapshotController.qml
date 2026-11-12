@@ -14,6 +14,7 @@ Item {
     property var snapshot: emptySnapshot
     property string state: "pending"
     property string errorText: ""
+    signal actionSucceeded(string method)
     property bool busy: false
     property int pendingId: -1
     property string pendingMethod: ""
@@ -116,6 +117,11 @@ Item {
                         root.errorText = "";
                     root.state = "ready";
                 }
+                if (method !== (root.methodPrefix + ".getSnapshot"))
+                    root.actionSucceeded(method);
+                // A success handler may hide the panel and cancel queued work.
+                if (!root.active)
+                    return;
                 if (root.queue.length > 0) {
                     const next = root.queue[0];
                     root.queue = root.queue.slice(1);

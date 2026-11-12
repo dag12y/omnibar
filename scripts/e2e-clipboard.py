@@ -19,6 +19,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--capture", action="store_true")
     parser.add_argument("--shelf", action="store_true", help="also verify the File shelf with synthetic files")
+    parser.add_argument("--windows", action="store_true", help="verify window switching inside the private compositor")
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
     # Keep Hyprland's instance Unix-socket path below Linux's length limit.
@@ -30,6 +31,8 @@ def main():
     config = config.replace('"clipboard.write" = false', '"clipboard.write" = true')
     if args.shelf:
         config = config.replace('"filesystem.access" = false', '"filesystem.access" = true')
+    if args.windows:
+        config = config.replace('"window.manage" = false', '"window.manage" = true')
     (trial / "config/omnibar/config.toml").write_text(config)
     (trial / "hyprland.conf").write_text(
         "monitor = , 900x800, auto, 1\n"
@@ -121,6 +124,9 @@ def main():
                    "nested Wayland compositor did not start")
         assert compositor.poll() is None
         env["WAYLAND_DISPLAY"] = str(next(path for path in (trial / "run").glob("wayland-*") if path.is_socket()))
+        wait_until(lambda: bool(list((trial / "run/hypr").glob("*/hyprland.lock"))), "private Hyprland instance was not registered")
+        instance_lock = next((trial / "run/hypr").glob("*/hyprland.lock"))
+        env["HYPRLAND_INSTANCE_SIGNATURE"] = instance_lock.parent.name
         backend = launch("backend", str(root / "build/omnibar"))
         path = trial / "run/omnibar/omnibar.sock"
         wait_until(path.exists, "backend did not start")
@@ -225,6 +231,31 @@ def main():
             assert rpc("shelf.getSnapshot")["entries"][0]["available"]
             subprocess.run(["quickshell", "-p", qml, "ipc", "call", "--", "panel", "showFiles"], env=env, check=True, stdout=subprocess.DEVNULL)
             print("PASS: File shelf URL batch/dedup, real copy-path, recorded folder opener, unavailable/recovery, and real Files page")
+        if args.windows:
+            fixture_qml = trial / "windows.qml"
+            fixture_qml.write_text('import QtQuick\nimport QtQuick.Window\nimport Quickshell\nShellRoot { Window { visible:true; width:320; height:180; title:"Omnibar fixture Alpha"; color:"#263342" } Window { visible:true; width:320; height:180; title:"Omnibar fixture Beta"; color:"#344226" } }\n')
+            fixture_app = launch("window-fixture", "quickshell", "-p", str(fixture_qml))
+            def compositor(query):
+                return json.loads(subprocess.check_output(["hyprctl", "-j", query], env=env, text=True))
+            wait_until(lambda: sum(item.get("title", "").startswith("Omnibar fixture ") for item in compositor("clients")) == 2, "fixture windows did not map")
+            clients = compositor("clients")
+            address_a = next(item["address"] for item in clients if item.get("title") == "Omnibar fixture Alpha")
+            address_b = next(item["address"] for item in clients if item.get("title") == "Omnibar fixture Beta")
+            subprocess.run(["hyprctl", "dispatch", "movetoworkspacesilent", "2,address:" + address_b], env=env, check=True, stdout=subprocess.DEVNULL)
+            listed = rpc("windows.getSnapshot")
+            assert any(item["address"] == address_b and item["workspace"] == "2" for item in listed["windows"])
+            subprocess.run(["quickshell", "-p", qml, "ipc", "call", "--", "panel", "showWindows"], env=env, check=True, stdout=subprocess.DEVNULL)
+            for address in [address_a, address_b]:
+                switched = rpc("windows.focus", dict(address=address))
+                assert any(item["address"] == address and item["active"] for item in switched["windows"])
+                assert compositor("activewindow")["address"] == address
+            assert compositor("activeworkspace")["id"] == 2
+            assert rpc_error("windows.focus", dict(address="0x1;exec invalid"))["code"] == -32602
+            stop(fixture_app)
+            wait_until(lambda: not any(item.get("title", "").startswith("Omnibar fixture ") for item in compositor("clients")), "closed fixtures still mapped")
+            assert rpc_error("windows.focus", dict(address=address_a))["code"] == -32603
+            assert not rpc("windows.getSnapshot")["windows"]
+            print("PASS: private running-window list, confirmed focus across workspaces, real Windows page, invalid/stale targets, and empty desktop")
         if args.capture:
             time.sleep(1.2)
             instances = list((trial / "run/hypr").glob("*/hyprland.lock"))
@@ -234,7 +265,7 @@ def main():
             panel = next(item for monitor in layers.values() for group in monitor.get("levels", {}).values()
                          for item in group if item.get("namespace") == "omnibar-panel")
             geometry = f"{panel['x']},{panel['y']} {panel['w']}x{panel['h']}"
-            subprocess.run(["grim", "-g", geometry, str(trial / ("files.png" if args.shelf else "clipboard.png"))], env=env, check=True)
+            subprocess.run(["grim", "-g", geometry, str(trial / ("windows.png" if args.windows else "files.png" if args.shelf else "clipboard.png"))], env=env, check=True)
         if args.shelf:
             rpc("shelf.clear")
             assert sample.read_text() == "Original synthetic text stays here.\n"
