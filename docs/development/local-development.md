@@ -274,3 +274,12 @@ normally. Regular files, directories, and symlinks are never removed.
 - [Architecture](../../ARCHITECTURE.md)
 - [IPC protocol ADR](../architecture/ADR-0003-ipc-protocol.md)
 - [Permissions ADR](../architecture/ADR-0007-permissions-security.md)
+
+## Panel controls
+
+The panel fits the current screen and scrolls when content is taller. Use Tab
+and Shift+Tab to move through actions, Enter or Space to activate, and Escape
+to hide. Click Processor or Memory to expand details. Hover an action for its
+label. The installed `omnibar-toggle` command toggles a running panel or launches
+one; it can be assigned to an Omarchy keybinding or bar button. No desktop
+configuration is changed by building the project.

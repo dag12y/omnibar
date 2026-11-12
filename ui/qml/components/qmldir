@@ -7,3 +7,5 @@ MetricIcon 1.0 MetricIcon.qml
 ModuleCard 1.0 ModuleCard.qml
 Sparkline 1.0 Sparkline.qml
 SummaryCard 1.0 SummaryCard.qml
+PanelButton 1.0 PanelButton.qml
+ThemeLoader 1.0 ThemeLoader.qml

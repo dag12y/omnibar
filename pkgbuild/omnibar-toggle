@@ -1,0 +1,7 @@
+#!/bin/sh
+# Toggle the installed panel; launch it when it is not running yet.
+qml=/usr/share/omnibar/qml/shell.qml
+if quickshell -p "$qml" ipc call panel toggle 2>/dev/null; then
+    exit 0
+fi
+exec quickshell -n -d -p "$qml"

@@ -51,6 +51,7 @@ package() {
   cd "$srcdir/$pkgname-$pkgver"
 
   install -Dm755 build/omnibar "$pkgdir/usr/bin/omnibar"
+  install -Dm755 pkgbuild/omnibar-toggle "$pkgdir/usr/bin/omnibar-toggle"
   install -Dm755 pkgbuild/omnibar-ui "$pkgdir/usr/bin/omnibar-ui"
   install -Dm644 systemd/omnibar.service "$pkgdir/usr/lib/systemd/user/omnibar.service"
 

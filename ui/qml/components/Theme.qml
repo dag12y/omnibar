@@ -1,7 +1,5 @@
 pragma Singleton
 import QtQuick
-import Quickshell
-import Quickshell.Io
 
 QtObject {
     id: root
@@ -21,13 +19,5 @@ QtObject {
             if (match) result[match[1]] = match[2]
         }
         colors = result
-    }
-    property FileView theme: FileView {
-        path: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state")
-            + "/omarchy/current/theme/colors.toml"
-        watchChanges: true
-        printErrors: false
-        onFileChanged: reload()
-        onLoaded: root.load(text())
     }
 }

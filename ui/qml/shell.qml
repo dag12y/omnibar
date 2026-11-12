@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -8,6 +9,7 @@ import "components/format.js" as Format
 
 ShellRoot {
     id: root
+    ThemeLoader {}
     property bool opened: true
     property string expanded: ""
     property var cpuHistory: []
@@ -44,8 +46,10 @@ ShellRoot {
         visible: root.opened
         anchors { top: true; right: true }
         margins { top: 16; right: 16 }
-        implicitWidth: 408
-        implicitHeight: body.implicitHeight + 40
+        implicitWidth: Math.min(408, screen.width - 32)
+        implicitHeight: Math.min(body.implicitHeight + 40, screen.height - 64)
+        WlrLayershell.namespace: "omnibar-panel"
+        WlrLayershell.keyboardFocus: root.opened ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
         color: "transparent"
         exclusionMode: ExclusionMode.Ignore
         mask: Region { item: surface }
@@ -56,10 +60,20 @@ ShellRoot {
             radius: 24
             color: Qt.alpha(Theme.background, 0.96)
             border.color: Theme.border
-            ColumnLayout {
+            FocusScope {
+                anchors.fill: parent
+                focus: true
+                Keys.onEscapePressed: root.opened = false
+                ScrollView {
+                    id: scroll
+                    anchors.fill: parent
+                    anchors.margins: 20
+                    contentWidth: availableWidth
+                    clip: true
+                    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                    ColumnLayout {
                 id: body
-                x: 20; y: 20
-                width: parent.width - 40
+                width: scroll.availableWidth
                 spacing: 18
                 RowLayout {
                     spacing: 10
@@ -74,15 +88,14 @@ ShellRoot {
                         Text { text: "Omnibar"; color: Theme.foreground; font.pixelSize: 17; font.weight: Font.DemiBold }
                         Text { text: "YOUR SYSTEM, AT A GLANCE"; color: Theme.muted; font.pixelSize: 9; font.letterSpacing: 1 }
                     }
-                    Rectangle {
-                        width: 28; height: 28; radius: 8
-                        color: closeMouse.containsMouse ? Theme.surface : "transparent"
-                        Text { anchors.centerIn: parent; text: "×"; color: Theme.muted; font.pixelSize: 20 }
-                        MouseArea { id: closeMouse; anchors.fill: parent; hoverEnabled: true; onClicked: root.opened = false }
+                    PanelButton {
+                        text: "×"
+                        description: "Close panel (Escape)"
+                        onClicked: root.opened = false
                     }
                 }
                 Rectangle {
-                    visible: root.state === "denied" || root.state === "unavailable" || root.state === "failed" || !client.backendConnected
+                    visible: root.state === "denied" || root.state === "unavailable" || root.state === "failed" || root.state === "pending" || !client.backendConnected
                     Layout.fillWidth: true
                     implicitHeight: notice.implicitHeight + 24
                     radius: 12; color: Qt.alpha(Theme.accent, 0.08)
@@ -94,7 +107,7 @@ ShellRoot {
                             : root.state === "unavailable" ? "System monitoring is disabled."
                             : root.state === "failed" ? "Could not load system metrics."
                             : root.stale && root.snap.sampled_at ? "Connection lost · showing the last reading. Reconnecting…"
-                            : "Connecting to your system…"
+                            : client.backendConnected ? "Loading system metrics…" : "Connecting to your system…"
                     }
                 }
                 RowLayout {
@@ -173,10 +186,12 @@ ShellRoot {
                     Layout.fillWidth: true
                     Rectangle { width: 5; height: 5; radius: 3; color: root.stale ? Theme.muted : Theme.accent }
                     Text { text: root.stale ? "Offline" : root.state === "fresh" ? "Live monitoring" : "Waiting for metrics"; color: Theme.muted; font.pixelSize: 10; Layout.fillWidth: true }
-                    Text {
+                    PanelButton {
                         text: client.backendConnected ? "Refresh ↻" : "Retry ↻"
-                        color: Theme.accent; font.pixelSize: 11
-                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: client.backendConnected ? client.refreshHandshake() : client.retryNow() }
+                        description: client.backendConnected ? "Refresh system metrics" : "Reconnect to backend"
+                        onClicked: client.backendConnected ? client.refreshHandshake() : client.retryNow()
+                    }
+                }
                     }
                 }
             }
