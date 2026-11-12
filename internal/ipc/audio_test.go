@@ -18,9 +18,10 @@ func (s *audioStub) Read(context.Context) (audio.Snapshot, error) {
 	s.reads++
 	return audio.Snapshot{Available: true, Outputs: []audio.Output{{ID: "1", Name: "speaker"}}, Streams: []audio.Stream{{ID: "8", Key: "live", Name: "App"}}}, nil
 }
-func (s *audioStub) SetVolume(context.Context, string, int) error   { s.changes++; return nil }
-func (s *audioStub) SetMute(context.Context, string, bool) error    { s.changes++; return nil }
-func (s *audioStub) SetDefaultOutput(context.Context, string) error { s.changes++; return nil }
+func (s *audioStub) SetVolume(context.Context, string, int) error     { s.changes++; return nil }
+func (s *audioStub) SetMute(context.Context, string, bool) error      { s.changes++; return nil }
+func (s *audioStub) SetDefaultOutput(context.Context, string) error   { s.changes++; return nil }
+func (s *audioStub) MoveStream(context.Context, string, string) error { s.changes++; return nil }
 func (s *audioStub) Watch(ctx context.Context, _ chan<- struct{}) error {
 	<-ctx.Done()
 	return ctx.Err()
@@ -51,6 +52,11 @@ func TestAudioRPCCapabilitiesAndValidation(t *testing.T) {
 				{"audio.setVolume", `{"key":"live","volume":45}`, true},
 				{"audio.setMute", `{"key":"live","muted":false}`, true},
 				{"audio.setDefaultOutput", `{"output":"speaker"}`, true},
+				{"audio.moveStream", `{"key":"live","output":"speaker"}`, true},
+				{"audio.moveStream", `{"output":"speaker"}`, false},
+				{"audio.moveStream", `{"key":"live"}`, false},
+				{"audio.moveStream", `{"key":"live","output":null}`, false},
+				{"audio.moveStream", `{"key":"live","output":42}`, false},
 				{"audio.setVolume", `{"key":"live","volume":101}`, false},
 				{"audio.setVolume", `{"key":"live","volume":-1}`, false},
 				{"audio.setVolume", `{"key":"live","volume":1.5}`, false},
@@ -90,7 +96,7 @@ func TestAudioRPCCapabilitiesAndValidation(t *testing.T) {
 			if state != "granted" && driver.reads != 0 {
 				t.Fatal("denied request contacted audio service")
 			}
-			if state == "granted" && driver.changes != 3 {
+			if state == "granted" && driver.changes != 4 {
 				t.Fatalf("mutations = %d", driver.changes)
 			}
 		})

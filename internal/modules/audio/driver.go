@@ -37,5 +37,6 @@ type Driver interface {
 	SetVolume(context.Context, string, int) error
 	SetMute(context.Context, string, bool) error
 	SetDefaultOutput(context.Context, string) error
+	MoveStream(context.Context, string, string) error
 	Watch(context.Context, chan<- struct{}) error
 }

@@ -11,7 +11,7 @@ import (
 )
 
 func RegisterAudioMethods(d *jsonrpc.Dispatcher, registry *modules.Registry, mixer *audio.Module) {
-	for _, method := range []string{"audio.getSnapshot", "audio.setVolume", "audio.setMute", "audio.setDefaultOutput"} {
+	for _, method := range []string{"audio.getSnapshot", "audio.setVolume", "audio.setMute", "audio.setDefaultOutput", "audio.moveStream"} {
 		d.RegisterContext(method, func(ctx context.Context, params json.RawMessage) (json.RawMessage, *jsonrpc.Error) {
 			if !registry.IsEnabled(audio.Name) {
 				return nil, jsonrpc.NewError(jsonrpc.CodeModuleUnavailable, "Audio is disabled", audio.Name)
@@ -49,6 +49,11 @@ func RegisterAudioMethods(d *jsonrpc.Dispatcher, registry *modules.Registry, mix
 						return invalid()
 					}
 					action, muted = "mute", *p.Muted
+				case "audio.moveStream":
+					if p.Key == "" || p.Output == "" {
+						return invalid()
+					}
+					action = "move"
 				case "audio.setDefaultOutput":
 					if p.Output == "" {
 						return invalid()
@@ -56,7 +61,11 @@ func RegisterAudioMethods(d *jsonrpc.Dispatcher, registry *modules.Registry, mix
 					action, key = "output", p.Output
 				}
 				var err error
-				snap, err = mixer.Change(ctx, action, key, volume, muted)
+				if action == "move" {
+					snap, err = mixer.MoveStream(ctx, key, p.Output)
+				} else {
+					snap, err = mixer.Change(ctx, action, key, volume, muted)
+				}
 				if err != nil {
 					return nil, jsonrpc.NewError(jsonrpc.CodeInternalError, err.Error(), audio.Name)
 				}

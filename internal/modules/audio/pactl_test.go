@@ -45,7 +45,8 @@ func TestPactlMutationsUseArgumentVectors(t *testing.T) {
 	p.SetVolume(context.Background(), "10", 42)
 	p.SetMute(context.Background(), "10", true)
 	p.SetDefaultOutput(context.Background(), "output with spaces;literal")
-	want := [][]string{{"set-sink-input-volume", "10", "42%"}, {"set-sink-input-mute", "10", "1"}, {"set-default-sink", "output with spaces;literal"}}
+	p.MoveStream(context.Background(), "10", "headphones;literal")
+	want := [][]string{{"set-sink-input-volume", "10", "42%"}, {"set-sink-input-mute", "10", "1"}, {"set-default-sink", "output with spaces;literal"}, {"move-sink-input", "10", "headphones;literal"}}
 	if !reflect.DeepEqual(calls, want) {
 		t.Fatalf("calls = %v", calls)
 	}

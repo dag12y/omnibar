@@ -55,6 +55,22 @@ func (f *fakeDriver) SetDefaultOutput(_ context.Context, name string) error {
 	f.snap.DefaultOutput = name
 	return nil
 }
+func (f *fakeDriver) MoveStream(_ context.Context, id, name string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.changes++
+	for _, output := range f.snap.Outputs {
+		if output.Name == name {
+			for i := range f.snap.Streams {
+				if f.snap.Streams[i].ID == id {
+					f.snap.Streams[i].OutputID = output.ID
+					return nil
+				}
+			}
+		}
+	}
+	return errors.New("target disappeared")
+}
 func (f *fakeDriver) Watch(ctx context.Context, changed chan<- struct{}) error {
 	f.mu.Lock()
 	f.watches++
@@ -176,5 +192,36 @@ func TestDemandAndRecovery(t *testing.T) {
 	after, _, _, _ := d.counts()
 	if after != reads {
 		t.Fatal("audio read after unsubscribe")
+	}
+}
+
+func TestMoveStreamPreservesOtherAudioState(t *testing.T) {
+	d := testDriver()
+	d.snap.Streams[0].OutputID = "1"
+	d.snap.Streams[0].Muted = true
+	d.snap.Streams = append(d.snap.Streams, Stream{ID: "6", Key: "other", Name: "Other", OutputID: "1", Volume: 75})
+	m := New(nil, d)
+	snap, err := m.MoveStream(context.Background(), "5:serial:pid:App", "headphones")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snap.Streams[0].OutputID != "2" || snap.Streams[0].Volume != 50 || !snap.Streams[0].Muted {
+		t.Fatalf("bad routed stream: %+v", snap.Streams[0])
+	}
+	if snap.DefaultOutput != "speakers" || snap.Streams[1].OutputID != "1" || snap.Streams[1].Volume != 75 {
+		t.Fatalf("unrelated audio changed: %+v", snap)
+	}
+	for _, tc := range []struct{ key, output string }{{"gone", "headphones"}, {"5:serial:pid:App", "unplugged"}} {
+		if _, err := m.MoveStream(context.Background(), tc.key, tc.output); err == nil {
+			t.Fatalf("accepted stale route: %+v", tc)
+		}
+	}
+	_, changes, _, _ := d.counts()
+	if changes != 1 {
+		t.Fatalf("stale requests mutated audio: %d calls", changes)
+	}
+	d.fail = true
+	if _, err := m.MoveStream(context.Background(), "5:serial:pid:App", "speakers"); err == nil {
+		t.Fatal("routed while service down")
 	}
 }

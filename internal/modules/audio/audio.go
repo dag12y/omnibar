@@ -30,7 +30,7 @@ func New(hub *events.Hub, driver Driver) *Module {
 	return &Module{hub: hub, driver: driver}
 }
 func (m *Module) Info() modules.ModuleInfo {
-	return modules.ModuleInfo{Name: Name, Description: "Playback volume, mute, and default output", Version: "0.1.0", Enabled: true, Capabilities: []string{Capability}}
+	return modules.ModuleInfo{Name: Name, Description: "Playback volume, mute, and output routing", Version: "0.1.0", Enabled: true, Capabilities: []string{Capability}}
 }
 func (m *Module) Initialize(context.Context) error { return nil }
 func (m *Module) Start(context.Context) error {
@@ -95,49 +95,71 @@ func (m *Module) refresh(ctx context.Context) {
 // Change validates against a fresh server snapshot. Stream IDs and output names
 // come from that snapshot, never from a shell command supplied by a client.
 func (m *Module) Change(ctx context.Context, action, key string, volume int, muted bool) (Snapshot, error) {
+	return m.mutate(ctx, func(snap Snapshot) error {
+		if action == "output" {
+			output, err := findOutput(snap, key)
+			if err != nil {
+				return err
+			}
+			return m.driver.SetDefaultOutput(ctx, output.Name)
+		}
+		stream, err := findStream(snap, key)
+		if err != nil {
+			return err
+		}
+		switch action {
+		case "volume":
+			if volume < 0 || volume > 100 {
+				return fmt.Errorf("volume must be between 0 and 100")
+			}
+			return m.driver.SetVolume(ctx, stream.ID, volume)
+		case "mute":
+			return m.driver.SetMute(ctx, stream.ID, muted)
+		default:
+			return fmt.Errorf("unknown audio action")
+		}
+	})
+}
+
+// MoveStream moves one currently existing playback stream. It does not change
+// the default output, other streams, mute, or volume, and stores no preference.
+func (m *Module) MoveStream(ctx context.Context, key, outputName string) (Snapshot, error) {
+	return m.mutate(ctx, func(snap Snapshot) error {
+		stream, err := findStream(snap, key)
+		if err != nil {
+			return err
+		}
+		output, err := findOutput(snap, outputName)
+		if err != nil {
+			return err
+		}
+		return m.driver.MoveStream(ctx, stream.ID, output.Name)
+	})
+}
+func findStream(snap Snapshot, key string) (Stream, error) {
+	for _, stream := range snap.Streams {
+		if stream.Key == key {
+			return stream, nil
+		}
+	}
+	return Stream{}, fmt.Errorf("playback stream ended or changed; refresh and try again")
+}
+func findOutput(snap Snapshot, name string) (Output, error) {
+	for _, output := range snap.Outputs {
+		if output.Name == name {
+			return output, nil
+		}
+	}
+	return Output{}, fmt.Errorf("output is no longer available; refresh and try again")
+}
+func (m *Module) mutate(ctx context.Context, change func(Snapshot) error) (Snapshot, error) {
 	m.opMu.Lock()
 	defer m.opMu.Unlock()
 	snap := m.readLocked(ctx)
 	if !snap.Available {
 		return snap, fmt.Errorf("audio service unavailable: %s", snap.Error)
 	}
-	var err error
-	if action == "output" {
-		var name string
-		for _, output := range snap.Outputs {
-			if output.Name == key {
-				name = output.Name
-				break
-			}
-		}
-		if name == "" {
-			return snap, fmt.Errorf("output is no longer available; refresh and try again")
-		}
-		err = m.driver.SetDefaultOutput(ctx, name)
-	} else {
-		var id string
-		for _, stream := range snap.Streams {
-			if stream.Key == key {
-				id = stream.ID
-				break
-			}
-		}
-		if id == "" {
-			return snap, fmt.Errorf("playback stream ended or changed; refresh and try again")
-		}
-		switch action {
-		case "volume":
-			if volume < 0 || volume > 100 {
-				return snap, fmt.Errorf("volume must be between 0 and 100")
-			}
-			err = m.driver.SetVolume(ctx, id, volume)
-		case "mute":
-			err = m.driver.SetMute(ctx, id, muted)
-		default:
-			return snap, fmt.Errorf("unknown audio action")
-		}
-	}
-	if err != nil {
+	if err := change(snap); err != nil {
 		return snap, err
 	}
 	snap = m.readLocked(ctx)

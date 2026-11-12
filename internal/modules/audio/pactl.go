@@ -136,6 +136,10 @@ func (p *Pactl) SetDefaultOutput(ctx context.Context, name string) error {
 	_, err := p.command(ctx, "set-default-sink", name)
 	return err
 }
+func (p *Pactl) MoveStream(ctx context.Context, id, output string) error {
+	_, err := p.command(ctx, "move-sink-input", id, output)
+	return err
+}
 func relevantEvent(line string) bool {
 	for _, kind := range []string{"sink-input", "sink", "server", "card"} {
 		if strings.Contains(line, " on "+kind+" #") {

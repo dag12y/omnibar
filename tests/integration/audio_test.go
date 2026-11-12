@@ -19,7 +19,7 @@ func TestAudioFailClosedOverRealSocket(t *testing.T) {
 			}
 			startBackend(t, env)
 			c := dial(t, env.socketPath)
-			for _, method := range []string{"audio.getSnapshot", "audio.setVolume", "audio.setMute", "audio.setDefaultOutput"} {
+			for _, method := range []string{"audio.getSnapshot", "audio.setVolume", "audio.setMute", "audio.setDefaultOutput", "audio.moveStream"} {
 				resp, _ := c.request(method, map[string]any{"key": "anything", "volume": 50, "muted": true, "output": "anything"})
 				want := jsonrpc.CodePermissionDenied
 				if disabled {
