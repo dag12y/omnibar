@@ -290,3 +290,24 @@ a new graph segment. Long sampling gaps reset activity-rate baselines.
 
 For IPC functions whose names overlap Quickshell commands, use the argument
 separator, for example `quickshell -p ui/qml/shell.qml ipc call -- panel show`.
+
+
+## Keep Awake
+
+Grant `"power.inhibit" = true` in `[permissions]` and restart the backend. Use
+the panel's 15-, 30-, or 60-minute preset. Stop releases the lease immediately;
+hiding the panel leaves the session running. Backend shutdown or a crash closes
+the logind lease. Quitting only the UI removes Wayland display-idle inhibition,
+while the backend session continues until Stop, expiry, or backend shutdown.
+Low-battery automatic cancellation is not implemented. Existing manual idle
+settings and other applications' inhibitors are left alone.
+
+`make e2e-awake` is an opt-in test on an active Hyprland desktop. It briefly
+acquires real idle/sleep inhibitors and verifies Stop, expiry, hidden-panel
+behavior, and shutdown cleanup. It needs Python 3, logind's system bus, and
+permission to inhibit sleep. It uses isolated Omnibar config/runtime paths and
+prints the temporary log directory. The regular Go/QML tests use fake leases.
+
+For live IPC, use `keepAwake.getStatus`, `keepAwake.start` with
+`{"seconds":900}`, and `keepAwake.stop`. API durations range from 1 to 86400
+seconds. See [ADR-0011](../architecture/ADR-0011-keep-awake.md).

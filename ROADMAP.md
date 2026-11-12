@@ -52,7 +52,7 @@ System monitoring suite: event delivery, resource metrics, UI cards, and the v0.
 - [ ] Quick panel
 - [ ] Command bar
 - [ ] Scratchpad
-- [ ] Keep awake
+- [x] Keep awake: timed logind/Wayland inhibition with countdown and Stop
 - [ ] Color picker
 - [ ] OCR and QR reader
 

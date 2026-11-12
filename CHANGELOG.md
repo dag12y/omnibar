@@ -5,6 +5,9 @@ All notable changes will be documented here.
 ## [Unreleased]
 
 ### Added
+- Keyboard-accessible panel controls, Escape dismissal, screen-bounded scrolling, tooltips, and `omnibar-toggle`.
+- Timed Keep Awake with `power.inhibit` permission, logind lease ownership, Wayland display inhibition while hidden, countdown, and Stop; cleanup on timer expiry and backend shutdown.
+- `make e2e-awake`: opt-in live logind/Hyprland verification.
 - Battery charge, status, and power monitoring from sysfs, with snapshot/event delivery and desktop-safe absence handling.
 - Floating dashboard with Omarchy theme colors, CPU/memory sparklines, expandable core/swap details, and panel show/hide/toggle IPC.
 - Initial project documentation.
@@ -35,10 +38,13 @@ All notable changes will be documented here.
 - Network monitoring (M13): reads `/proc/net/dev` for active non-loopback transfer rates (download/upload bytes/sec); publishes `network` events and includes `network` in `system.getSnapshot`; Quickshell UI displays live network throughput.
 
 ### Changed
+- Hidden panels unsubscribe from system metrics; the sampler sleeps without consumers and resets stale rate baselines.
+- Theme loading handles parent-symlink replacement while the panel is visible.
 - The integration harness finds the repository root from the working directory, so it also works under `-trimpath` (package `check()`).
 - Documented reconnect backoff consistently as 1s, 2s, 4s, 8s, 16s, then capped at 30s.
 
 ### Fixed
+- Live snapshot updates replace cached objects so QML bindings receive new values; CPU core count is available before delta sampling.
 - QML snapshot parsing in `BackendClient.qml` to handle already parsed object results from JSON-RPC without throwing `SyntaxError`.
 - Relative import path of `components/format.js` in `shell.qml`.
 - Seed example config in `scripts/e2e-ui.sh` so `system_monitor` permissions are granted during automated e2e UI testing.
