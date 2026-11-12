@@ -70,6 +70,8 @@ func TestRunVersion(t *testing.T) {
 }
 
 func TestRunNoArgs(t *testing.T) {
+	t.Setenv("XDG_RUNTIME_DIR", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	var out bytes.Buffer
 	var errOut bytes.Buffer
 
@@ -127,6 +129,7 @@ func TestRunInvalidConfig(t *testing.T) {
 }
 
 func TestRunValidConfig(t *testing.T) {
+	t.Setenv("XDG_RUNTIME_DIR", t.TempDir())
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.toml")
 	content := `
