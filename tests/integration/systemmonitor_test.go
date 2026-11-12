@@ -70,6 +70,12 @@ func TestSystemGetSnapshotGranted(t *testing.T) {
 			RxBytesSec uint64 `json:"rx_bytes_sec"`
 			TxBytesSec uint64 `json:"tx_bytes_sec"`
 		} `json:"network"`
+		Battery struct {
+			Present    bool    `json:"present"`
+			Percent    float64 `json:"percent"`
+			State      string  `json:"state"`
+			PowerWatts float64 `json:"power_watts"`
+		} `json:"battery"`
 		SampledAt string `json:"sampled_at"`
 	}
 	if err := json.Unmarshal(resp.Result, &snap); err != nil {
@@ -89,6 +95,16 @@ func TestSystemGetSnapshotGranted(t *testing.T) {
 	}
 	if snap.Disk.Total == 0 {
 		t.Error("Disk.Total should be non-zero")
+	}
+	// Battery may or may not be present on the test machine; just verify the
+	// field deserialises cleanly and percent is in range when present.
+	if snap.Battery.Present {
+		if snap.Battery.Percent < 0 || snap.Battery.Percent > 100 {
+			t.Errorf("Battery.Percent = %f, want 0-100", snap.Battery.Percent)
+		}
+		if snap.Battery.State == "" {
+			t.Error("Battery.State should not be empty when present")
+		}
 	}
 }
 

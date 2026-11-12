@@ -22,10 +22,11 @@ type sampler struct {
 	logger      *slog.Logger
 	statPath    string
 	meminfoPath string
-	diskPath    string
-	netdevPath  string
-	fsPath      string
-	fsStat      FsStatFunc
+	diskPath        string
+	netdevPath      string
+	powerSupplyPath string
+	fsPath          string
+	fsStat          FsStatFunc
 
 	mu      sync.Mutex
 	stopCh  chan struct{}
@@ -41,16 +42,17 @@ type sampler struct {
 
 func newSampler(module string, interval time.Duration, hub *events.Hub, logger *slog.Logger) *sampler {
 	return &sampler{
-		module:      module,
-		hub:         hub,
-		interval:    interval,
-		logger:      logger,
-		statPath:    "/proc/stat",
-		meminfoPath: "/proc/meminfo",
-		diskPath:    "/proc/diskstats",
-		netdevPath:  "/proc/net/dev",
-		fsPath:      "/",
-		fsStat:      DefaultFsStat,
+		module:          module,
+		hub:             hub,
+		interval:        interval,
+		logger:          logger,
+		statPath:        "/proc/stat",
+		meminfoPath:     "/proc/meminfo",
+		diskPath:        "/proc/diskstats",
+		netdevPath:      "/proc/net/dev",
+		powerSupplyPath: "/sys/class/power_supply",
+		fsPath:          "/",
+		fsStat:          DefaultFsStat,
 	}
 }
 
@@ -162,11 +164,12 @@ func (s *sampler) sample() (*Snapshot, error) {
 	now := time.Now()
 	disk, _ := ParseDiskstatsFile(s.diskPath, now)
 	net, _ := ParseNetdevFile(s.netdevPath, now)
+	bat, _ := ReadBattery(s.powerSupplyPath)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	snap := computeSnapshot(stat, mem, s.lastStat, disk, s.lastDisk, s.fsStat, s.fsPath, net, s.lastNet)
+	snap := computeSnapshot(stat, mem, s.lastStat, disk, s.lastDisk, s.fsStat, s.fsPath, net, s.lastNet, bat)
 	s.lastStat = stat
 	s.lastMem = mem
 	if disk != nil {
@@ -194,11 +197,12 @@ func (s *sampler) sampleOnce() (*Snapshot, error) {
 	now := time.Now()
 	disk, _ := ParseDiskstatsFile(s.diskPath, now)
 	net, _ := ParseNetdevFile(s.netdevPath, now)
+	bat, _ := ReadBattery(s.powerSupplyPath)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	snap := computeSnapshot(stat, mem, s.lastStat, disk, s.lastDisk, s.fsStat, s.fsPath, net, s.lastNet)
+	snap := computeSnapshot(stat, mem, s.lastStat, disk, s.lastDisk, s.fsStat, s.fsPath, net, s.lastNet, bat)
 	s.lastStat = stat
 	s.lastMem = mem
 	if disk != nil {
@@ -218,7 +222,7 @@ func (s *sampler) currentSnapshot() *Snapshot {
 	return s.snapshot
 }
 
-// publish sends cpu, memory, disk, and network events for snap to subscribed clients.
+// publish sends cpu, memory, disk, network, and battery events for snap to subscribed clients.
 func (s *sampler) publish(snap *Snapshot) {
 	cpuData := marshalCPUEvent(snap)
 	if err := s.hub.Publish(s.module, EventCPU, cpuData); err != nil {
@@ -238,5 +242,10 @@ func (s *sampler) publish(snap *Snapshot) {
 	netData := marshalNetworkEvent(snap)
 	if err := s.hub.Publish(s.module, EventNetwork, netData); err != nil {
 		s.logger.Error("publish network event", "module", s.module, "error", err)
+	}
+
+	batData := marshalBatteryEvent(snap)
+	if err := s.hub.Publish(s.module, EventBattery, batData); err != nil {
+		s.logger.Error("publish battery event", "module", s.module, "error", err)
 	}
 }

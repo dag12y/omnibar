@@ -312,6 +312,8 @@ Item {
             snap.disk = data
         } else if (event === "network") {
             snap.network = data
+        } else if (event === "battery") {
+            snap.battery = data
         }
         snap.sampled_at = new Date().toISOString()
         snapshots = Protocol.withState(snapshots, module, snap)

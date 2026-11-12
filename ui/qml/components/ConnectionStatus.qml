@@ -1,13 +1,16 @@
 import QtQuick
 
-// Compact connection indicator used in the Omnibar header.
-Rectangle {
+// Compact connection indicator used in the Omnibar header: a small colored
+// dot with an optional short label. No pill background, no border chrome.
+Item {
     id: root
 
-    property string status: "connecting"
+    property string status: "connecting" // connected, connecting, unavailable
+    property bool label: true
 
     readonly property bool connected: status === "connected"
     readonly property bool connecting: status === "connecting"
+    readonly property bool unavailable: status === "unavailable"
 
     readonly property color statusColor: connected
         ? "#4ade80"
@@ -15,37 +18,33 @@ Rectangle {
             ? "#fbbf24"
             : "#f87171"
 
-    readonly property string statusLabel: connected
-        ? "Connected"
-        : connecting
-            ? "Connecting\u2026"
-            : "Backend unavailable"
+    implicitWidth: (label ? content.implicitWidth : dotSize) + (label ? 8 : 0)
+    implicitHeight: dotSize
 
-    implicitWidth: content.implicitWidth + 22
-    implicitHeight: 28
-    radius: height / 2
-    color: Qt.rgba(statusColor.r, statusColor.g, statusColor.b, 0.12)
-    border.width: 1
-    border.color: Qt.rgba(statusColor.r, statusColor.g, statusColor.b, 0.35)
+    property real dotSize: 7
 
     Row {
         id: content
-        anchors.centerIn: parent
-        spacing: 7
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: 6
 
         Rectangle {
-            width: 7
-            height: 7
-            radius: 3.5
-            anchors.verticalCenter: parent.verticalCenter
+            width: root.dotSize
+            height: root.dotSize
+            radius: root.dotSize / 2
             color: root.statusColor
         }
 
         Text {
+            visible: root.label
             anchors.verticalCenter: parent.verticalCenter
-            text: root.statusLabel
+            text: root.connected
+                ? "Connected"
+                : root.connecting
+                    ? "Connecting…"
+                    : "Unavailable"
             color: root.statusColor
-            font.pixelSize: 12
+            font.pixelSize: 11
             font.weight: Font.Medium
         }
     }

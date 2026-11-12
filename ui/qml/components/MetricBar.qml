@@ -1,69 +1,94 @@
 import QtQuick
 import QtQuick.Layouts
-import "format.js" as Format
 
-// A horizontal metric bar: a label, a value, and a filled track that
-// visualizes a percentage (0-100). Used by the system monitor card for
-// CPU and memory readings.
-Rectangle {
+// One metric row: icon, label, right-aligned value, optional quieter
+// detail line, and a thin track inside the row so it counts toward height.
+Item {
     id: root
 
     property string label: ""
-    property string value: "\u2014"        // e.g. "4.2%" or "12.3 GB"
-    property real percent: 0              // 0-100 fill of the track
-    property bool stale: false            // dims the card when true
+    property string iconName: ""
+    property string value: "\u2014"
+    property string detail: ""
+    property real percent: 0
+    property bool stale: false
+    property bool showTrack: true
 
-    implicitWidth: 200
-    implicitHeight: 44
+    Layout.fillWidth: true
+    Layout.preferredHeight: implicitHeight
 
-    color: "#1d222a"
-    radius: 8
-    border.width: 1
-    border.color: stale ? "#343b47" : "#303744"
+    implicitWidth: 240
+    implicitHeight: (detail.length > 0 ? 46 : 32)
 
-    ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: 10
-        spacing: 4
+    RowLayout {
+        id: row
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        spacing: 8
 
-        RowLayout {
-            spacing: 6
-
-            Text {
-                text: root.label
-                color: "#8b93a3"
-                font.pixelSize: 11
-                font.weight: Font.Medium
-                Layout.alignment: Qt.AlignLeft
-            }
-
-            Item {
-                Layout.fillWidth: true
-            }
-
-            Text {
-                id: valueText
-                text: root.value
-                color: root.stale ? "#7b8291" : "#dfe4ec"
-                font.pixelSize: 12
-                font.weight: Font.DemiBold
-            }
+        MetricIcon {
+            name: root.iconName
+            size: 15
+            color: root.stale ? "#7b8291" : "#e7ebf2"
+            Layout.alignment: Qt.AlignVCenter
         }
 
-        Rectangle {
+        ColumnLayout {
             Layout.fillWidth: true
-            Layout.preferredHeight: 6
-            radius: 3
-            color: "#232830"
+            spacing: 1
 
-            Rectangle {
-                id: fill
-                width: parent.width * Math.max(0, Math.min(1, root.percent / 100))
-                height: parent.height
-                radius: 3
-                color: root.percent > 80 ? "#f87171" : root.percent > 50 ? "#fbbf24" : "#4ade80"
-                Behavior on width { NumberAnimation { duration: 300 } }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Text {
+                    text: root.label
+                    color: root.stale ? "#7b8291" : "#c5ccd6"
+                    font.pixelSize: 12
+                    font.weight: Font.Medium
+                }
+
+                Item { Layout.fillWidth: true }
+
+                Text {
+                    text: root.value
+                    color: root.stale ? "#8b93a3" : "#f4f6f8"
+                    font.pixelSize: 12
+                    font.weight: Font.DemiBold
+                    horizontalAlignment: Text.AlignRight
+                    elide: Text.ElideRight
+                    Layout.maximumWidth: 210
+                }
             }
+
+            Text {
+                visible: root.detail.length > 0
+                text: root.detail
+                color: "#8b93a3"
+                font.pixelSize: 10
+                elide: Text.ElideRight
+                Layout.fillWidth: true
+            }
+        }
+    }
+
+    Rectangle {
+        visible: root.showTrack
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: 3
+        radius: 1.5
+        color: "#2a3038"
+
+        Rectangle {
+            width: parent.width * Math.max(0, Math.min(1, root.percent / 100))
+            height: parent.height
+            radius: 1.5
+            color: root.percent > 80 ? "#f07178" : "#7dcea0"
+            opacity: root.stale ? 0.45 : 1
+            Behavior on width { NumberAnimation { duration: 240 } }
         }
     }
 }

@@ -1,43 +1,49 @@
 import QtQuick
 
-// Minimal flat button. Disabled buttons stay visible and muted so the
-// UI clearly shows which backend-dependent actions are unavailable.
-Rectangle {
+// Icon-only action button. No wide text label; the icon carries the meaning.
+// Disabled buttons stay visible and muted.
+Item {
     id: root
 
-    property string label: ""
+    property string icon: "refresh"   // passed to MetricIcon name
+    property bool enabled: true
     property bool primary: false
 
     signal activated()
 
-    implicitWidth: labelText.implicitWidth + 28
+    implicitWidth: 32
     implicitHeight: 32
-    radius: 8
 
-    color: {
-        if (!enabled)
-            return "#1b1f26"
-        if (primary)
-            return mouseArea.containsMouse ? "#3b82f6" : "#2563eb"
-        return mouseArea.containsMouse ? "#2d333e" : "#242a33"
+    readonly property color iconColor: enabled
+        ? (primary ? "#2563eb" : "#dfe4ec")
+        : "#7b8291"
+
+    Rectangle {
+        id: bg
+        anchors.fill: parent
+        radius: 8
+        color: {
+            if (!enabled)
+                return "#1b1f26"
+            if (mouseArea.containsMouse)
+                return primary ? "#3b82f6" : "#2d333e"
+            return primary ? "#2563eb" : "#242a33"
+        }
+        border.width: 1
+        border.color: {
+            if (!enabled)
+                return "#232830"
+            return primary ? "#3b82f6" : "#343b47"
+        }
+        opacity: enabled ? 1 : 0.5
     }
 
-    border.width: 1
-    border.color: {
-        if (!enabled)
-            return "#232830"
-        return primary ? "#3b82f6" : "#343b47"
-    }
-
-    opacity: enabled ? 1 : 0.5
-
-    Text {
-        id: labelText
+    MetricIcon {
+        id: icon
         anchors.centerIn: parent
-        text: root.label
-        color: root.enabled ? "#f2f4f8" : "#7b8291"
-        font.pixelSize: 12
-        font.weight: Font.Medium
+        name: root.icon
+        size: 14
+        color: root.iconColor
     }
 
     MouseArea {

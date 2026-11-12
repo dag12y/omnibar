@@ -34,6 +34,9 @@ const (
 
 	// EventNetwork is the event name for network transfer rate samples.
 	EventNetwork = "network"
+
+	// EventBattery is the event name for battery state and charge samples.
+	EventBattery = "battery"
 )
 
 var (
@@ -49,6 +52,7 @@ type Snapshot struct {
 	Swap      SwapSnapshot    `json:"swap"`
 	Disk      DiskSnapshot    `json:"disk"`
 	Network   NetworkSnapshot `json:"network"`
+	Battery   BatterySnapshot `json:"battery"`
 	SampledAt string          `json:"sampled_at"`
 }
 
@@ -86,6 +90,14 @@ type NetworkSnapshot struct {
 	TxBytesSec uint64 `json:"tx_bytes_sec"`
 }
 
+// BatterySnapshot holds battery presence, charge level, status, and power consumption.
+type BatterySnapshot struct {
+	Present    bool    `json:"present"`
+	Percent    float64 `json:"percent"`
+	State      string  `json:"state"`
+	PowerWatts float64 `json:"power_watts"`
+}
+
 // computeSnapshot builds a Snapshot from consecutive readings. When
 // prev is nil (first reading), no CPU or disk delta can be computed.
 func computeSnapshot(
@@ -98,6 +110,7 @@ func computeSnapshot(
 	fsPath string,
 	net *NetSample,
 	prevNet *NetSample,
+	battery *BatterySample,
 ) *Snapshot {
 	snap := &Snapshot{
 		SampledAt: time.Now().UTC().Format(time.RFC3339),
@@ -171,6 +184,14 @@ func computeSnapshot(
 		rxRate, txRate := computeNetDelta(net, prevNet)
 		snap.Network.RxBytesSec = rxRate
 		snap.Network.TxBytesSec = txRate
+	}
+
+	// Battery status and power metrics.
+	if battery != nil && battery.Present {
+		snap.Battery.Present = true
+		snap.Battery.Percent = battery.Percent
+		snap.Battery.State = battery.State
+		snap.Battery.PowerWatts = battery.PowerWatts
 	}
 
 	return snap
@@ -316,6 +337,17 @@ func marshalNetworkEvent(snap *Snapshot) json.RawMessage {
 	out, _ := json.Marshal(map[string]any{
 		"rx_bytes_sec": snap.Network.RxBytesSec,
 		"tx_bytes_sec": snap.Network.TxBytesSec,
+	})
+	return out
+}
+
+// marshalBatteryEvent returns the JSON payload for a battery event.
+func marshalBatteryEvent(snap *Snapshot) json.RawMessage {
+	out, _ := json.Marshal(map[string]any{
+		"present":     snap.Battery.Present,
+		"percent":     snap.Battery.Percent,
+		"state":       snap.Battery.State,
+		"power_watts": snap.Battery.PowerWatts,
 	})
 	return out
 }

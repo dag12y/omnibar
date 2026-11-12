@@ -1,6 +1,7 @@
 package systemmonitor
 
 import (
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -46,21 +47,28 @@ func TestSamplerStartStopNoLeak(t *testing.T) {
 func TestSamplerPublishesOnlyWhenSubscribed(t *testing.T) {
 	hub := newTestHub()
 	subscriber := &testSubscriber{}
-	hub.Subscribe(subscriber, "test", []string{"cpu", "memory", "disk", "network"})
+	hub.Subscribe(subscriber, "test", []string{"cpu", "memory", "disk", "network", "battery"})
+
+	tmpBat := t.TempDir()
+	os.MkdirAll(filepath.Join(tmpBat, "BAT0"), 0755)
+	os.WriteFile(filepath.Join(tmpBat, "BAT0", "capacity"), []byte("90\n"), 0644)
+	os.WriteFile(filepath.Join(tmpBat, "BAT0", "status"), []byte("Full\n"), 0644)
 
 	s := newSampler("test", 50*time.Millisecond, hub, nil)
 	s.statPath = filepath.Join("fixtures", "stat_normal")
 	s.meminfoPath = filepath.Join("fixtures", "meminfo_normal")
 	s.diskPath = filepath.Join("fixtures", "diskstats_normal")
 	s.netdevPath = filepath.Join("fixtures", "netdev_normal")
+	s.powerSupplyPath = tmpBat
 
 	s.start()
 	defer s.stop()
 
-	// Wait for at least one cpu, one memory, one disk, and one network event.
+	// Wait for all events.
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		if names := subscriber.names(); names["cpu"] && names["memory"] && names["disk"] && names["network"] {
+		names := subscriber.names()
+		if names["cpu"] && names["memory"] && names["disk"] && names["network"] && names["battery"] {
 			break
 		}
 		time.Sleep(10 * time.Millisecond)
@@ -78,6 +86,9 @@ func TestSamplerPublishesOnlyWhenSubscribed(t *testing.T) {
 	}
 	if !names["network"] {
 		t.Error("expected network event to be published")
+	}
+	if !names["battery"] {
+		t.Error("expected battery event to be published")
 	}
 }
 
