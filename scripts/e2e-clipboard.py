@@ -18,6 +18,7 @@ import time
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--capture", action="store_true")
+    parser.add_argument("--shelf", action="store_true", help="also verify the File shelf with synthetic files")
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
     # Keep Hyprland's instance Unix-socket path below Linux's length limit.
@@ -27,6 +28,8 @@ def main():
     config = (root / "config/config.toml.example").read_text()
     config = config.replace('"clipboard.read" = false', '"clipboard.read" = true')
     config = config.replace('"clipboard.write" = false', '"clipboard.write" = true')
+    if args.shelf:
+        config = config.replace('"filesystem.access" = false', '"filesystem.access" = true')
     (trial / "config/omnibar/config.toml").write_text(config)
     (trial / "hyprland.conf").write_text(
         "monitor = , 900x800, auto, 1\n"
@@ -43,6 +46,14 @@ def main():
         AQ_DRM_DEVICES="/dev/null", HYPRLAND_NO_SD_VARS="1", HYPRLAND_NO_SD_NOTIFY="1",
         QT_QPA_PLATFORM="wayland", QT_QPA_PLATFORMTHEME="", QT_QUICK_CONTROLS_STYLE="Basic",
     )
+    if args.shelf:
+        # Record opener arguments without launching a file manager on the host.
+        (trial / "bin").mkdir()
+        opener = trial / "bin/xdg-open"
+        opener.write_text('#!/usr/bin/python3\nimport json, os, sys\nfrom pathlib import Path\nPath(os.environ["OMNIBAR_TEST_OPEN_LOG"]).write_text(json.dumps(sys.argv[1:]))\n')
+        opener.chmod(0o700)
+        env["PATH"] = str(trial / "bin") + ":" + env["PATH"]
+        env["OMNIBAR_TEST_OPEN_LOG"] = str(trial / "opened.json")
     processes = []
     conn = stream = None
     qml = str(root / "ui/qml/shell.qml")
@@ -159,6 +170,25 @@ def main():
         wait_until(lambda: any(entry["text"] == "Copied while the panel is hidden" for entry in snapshot()["entries"]), "hidden UI stopped collection")
         subprocess.run(["quickshell", "-p", qml, "ipc", "call", "--", "panel", "show"], env=env, check=True, stdout=subprocess.DEVNULL)
         print("PASS: real Clipboard page and hidden-panel collection")
+        if args.shelf:
+            fixtures = trial / "fixtures"
+            fixtures.mkdir()
+            sample = fixtures / "Example # note λ.txt"
+            sample.write_text("Original synthetic text stays here.\n")
+            added = rpc("shelf.add", dict(paths=[sample.as_uri(), str(fixtures)]))
+            assert len(added["entries"]) == 2 and added["entries"][0]["path"] == str(sample)
+            shelf_id = added["entries"][0]["id"]
+            assert rpc("shelf.add", dict(paths=[str(sample)]))["entries"][0]["id"] == shelf_id
+            rpc("shelf.copyPath", dict(id=shelf_id))
+            assert paste() == str(sample)
+            rpc("shelf.openFolder", dict(id=shelf_id))
+            assert json.loads((trial / "opened.json").read_text()) == [str(fixtures)]
+            sample.unlink()
+            assert not rpc("shelf.getSnapshot")["entries"][0]["available"]
+            sample.write_text("Original synthetic text stays here.\n")
+            assert rpc("shelf.getSnapshot")["entries"][0]["available"]
+            subprocess.run(["quickshell", "-p", qml, "ipc", "call", "--", "panel", "showFiles"], env=env, check=True, stdout=subprocess.DEVNULL)
+            print("PASS: File shelf URL batch/dedup, real copy-path, recorded folder opener, unavailable/recovery, and real Files page")
         if args.capture:
             time.sleep(1.2)
             instances = list((trial / "run/hypr").glob("*/hyprland.lock"))
@@ -168,7 +198,14 @@ def main():
             panel = next(item for monitor in layers.values() for group in monitor.get("levels", {}).values()
                          for item in group if item.get("namespace") == "omnibar-panel")
             geometry = f"{panel['x']},{panel['y']} {panel['w']}x{panel['h']}"
-            subprocess.run(["grim", "-g", geometry, str(trial / "clipboard.png")], env=env, check=True)
+            subprocess.run(["grim", "-g", geometry, str(trial / ("files.png" if args.shelf else "clipboard.png"))], env=env, check=True)
+        if args.shelf:
+            rpc("shelf.clear")
+            assert sample.read_text() == "Original synthetic text stays here.\n"
+            rpc("shelf.add", dict(paths=[str(sample)]))
+            # Keep the clipboard assertion for the existing history lifecycle test.
+            copy("Copied while the panel is hidden")
+            print("PASS: Clear shelf preserves originals; session shelf seeded for restart")
         backend.send_signal(signal.SIGTERM)
         backend.wait(timeout=5)
         stream.close(); stream = None
@@ -178,6 +215,10 @@ def main():
         wait_until(path.exists, "backend did not restart")
         conn = socket.socket(socket.AF_UNIX); conn.settimeout(8); conn.connect(str(path))
         stream = conn.makefile("rwb", buffering=0)
+        if args.shelf:
+            assert not rpc("shelf.getSnapshot")["entries"]
+            assert sample.exists()
+            print("PASS: backend restart forgets shelf references and preserves original files")
         restored = snapshot()
         assert not restored["collecting"] and len(restored["entries"]) == 1
         assert restored["entries"][0]["text"] == saved_text and restored["entries"][0]["favorite"]

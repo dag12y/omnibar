@@ -67,6 +67,11 @@ ShellRoot {
         client: client
         active: root.opened && root.page === "clipboard"
     }
+    FileShelfController {
+        id: shelf
+        client: client
+        active: root.opened && root.page === "files"
+    }
     // A separate mapped surface keeps display-idle inhibition alive when the
     // dashboard is hidden. It takes no keyboard focus or pointer input.
     PanelWindow {
@@ -95,6 +100,10 @@ ShellRoot {
     }
     IpcHandler {
         target: "panel"
+        function showFiles(): void {
+            root.page = "files";
+            root.opened = true;
+        }
         function showClipboard(): void {
             root.page = "clipboard";
             root.opened = true;
@@ -111,7 +120,7 @@ ShellRoot {
             root.opened = true;
         }
         function selectPage(name: string): void {
-            if (name === "system" || name === "audio" || name === "clipboard")
+            if (name === "system" || name === "audio" || name === "clipboard" || name === "files")
                 root.page = name;
         }
         function hide(): void {
@@ -187,7 +196,7 @@ ShellRoot {
                                     font.weight: Font.DemiBold
                                 }
                                 Text {
-                                    text: root.page === "audio" ? "YOUR SOUND, YOUR CONTROL" : root.page === "clipboard" ? "COPIED, KEPT WITHIN REACH" : "YOUR SYSTEM, AT A GLANCE"
+                                    text: root.page === "audio" ? "YOUR SOUND, YOUR CONTROL" : root.page === "files" ? "FILES WITHIN REACH" : root.page === "clipboard" ? "COPIED, KEPT WITHIN REACH" : "YOUR SYSTEM, AT A GLANCE"
                                     color: Theme.muted
                                     font.pixelSize: 9
                                     font.letterSpacing: 1
@@ -226,6 +235,35 @@ ShellRoot {
                                 description: "Show clipboard history"
                                 onClicked: root.page = "clipboard"
                             }
+                            PanelButton {
+                                Layout.fillWidth: true
+                                text: "Files"
+                                selected: root.page === "files"
+                                description: "Show file shelf"
+                                onClicked: root.page = "files"
+                            }
+                        }
+                        FileShelfPage {
+                            visible: root.page === "files"
+                            Layout.fillWidth: true
+                            snapshot: shelf.snapshot
+                            state: shelf.state
+                            busy: shelf.busy
+                            errorText: shelf.errorText
+                            onPathsRequested: paths => shelf.request("shelf.add", {
+                                    paths: paths
+                                })
+                            onRemoveRequested: id => shelf.request("shelf.remove", {
+                                    id: id
+                                })
+                            onCopyRequested: id => shelf.request("shelf.copyPath", {
+                                    id: id
+                                })
+                            onFolderRequested: id => shelf.request("shelf.openFolder", {
+                                    id: id
+                                })
+                            onClearRequested: shelf.request("shelf.clear")
+                            onRefreshRequested: shelf.request("shelf.getSnapshot")
                         }
                         ClipboardPage {
                             visible: root.page === "clipboard"
@@ -422,7 +460,7 @@ ShellRoot {
                                 color: root.stale ? Theme.muted : Theme.accent
                             }
                             Text {
-                                text: !client.backendConnected ? "Offline" : root.page === "audio" ? (audio.state === "ready" ? "Audio connected" : "Audio " + audio.state) : root.page === "clipboard" ? "Clipboard · recent and saved" : root.state === "fresh" ? "Live monitoring" : "Waiting for metrics"
+                                text: !client.backendConnected ? "Offline" : root.page === "audio" ? (audio.state === "ready" ? "Audio connected" : "Audio " + audio.state) : root.page === "files" ? "Session file shelf" : root.page === "clipboard" ? "Clipboard · recent and saved" : root.state === "fresh" ? "Live monitoring" : "Waiting for metrics"
                                 color: Theme.muted
                                 font.pixelSize: 10
                                 Layout.fillWidth: true

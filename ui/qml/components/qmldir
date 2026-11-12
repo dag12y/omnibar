@@ -18,3 +18,6 @@ DevicePicker 1.0 DevicePicker.qml
 MicrophonePage 1.0 MicrophonePage.qml
 ClipboardController 1.0 ClipboardController.qml
 ClipboardPage 1.0 ClipboardPage.qml
+FileShelfController 1.0 FileShelfController.qml
+FileShelfPage 1.0 FileShelfPage.qml
+SnapshotController 1.0 SnapshotController.qml
