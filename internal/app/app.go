@@ -22,6 +22,7 @@ import (
 	"omnibar/internal/modules/audio"
 	"omnibar/internal/modules/clipboard"
 	"omnibar/internal/modules/core"
+	"omnibar/internal/modules/fileshelf"
 	"omnibar/internal/modules/keepawake"
 	"omnibar/internal/modules/systemmonitor"
 )
@@ -160,6 +161,10 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 	if err := registry.Register(history); err != nil {
 		return nil, fmt.Errorf("register clipboard: %w", err)
 	}
+	shelf := fileshelf.New(nil)
+	if err := registry.Register(shelf); err != nil {
+		return nil, fmt.Errorf("register file shelf: %w", err)
+	}
 	for name := range cfg.Modules {
 		if _, ok := registry.Info(name); !ok {
 			logger.Warn("configuration references unknown module", "module", name)
@@ -194,6 +199,7 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 	ipc.RegisterKeepAwakeMethods(dispatcher, registry, awake)
 	ipc.RegisterAudioMethods(dispatcher, registry, mixer)
 	ipc.RegisterClipboardMethods(dispatcher, registry, history)
+	ipc.RegisterFileShelfMethods(dispatcher, registry, shelf)
 
 	// Resolve IPC socket path.
 	socketPath, err := ipc.SocketPath()

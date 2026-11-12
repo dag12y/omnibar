@@ -12,6 +12,7 @@ depends=(
   'systemd'
   'libpulse'
   'wl-clipboard'
+  'xdg-utils'
   'pipewire-pulse'
   'qt6-declarative'
   'quickshell'

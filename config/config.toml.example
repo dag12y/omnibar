@@ -36,6 +36,9 @@ enabled = true
 # Starts paused; collection is opt-in for each backend session.
 enabled = true
 
+[modules.file_shelf]
+enabled = true
+
 # Permissions granted to modules.
 #
 # Permissions are quoted dotted strings because TOML bare keys cannot
@@ -57,6 +60,7 @@ enabled = true
 "audio.control" = true
 "screen.capture" = false
 "process.manage" = false
+# File shelf: explicitly added path references; no content modifications.
 "filesystem.access" = false
 "network.access" = false
 "package.manage" = false
