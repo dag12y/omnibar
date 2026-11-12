@@ -11,7 +11,7 @@ import (
 )
 
 func RegisterAudioMethods(d *jsonrpc.Dispatcher, registry *modules.Registry, mixer *audio.Module) {
-	for _, method := range []string{"audio.getSnapshot", "audio.setVolume", "audio.setMute", "audio.setDefaultOutput", "audio.moveStream"} {
+	for _, method := range []string{"audio.getSnapshot", "audio.setVolume", "audio.setMute", "audio.setDefaultOutput", "audio.moveStream", "audio.setInputVolume", "audio.setInputMute", "audio.setDefaultInput"} {
 		d.RegisterContext(method, func(ctx context.Context, params json.RawMessage) (json.RawMessage, *jsonrpc.Error) {
 			if !registry.IsEnabled(audio.Name) {
 				return nil, jsonrpc.NewError(jsonrpc.CodeModuleUnavailable, "Audio is disabled", audio.Name)
@@ -30,6 +30,7 @@ func RegisterAudioMethods(d *jsonrpc.Dispatcher, registry *modules.Registry, mix
 					Volume *int   `json:"volume"`
 					Muted  *bool  `json:"muted"`
 					Output string `json:"output"`
+					Input  string `json:"input"`
 				}
 				invalid := func() (json.RawMessage, *jsonrpc.Error) {
 					return nil, jsonrpc.NewError(jsonrpc.CodeInvalidParams, "Invalid audio parameters", audio.Name)
@@ -54,6 +55,21 @@ func RegisterAudioMethods(d *jsonrpc.Dispatcher, registry *modules.Registry, mix
 						return invalid()
 					}
 					action = "move"
+				case "audio.setInputVolume":
+					if p.Input == "" || p.Volume == nil || *p.Volume < 0 || *p.Volume > 100 {
+						return invalid()
+					}
+					action, volume = "input-volume", *p.Volume
+				case "audio.setInputMute":
+					if p.Input == "" || p.Muted == nil {
+						return invalid()
+					}
+					action, muted = "input-mute", *p.Muted
+				case "audio.setDefaultInput":
+					if p.Input == "" {
+						return invalid()
+					}
+					action = "input-default"
 				case "audio.setDefaultOutput":
 					if p.Output == "" {
 						return invalid()
@@ -61,7 +77,9 @@ func RegisterAudioMethods(d *jsonrpc.Dispatcher, registry *modules.Registry, mix
 					action, key = "output", p.Output
 				}
 				var err error
-				if action == "move" {
+				if action == "input-volume" || action == "input-mute" || action == "input-default" {
+					snap, err = mixer.ChangeInput(ctx, action, p.Input, volume, muted)
+				} else if action == "move" {
 					snap, err = mixer.MoveStream(ctx, key, p.Output)
 				} else {
 					snap, err = mixer.Change(ctx, action, key, volume, muted)

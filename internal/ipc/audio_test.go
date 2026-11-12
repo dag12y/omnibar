@@ -16,12 +16,15 @@ type audioStub struct{ reads, changes int }
 
 func (s *audioStub) Read(context.Context) (audio.Snapshot, error) {
 	s.reads++
-	return audio.Snapshot{Available: true, Outputs: []audio.Output{{ID: "1", Name: "speaker"}}, Streams: []audio.Stream{{ID: "8", Key: "live", Name: "App"}}}, nil
+	return audio.Snapshot{Available: true, Outputs: []audio.Output{{ID: "1", Name: "speaker"}}, Streams: []audio.Stream{{ID: "8", Key: "live", Name: "App"}}, Inputs: []audio.Input{{ID: "11", Name: "mic"}}}, nil
 }
-func (s *audioStub) SetVolume(context.Context, string, int) error     { s.changes++; return nil }
-func (s *audioStub) SetMute(context.Context, string, bool) error      { s.changes++; return nil }
-func (s *audioStub) SetDefaultOutput(context.Context, string) error   { s.changes++; return nil }
-func (s *audioStub) MoveStream(context.Context, string, string) error { s.changes++; return nil }
+func (s *audioStub) SetVolume(context.Context, string, int) error      { s.changes++; return nil }
+func (s *audioStub) SetMute(context.Context, string, bool) error       { s.changes++; return nil }
+func (s *audioStub) SetDefaultOutput(context.Context, string) error    { s.changes++; return nil }
+func (s *audioStub) MoveStream(context.Context, string, string) error  { s.changes++; return nil }
+func (s *audioStub) SetInputVolume(context.Context, string, int) error { s.changes++; return nil }
+func (s *audioStub) SetInputMute(context.Context, string, bool) error  { s.changes++; return nil }
+func (s *audioStub) SetDefaultInput(context.Context, string) error     { s.changes++; return nil }
 func (s *audioStub) Watch(ctx context.Context, _ chan<- struct{}) error {
 	<-ctx.Done()
 	return ctx.Err()
@@ -53,6 +56,16 @@ func TestAudioRPCCapabilitiesAndValidation(t *testing.T) {
 				{"audio.setMute", `{"key":"live","muted":false}`, true},
 				{"audio.setDefaultOutput", `{"output":"speaker"}`, true},
 				{"audio.moveStream", `{"key":"live","output":"speaker"}`, true},
+				{"audio.setInputVolume", `{"input":"mic","volume":40}`, true},
+				{"audio.setInputMute", `{"input":"mic","muted":false}`, true},
+				{"audio.setDefaultInput", `{"input":"mic"}`, true},
+				{"audio.setInputVolume", `{"input":"mic","volume":101}`, false},
+				{"audio.setInputVolume", `{"input":"mic","volume":-1}`, false},
+				{"audio.setInputVolume", `{"input":"mic","volume":1.5}`, false},
+				{"audio.setInputVolume", `{"input":"mic"}`, false},
+				{"audio.setInputMute", `{"input":"mic"}`, false},
+				{"audio.setDefaultInput", `{}`, false},
+				{"audio.setDefaultInput", `{"input":42}`, false},
 				{"audio.moveStream", `{"output":"speaker"}`, false},
 				{"audio.moveStream", `{"key":"live"}`, false},
 				{"audio.moveStream", `{"key":"live","output":null}`, false},
@@ -96,7 +109,7 @@ func TestAudioRPCCapabilitiesAndValidation(t *testing.T) {
 			if state != "granted" && driver.reads != 0 {
 				t.Fatal("denied request contacted audio service")
 			}
-			if state == "granted" && driver.changes != 4 {
+			if state == "granted" && driver.changes != 7 {
 				t.Fatalf("mutations = %d", driver.changes)
 			}
 		})

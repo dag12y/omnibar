@@ -50,18 +50,20 @@ func (v pulseVolume) percent() int {
 }
 
 type pulseObject struct {
-	Index       uint32            `json:"index"`
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Sink        uint32            `json:"sink"`
-	Mute        bool              `json:"mute"`
-	Corked      bool              `json:"corked"`
-	Volume      pulseVolume       `json:"volume"`
-	Properties  map[string]string `json:"properties"`
+	Index         uint32            `json:"index"`
+	Name          string            `json:"name"`
+	Description   string            `json:"description"`
+	Source        uint32            `json:"source"`
+	MonitorOfSink json.RawMessage   `json:"monitor_of_sink"`
+	Sink          uint32            `json:"sink"`
+	Mute          bool              `json:"mute"`
+	Corked        bool              `json:"corked"`
+	Volume        pulseVolume       `json:"volume"`
+	Properties    map[string]string `json:"properties"`
 }
 
 func (p *Pactl) Read(ctx context.Context) (Snapshot, error) {
-	snap := Snapshot{Outputs: []Output{}, Streams: []Stream{}}
+	snap := Snapshot{Outputs: []Output{}, Streams: []Stream{}, Inputs: []Input{}, Recordings: []Recording{}}
 	read := func(target any, args ...string) error {
 		data, err := p.command(ctx, append([]string{"--format=json"}, args...)...)
 		if err != nil {
@@ -73,8 +75,9 @@ func (p *Pactl) Read(ctx context.Context) (Snapshot, error) {
 		return nil
 	}
 	var info struct {
-		Server  string `json:"server_name"`
-		Default string `json:"default_sink_name"`
+		Server       string `json:"server_name"`
+		Default      string `json:"default_sink_name"`
+		DefaultInput string `json:"default_source_name"`
 	}
 	if err := read(&info, "info"); err != nil {
 		return snap, err
@@ -86,6 +89,31 @@ func (p *Pactl) Read(ctx context.Context) (Snapshot, error) {
 	if err := read(&streams, "list", "sink-inputs"); err != nil {
 		return snap, err
 	}
+	var sources, recordings []pulseObject
+	if err := read(&sources, "list", "sources"); err != nil {
+		return snap, err
+	}
+	if err := read(&recordings, "list", "source-outputs"); err != nil {
+		return snap, err
+	}
+	snap.DefaultInput = info.DefaultInput
+	for _, source := range sources {
+		description := source.Description
+		if description == "" {
+			description = source.Name
+		}
+		snap.Inputs = append(snap.Inputs, Input{ID: strconv.FormatUint(uint64(source.Index), 10), Name: source.Name, Description: description, Volume: source.Volume.percent(), Muted: source.Mute, Monitor: source.isMonitor()})
+	}
+	for _, recording := range recordings {
+		id, key, name := recording.identity("Recording app")
+		snap.Recordings = append(snap.Recordings, Recording{ID: id, Key: key, Name: name, Media: recording.Properties["media.name"], Icon: recording.Properties["application.icon_name"], InputID: strconv.FormatUint(uint64(recording.Source), 10), Paused: recording.Corked})
+	}
+	sort.Slice(snap.Recordings, func(i, j int) bool {
+		if snap.Recordings[i].Name == snap.Recordings[j].Name {
+			return snap.Recordings[i].ID < snap.Recordings[j].ID
+		}
+		return snap.Recordings[i].Name < snap.Recordings[j].Name
+	})
 	snap.Available, snap.Server, snap.DefaultOutput = true, info.Server, info.Default
 	for _, o := range outputs {
 		description := o.Description
@@ -96,20 +124,7 @@ func (p *Pactl) Read(ctx context.Context) (Snapshot, error) {
 	}
 	for _, stream := range streams {
 		props := stream.Properties
-		name := props["application.name"]
-		if name == "" {
-			name = props["application.process.binary"]
-		}
-		if name == "" {
-			name = props["media.name"]
-		}
-		if name == "" {
-			name = "Audio stream"
-		}
-		id := strconv.FormatUint(uint64(stream.Index), 10)
-		// The key detects most stale UI targets, including recreated streams with
-		// recycled indexes. No identity is persisted across backend restarts.
-		key := id + ":" + props["object.serial"] + ":" + props["application.process.id"] + ":" + name
+		id, key, name := stream.identity("Audio stream")
 		snap.Streams = append(snap.Streams, Stream{ID: id, Key: key, Name: name, Media: props["media.name"], Icon: props["application.icon_name"], OutputID: strconv.FormatUint(uint64(stream.Sink), 10), Volume: stream.Volume.percent(), Muted: stream.Mute, Paused: stream.Corked})
 	}
 	sort.Slice(snap.Streams, func(i, j int) bool {
@@ -119,6 +134,49 @@ func (p *Pactl) Read(ctx context.Context) (Snapshot, error) {
 		return snap.Streams[i].Name < snap.Streams[j].Name
 	})
 	return snap, nil
+}
+func (object pulseObject) identity(fallback string) (id, key, name string) {
+	props := object.Properties
+	name = props["application.name"]
+	if name == "" {
+		name = props["application.process.binary"]
+	}
+	if name == "" {
+		name = props["media.name"]
+	}
+	if name == "" {
+		name = fallback
+	}
+	id = strconv.FormatUint(uint64(object.Index), 10)
+	key = id + ":" + props["object.serial"] + ":" + props["application.process.id"] + ":" + name
+	return
+}
+func (object pulseObject) isMonitor() bool {
+	if object.Properties["device.class"] == "monitor" || strings.HasSuffix(object.Name, ".monitor") {
+		return true
+	}
+	reference := strings.TrimSpace(string(object.MonitorOfSink))
+	switch reference {
+	case "", "null", "-1", "4294967295", `"n/a"`, `"-1"`, `"4294967295"`:
+		return false
+	}
+	return true
+}
+func (p *Pactl) SetInputVolume(ctx context.Context, name string, percent int) error {
+	_, err := p.command(ctx, "set-source-volume", name, strconv.Itoa(percent)+"%")
+	return err
+}
+func (p *Pactl) SetInputMute(ctx context.Context, name string, muted bool) error {
+	value := "0"
+	if muted {
+		value = "1"
+	}
+	_, err := p.command(ctx, "set-source-mute", name, value)
+	return err
+}
+func (p *Pactl) SetDefaultInput(ctx context.Context, name string) error {
+	_, err := p.command(ctx, "set-default-source", name)
+	return err
 }
 func (p *Pactl) SetVolume(ctx context.Context, id string, percent int) error {
 	_, err := p.command(ctx, "set-sink-input-volume", id, strconv.Itoa(percent)+"%")
@@ -141,7 +199,7 @@ func (p *Pactl) MoveStream(ctx context.Context, id, output string) error {
 	return err
 }
 func relevantEvent(line string) bool {
-	for _, kind := range []string{"sink-input", "sink", "server", "card"} {
+	for _, kind := range []string{"sink-input", "sink", "source", "source-output", "server", "card"} {
 		if strings.Contains(line, " on "+kind+" #") {
 			return true
 		}

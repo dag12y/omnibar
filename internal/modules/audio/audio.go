@@ -30,7 +30,7 @@ func New(hub *events.Hub, driver Driver) *Module {
 	return &Module{hub: hub, driver: driver}
 }
 func (m *Module) Info() modules.ModuleInfo {
-	return modules.ModuleInfo{Name: Name, Description: "Playback volume, mute, and output routing", Version: "0.1.0", Enabled: true, Capabilities: []string{Capability}}
+	return modules.ModuleInfo{Name: Name, Description: "Playback, microphone controls, and recording-app metadata", Version: "0.1.0", Enabled: true, Capabilities: []string{Capability}}
 }
 func (m *Module) Initialize(context.Context) error { return nil }
 func (m *Module) Start(context.Context) error {
@@ -65,6 +65,12 @@ func (m *Module) readLocked(ctx context.Context) Snapshot {
 	}
 	if snap.Streams == nil {
 		snap.Streams = []Stream{}
+	}
+	if snap.Inputs == nil {
+		snap.Inputs = []Input{}
+	}
+	if snap.Recordings == nil {
+		snap.Recordings = []Recording{}
 	}
 	m.revision++
 	snap.Revision = m.revision
@@ -134,6 +140,39 @@ func (m *Module) MoveStream(ctx context.Context, key, outputName string) (Snapsh
 			return err
 		}
 		return m.driver.MoveStream(ctx, stream.ID, output.Name)
+	})
+}
+
+// ChangeInput changes a named, currently connected non-monitor source. It
+// never opens a recording stream or changes capture-stream routing.
+func (m *Module) ChangeInput(ctx context.Context, action, name string, volume int, muted bool) (Snapshot, error) {
+	return m.mutate(ctx, func(snap Snapshot) error {
+		var input *Input
+		for i := range snap.Inputs {
+			if snap.Inputs[i].Name == name {
+				input = &snap.Inputs[i]
+				break
+			}
+		}
+		if input == nil {
+			return fmt.Errorf("microphone input is no longer available; refresh and try again")
+		}
+		if input.Monitor {
+			return fmt.Errorf("choose a microphone input, not an output monitor")
+		}
+		switch action {
+		case "input-volume":
+			if volume < 0 || volume > 100 {
+				return fmt.Errorf("microphone gain must be between 0 and 100")
+			}
+			return m.driver.SetInputVolume(ctx, input.Name, volume)
+		case "input-mute":
+			return m.driver.SetInputMute(ctx, input.Name, muted)
+		case "input-default":
+			return m.driver.SetDefaultInput(ctx, input.Name)
+		default:
+			return fmt.Errorf("unknown microphone action")
+		}
 	})
 }
 func findStream(snap Snapshot, key string) (Stream, error) {

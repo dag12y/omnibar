@@ -11,6 +11,23 @@ type Output struct {
 	Volume      int    `json:"volume"`
 	Muted       bool   `json:"muted"`
 }
+type Input struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Volume      int    `json:"volume"`
+	Muted       bool   `json:"muted"`
+	Monitor     bool   `json:"monitor"`
+}
+type Recording struct {
+	ID      string `json:"id"`
+	Key     string `json:"key"`
+	Name    string `json:"name"`
+	Media   string `json:"media"`
+	Icon    string `json:"icon"`
+	InputID string `json:"input_id"`
+	Paused  bool   `json:"paused"`
+}
 type Stream struct {
 	ID       string `json:"id"`
 	Key      string `json:"key"`
@@ -23,13 +40,16 @@ type Stream struct {
 	Paused   bool   `json:"paused"`
 }
 type Snapshot struct {
-	Revision      uint64   `json:"revision"`
-	Available     bool     `json:"available"`
-	Error         string   `json:"error,omitempty"`
-	Server        string   `json:"server,omitempty"`
-	DefaultOutput string   `json:"default_output"`
-	Outputs       []Output `json:"outputs"`
-	Streams       []Stream `json:"streams"`
+	Revision      uint64      `json:"revision"`
+	Available     bool        `json:"available"`
+	Error         string      `json:"error,omitempty"`
+	Server        string      `json:"server,omitempty"`
+	DefaultOutput string      `json:"default_output"`
+	DefaultInput  string      `json:"default_input"`
+	Inputs        []Input     `json:"inputs"`
+	Recordings    []Recording `json:"recordings"`
+	Outputs       []Output    `json:"outputs"`
+	Streams       []Stream    `json:"streams"`
 }
 
 type Driver interface {
@@ -37,6 +57,9 @@ type Driver interface {
 	SetVolume(context.Context, string, int) error
 	SetMute(context.Context, string, bool) error
 	SetDefaultOutput(context.Context, string) error
+	SetInputVolume(context.Context, string, int) error
+	SetInputMute(context.Context, string, bool) error
+	SetDefaultInput(context.Context, string) error
 	MoveStream(context.Context, string, string) error
 	Watch(context.Context, chan<- struct{}) error
 }
