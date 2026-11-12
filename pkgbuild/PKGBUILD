@@ -10,6 +10,8 @@ license=('MIT')
 depends=(
   'glibc'
   'systemd'
+  'libpulse'
+  'pipewire-pulse'
   'qt6-declarative'
   'quickshell'
 )

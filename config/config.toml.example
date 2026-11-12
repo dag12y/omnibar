@@ -29,6 +29,9 @@ log_level = "info"
 [modules.keep_awake]
 enabled = true
 
+[modules.audio]
+enabled = true
+
 # Permissions granted to modules.
 #
 # Permissions are quoted dotted strings because TOML bare keys cannot
@@ -47,7 +50,7 @@ enabled = true
 "window.manage" = false
 "clipboard.read" = false
 "clipboard.write" = false
-"audio.control" = false
+"audio.control" = true
 "screen.capture" = false
 "process.manage" = false
 "filesystem.access" = false

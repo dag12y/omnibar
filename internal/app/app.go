@@ -19,6 +19,7 @@ import (
 	"omnibar/internal/ipc/jsonrpc"
 	"omnibar/internal/logging"
 	"omnibar/internal/modules"
+	"omnibar/internal/modules/audio"
 	"omnibar/internal/modules/core"
 	"omnibar/internal/modules/keepawake"
 	"omnibar/internal/modules/systemmonitor"
@@ -146,6 +147,10 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 		return nil, fmt.Errorf("register keep awake: %w", err)
 	}
 
+	mixer := audio.New(hub, nil)
+	if err := registry.Register(mixer); err != nil {
+		return nil, fmt.Errorf("register audio: %w", err)
+	}
 	for name := range cfg.Modules {
 		if _, ok := registry.Info(name); !ok {
 			logger.Warn("configuration references unknown module", "module", name)
@@ -178,6 +183,7 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 	ipc.RegisterEventMethods(dispatcher, registry, hub)
 	ipc.RegisterSystemMethods(dispatcher, registry, sm)
 	ipc.RegisterKeepAwakeMethods(dispatcher, registry, awake)
+	ipc.RegisterAudioMethods(dispatcher, registry, mixer)
 
 	// Resolve IPC socket path.
 	socketPath, err := ipc.SocketPath()
