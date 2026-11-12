@@ -28,13 +28,18 @@ Item {
         snapshot = value;
         state = value.available ? "ready" : "unavailable";
     }
+    function requestKey(method, params) {
+        if (method === "audio.setInputVolume" || method === "audio.setInputMute")
+            return (params || {}).input || "";
+        return (params || {}).key || "";
+    }
     function request(method, params) {
         if (!active || !client.handshakeComplete || !client.socket.connected)
             return;
         if (busy) {
             const queue = queuedRequests.slice();
-            const key = (params || {}).key || "";
-            const index = queue.findIndex(item => item.method === method && ((item.params || {}).key || "") === key);
+            const key = requestKey(method, params);
+            const index = queue.findIndex(item => item.method === method && requestKey(item.method, item.params) === key);
             const item = {
                 method: method,
                 params: params || {}

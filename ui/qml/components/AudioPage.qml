@@ -9,6 +9,7 @@ ColumnLayout {
             streams: [],
             available: false
         })
+    property string section: "playback"
     property string state: "pending"
     property string errorText: ""
     property bool busy: false
@@ -20,6 +21,9 @@ ColumnLayout {
     signal muteRequested(string key, bool muted)
     signal outputRequested(string output)
     signal routeRequested(string key, string output)
+    signal inputVolumeRequested(string input, int volume)
+    signal inputMuteRequested(string input, bool muted)
+    signal inputRequested(string input)
     signal refreshRequested
     spacing: 14
     ListModel {
@@ -93,72 +97,110 @@ ColumnLayout {
         font.pixelSize: 12
         text: root.state === "denied" ? "Enable audio.control in your Omnibar config and restart the backend." : root.state === "offline" ? "Backend unavailable. Reconnecting…" : root.errorText || (root.state === "pending" ? "Loading your audio devices…" : root.snapshot.error || "Audio service unavailable. Check that PipeWire and pipewire-pulse are running. Retrying…")
     }
+    RowLayout {
+        Layout.fillWidth: true
+        spacing: 8
+        PanelButton {
+            Layout.fillWidth: true
+            text: "Playback"
+            selected: root.section === "playback"
+            description: "Show playback controls"
+            onClicked: root.section = "playback"
+        }
+        PanelButton {
+            Layout.fillWidth: true
+            text: "Microphone"
+            selected: root.section === "microphone"
+            description: "Show microphone controls and recording apps"
+            onClicked: root.section = "microphone"
+        }
+    }
+    Loader {
+        Layout.fillWidth: true
+        active: root.section === "microphone"
+        onLoaded: console.info("[omnibar-ui] microphone controls loaded")
+        visible: active
+        sourceComponent: MicrophonePage {
+            snapshot: root.snapshot
+            ready: root.ready
+            pending: root.busy
+            resolveIcon: root.resolveIcon
+            onVolumeRequested: (input, volume) => root.inputVolumeRequested(input, volume)
+            onMuteRequested: (input, muted) => root.inputMuteRequested(input, muted)
+            onInputRequested: input => root.inputRequested(input)
+        }
+    }
     ColumnLayout {
         Layout.fillWidth: true
-        spacing: 6
-        visible: root.ready
+        spacing: 14
+        visible: root.section === "playback"
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: 6
+            visible: root.ready
+            Text {
+                text: "DEFAULT OUTPUT"
+                color: Theme.muted
+                font.pixelSize: 9
+                font.letterSpacing: 1
+            }
+            OutputPicker {
+                id: outputs
+                objectName: "outputSelector"
+                implicitHeight: 38
+                Layout.fillWidth: true
+                enabled: root.ready && count > 0
+                outputs: root.snapshot.outputs || []
+                selectedOutput: root.snapshot.default_output || ""
+                pending: root.busy
+                Accessible.name: "Default playback output"
+                onOutputChosen: output => root.outputRequested(output)
+            }
+            Text {
+                text: "No playback outputs connected"
+                visible: (root.snapshot.outputs || []).length === 0
+                color: Theme.muted
+                font.pixelSize: 11
+            }
+        }
         Text {
-            text: "DEFAULT OUTPUT"
+            text: "PLAYBACK APPS"
+            visible: root.ready
             color: Theme.muted
             font.pixelSize: 9
             font.letterSpacing: 1
-        }
-        OutputPicker {
-            id: outputs
-            objectName: "outputSelector"
-            implicitHeight: 38
-            Layout.fillWidth: true
-            enabled: root.ready && count > 0
-            outputs: root.snapshot.outputs || []
-            selectedOutput: root.snapshot.default_output || ""
-            pending: root.busy
-            Accessible.name: "Default playback output"
-            onOutputChosen: output => root.outputRequested(output)
+            Layout.topMargin: 4
         }
         Text {
-            text: "No playback outputs connected"
-            visible: (root.snapshot.outputs || []).length === 0
-            color: Theme.muted
-            font.pixelSize: 11
-        }
-    }
-    Text {
-        text: "PLAYBACK APPS"
-        visible: root.ready
-        color: Theme.muted
-        font.pixelSize: 9
-        font.letterSpacing: 1
-        Layout.topMargin: 4
-    }
-    Text {
-        Layout.fillWidth: true
-        visible: root.ready && rows.count === 0
-        text: "Nothing playing yet. Start audio in an app and its controls will appear here."
-        wrapMode: Text.WordWrap
-        color: Theme.muted
-        font.pixelSize: 12
-    }
-    Repeater {
-        model: rows
-        delegate: MixerRow {
-            required property string streamKey
-            required property string media
-            required property string iconName
-            required property string outputId
-            required title
-            required level
-            required muted
-            required paused
             Layout.fillWidth: true
-            controlsEnabled: root.ready
-            pending: root.busy
-            iconSource: root.resolveIcon(iconName)
-            subtitle: media
-            outputs: root.snapshot.outputs || []
-            outputName: ((root.snapshot.outputs || []).find(item => item.id === outputId) || {}).name || ""
-            onRouteRequested: output => root.routeRequested(streamKey, output)
-            onVolumeRequested: volume => root.volumeRequested(streamKey, volume)
-            onMuteRequested: muted => root.muteRequested(streamKey, muted)
+            visible: root.ready && rows.count === 0
+            text: "Nothing playing yet. Start audio in an app and its controls will appear here."
+            wrapMode: Text.WordWrap
+            color: Theme.muted
+            font.pixelSize: 12
+        }
+        Repeater {
+            model: rows
+            delegate: MixerRow {
+                required property string streamKey
+                required property string media
+                required property string iconName
+                required property string outputId
+                required title
+                required level
+                required muted
+                required paused
+                Layout.fillWidth: true
+                controlsEnabled: root.ready
+                pending: root.busy
+                iconSource: root.resolveIcon(iconName)
+                subtitle: media
+                outputs: root.snapshot.outputs || []
+                outputName: ((root.snapshot.outputs || []).find(item => item.id === outputId) || {}).name || ""
+                onRouteRequested: output => root.routeRequested(streamKey, output)
+                onVolumeRequested: volume => root.volumeRequested(streamKey, volume)
+                onMuteRequested: muted => root.muteRequested(streamKey, muted)
+            }
         }
     }
 }

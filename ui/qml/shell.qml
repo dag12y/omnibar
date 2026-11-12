@@ -90,6 +90,11 @@ ShellRoot {
     }
     IpcHandler {
         target: "panel"
+        function showMicrophone(): void {
+            root.page = "audio";
+            root.opened = true;
+            audioPage.section = "microphone";
+        }
         function toggle(): void {
             root.opened = !root.opened;
         }
@@ -207,6 +212,7 @@ ShellRoot {
                             }
                         }
                         AudioPage {
+                            id: audioPage
                             visible: root.page === "audio"
                             Layout.fillWidth: true
                             snapshot: audio.snapshot
@@ -228,6 +234,17 @@ ShellRoot {
                                 })
                             onOutputRequested: output => audio.request("audio.setDefaultOutput", {
                                     output: output
+                                })
+                            onInputVolumeRequested: (input, volume) => audio.request("audio.setInputVolume", {
+                                    input: input,
+                                    volume: volume
+                                })
+                            onInputMuteRequested: (input, muted) => audio.request("audio.setInputMute", {
+                                    input: input,
+                                    muted: muted
+                                })
+                            onInputRequested: input => audio.request("audio.setDefaultInput", {
+                                    input: input
                                 })
                             onRefreshRequested: audio.request("audio.getSnapshot")
                         }

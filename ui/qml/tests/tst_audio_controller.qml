@@ -86,6 +86,24 @@ Item {
             reply({revision:4,available:true,outputs:[],streams:[]})
             verify(!controller.busy)
         }
+        function test_input_gain_queue_is_keyed_by_microphone() {
+            controller.active = true
+            reply({module:"audio",events:[]})
+            reply({revision:1,available:true,outputs:[],streams:[]})
+            controller.request("audio.setInputVolume",{input:"mic_a",volume:50})
+            controller.request("audio.setInputVolume",{input:"mic_a",volume:51})
+            controller.request("audio.setInputVolume",{input:"mic_b",volume:60})
+            controller.request("audio.setInputVolume",{input:"mic_a",volume:52})
+            compare(controller.queuedRequests.length,2)
+            reply({revision:2,available:true,outputs:[],streams:[]})
+            compare(lastRequest().params.input,"mic_a")
+            compare(lastRequest().params.volume,52)
+            reply({revision:3,available:true,outputs:[],streams:[]})
+            compare(lastRequest().params.input,"mic_b")
+            compare(lastRequest().params.volume,60)
+            reply({revision:4,available:true,outputs:[],streams:[]})
+            verify(!controller.busy)
+        }
         function test_old_snapshot_cannot_override_new_event() {
             controller.active = true
             controller.applySnapshot({revision:8,available:true,streams:[{volume:70}]})

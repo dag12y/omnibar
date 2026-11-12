@@ -14,6 +14,7 @@ Rectangle {
     property bool paused: false
     property bool controlsEnabled: true
     property bool pending: false
+    property bool showOutputPicker: true
     onPendingChanged: {
         if (!pending)
             syncLevel();
@@ -21,7 +22,7 @@ Rectangle {
     signal volumeRequested(int volume)
     signal muteRequested(bool muted)
     signal routeRequested(string output)
-    implicitHeight: 152
+    implicitHeight: showOutputPicker ? 152 : 108
     radius: 16
     color: Qt.alpha(Theme.surface, 0.55)
     border.color: Theme.border
@@ -141,6 +142,7 @@ Rectangle {
             }
         }
         RowLayout {
+            visible: root.showOutputPicker
             Layout.fillWidth: true
             Text {
                 text: "OUTPUT"

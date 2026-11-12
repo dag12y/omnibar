@@ -115,6 +115,14 @@ def main():
             "sink_properties=device.description=Test_Speakers")
         second = run("pactl", "load-module", "module-null-sink", "sink_name=omnibar_two",
                      "sink_properties=device.description=Test_Headphones").strip()
+        microphone_modules = {}
+        for suffix, description in (("a", "Desk_Microphone"), ("b", "Headset_Microphone")):
+            fifo = trial / ("mic-" + suffix + ".fifo")
+            os.mkfifo(fifo)
+            microphone_modules[suffix] = run("pactl", "load-module", "module-pipe-source",
+                "file=" + str(fifo), "source_name=omnibar_mic_" + suffix,
+                "source_properties=device.description=" + description,
+                "format=s16le", "rate=48000", "channels=1").strip()
         playback = launch("playback", "pacat", "--playback", "--device=omnibar_one",
                           "--client-name=Omnibar Test", "/dev/zero")
         backend = launch("backend", str(root / "build/omnibar"))
@@ -153,11 +161,45 @@ def main():
             assert unaffected[field] == other[field], (field, other, unaffected)
         rpc("audio.setMute", dict(key=key, muted=False))
         print("PASS: stream routing preserves default output, other playback, volume, and mute")
+        wait_until(lambda: len([input for input in snapshot()["inputs"] if not input["monitor"]]) == 2,
+                   "virtual microphones did not appear")
+        before_mics = snapshot()
+        microphone_a = next(input for input in before_mics["inputs"] if input["name"] == "omnibar_mic_a")
+        microphone_b = next(input for input in before_mics["inputs"] if input["name"] == "omnibar_mic_b")
+        rpc("audio.setDefaultInput", dict(input="omnibar_mic_a"))
+        changed = rpc("audio.setInputVolume", dict(input="omnibar_mic_a", volume=43))
+        assert next(input for input in changed["inputs"] if input["name"] == "omnibar_mic_a")["volume"] == 43
+        muted = rpc("audio.setInputMute", dict(input="omnibar_mic_a", muted=True))
+        assert next(input for input in muted["inputs"] if input["name"] == "omnibar_mic_a")["muted"]
+        switched = rpc("audio.setDefaultInput", dict(input="omnibar_mic_b"))
+        assert switched["default_input"] == "omnibar_mic_b"
+        assert switched["default_output"] == before_mics["default_output"]
+        assert next(input for input in switched["inputs"] if input["name"] == "omnibar_mic_b")["volume"] == microphone_b["volume"]
+        assert next(input for input in switched["inputs"] if input["name"] == "omnibar_mic_a")["muted"]
+        assert switched["streams"] == before_mics["streams"]
+        rpc("audio.setInputMute", dict(input="omnibar_mic_a", muted=False))
+        rpc("audio.setInputVolume", dict(input="omnibar_mic_b", volume=68))
+        recorder = launch("recorder", "pacat", "--record", "--device=omnibar_mic_a",
+                          "--client-name=Omnibar Recorder", "/dev/null")
+        wait_until(lambda: any(item["name"] == "Omnibar Recorder" and item["input_id"] == microphone_a["id"]
+                               for item in snapshot()["recordings"]), "recording app/source was not discovered")
+        monitor = next(input for input in snapshot()["inputs"] if input["monitor"])
+        error = rpc("audio.setInputMute", dict(input=monitor["name"], muted=True), expect_error=True)
+        assert "not an output monitor" in error["message"], error
+        print("PASS: microphone gain/mute/default, capture metadata, and monitor exclusion")
         ui = launch("ui", "quickshell", "-p", qml)
         wait_until(lambda: "handshake complete" in ui_log(), "UI did not handshake")
         panel_call("selectPage", "audio")
         wait_until(lambda: "audio snapshot received" in ui_log(), "Audio page did not receive state")
         print("PASS: real Audio page connected")
+        before_view = snapshot()
+        panel_call("showMicrophone")
+        wait_until(lambda: "microphone controls loaded" in ui_log(), "microphone UI did not load")
+        after_view = snapshot()
+        assert after_view["inputs"] == before_view["inputs"]
+        assert after_view["default_input"] == before_view["default_input"]
+        assert {item["id"] for item in after_view["recordings"]} == {item["id"] for item in before_view["recordings"]}
+        print("PASS: Microphone view opens without changing input state or recording")
         if args.capture:
             time.sleep(0.3)
             layers = json.loads(subprocess.check_output(["hyprctl", "layers", "-j"], text=True))
@@ -166,6 +208,15 @@ def main():
                          if item.get("pid") == ui.pid and item.get("namespace") == "omnibar-panel")
             geometry = f"{panel['x']},{panel['y']} {panel['w']}x{panel['h']}"
             subprocess.run(["grim", "-g", geometry, str(trial / "audio.png")], check=True)
+        stop(recorder)
+        wait_until(lambda: not any(item["name"] == "Omnibar Recorder" for item in snapshot()["recordings"]),
+                   "ended recording stream stayed listed")
+        run("pactl", "unload-module", microphone_modules["b"])
+        wait_until(lambda: not any(input["name"] == "omnibar_mic_b" for input in snapshot()["inputs"]),
+                   "disconnected microphone stayed listed")
+        error = rpc("audio.setInputVolume", dict(input="omnibar_mic_b", volume=50), expect_error=True)
+        assert "no longer available" in error["message"], error
+        print("PASS: microphone and recording-app removal; stale input rejected")
         run("pactl", "unload-module", second)
         wait_until(lambda: len(snapshot()["outputs"]) == 1, "removed output stayed listed")
         error = rpc("audio.moveStream", dict(key=key, output="omnibar_two"), expect_error=True)
