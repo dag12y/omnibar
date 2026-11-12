@@ -6,6 +6,9 @@ All notable changes will be documented here.
 
 ### Added
 
+- Hyprland running-window switcher: app/title/workspace search, exact live-target focus, active confirmation, and confirmed-only panel dismissal; ADR-0019.
+- Windows navigation and `panel showWindows`, bounded visible polling, window.manage checks, and explicit compositor-instance selection.
+- `make e2e-windows` for private compositor listing, cross-workspace focus, invalid/closed targets, and empty desktop; parser/RPC/QML tests.
 - Clipboard Transform & copy: trim edges, Unicode lower/uppercase, and line-break replacement, with expandable keyboard controls; ADR-0018.
 - Backend-owned source lookup, existing read/write grants and deadlines, empty/oversized output rejection, and source/favorite preservation tests.
 - Real private Wayland checks for transformed clipboard outputs, active collection, paused history, and rejected transforms.

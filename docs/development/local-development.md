@@ -483,3 +483,33 @@ cover UTF-8 byte expansion, stale IDs, grants, parameters, deadlines, source
 lookup, and driver errors. QML tests cover signals, keyboard actions, busy/grant
 state, and stable focus/removal. No new config or dependency is needed. See
 [ADR-0018](../architecture/ADR-0018-clipboard-transforms.md).
+
+
+## Running-window switcher (M24)
+
+Grant window.manage under the existing permissions section and restart the
+backend, then select Windows. The module reads hyprctl metadata only while
+visible. Search app/title/workspace; Switch or Enter focuses a live exact target.
+Successful confirmed focus hides the panel; errors remain visible. Application
+launching is intentionally deferred. Special-workspace, hidden, and non-input
+clients are excluded. Up to 100 windows are displayed with bounded plain labels.
+
+```sh
+make e2e-windows
+python3 scripts/e2e-clipboard.py --windows --capture
+quickshell -p "$PWD/ui/qml/shell.qml" ipc call -- panel showWindows
+```
+
+The test creates two synthetic Qt windows inside the private compositor. Its
+HYPRLAND_INSTANCE_SIGNATURE is assigned to every test client/backend before
+queries or focus commands. It verifies exact focus between workspaces, confirms
+the active address, rejects malformed/closed targets, and handles an empty desktop.
+Host windows are neither listed nor focused. Optional capture writes windows.png
+in the printed artifact directory. Normal clipboard/favorite regression checks
+also run privately. Go/QML tests cover grants, bounds, state, and confirmation.
+
+The backend must inherit HYPRLAND_INSTANCE_SIGNATURE from your Hyprland session.
+If a user service lacks it, import that variable from a terminal in the current
+desktop session with `systemctl --user import-environment HYPRLAND_INSTANCE_SIGNATURE`,
+then restart omnibar.service. Missing sessions fail explicitly; there is no
+implicit compositor selection. See [ADR-0019](../architecture/ADR-0019-window-switcher.md).

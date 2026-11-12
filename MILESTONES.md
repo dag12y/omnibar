@@ -38,6 +38,7 @@ This document breaks the approved architecture into small, sequential, independe
 | M21 | Clipboard favorites | Explicit bounded persistence, protected favorites, filter, restore, and removal | Done |
 | M22 | Session File shelf | Local references, URL drops/path input, search, open folder, copy path, and missing-item recovery | Done |
 | M23 | Clipboard utilities | Transform & copy: trim edges, lowercase, uppercase, and line-break removal | Done |
+| M24 | Running-window switcher | Bounded Hyprland windows, search, exact focus, workspace switching, and confirmation | Done |
 
 ---
 
@@ -955,3 +956,17 @@ race/permission/Unicode/bounds/source-preservation tests, 112 QML tests, and rea
 private Wayland copies with paused/active collection and rejected results.
 No new dependency, config grant, persistence format, or automatic paste is added.
 See [ADR-0018](docs/architecture/ADR-0018-clipboard-transforms.md).
+
+
+## M24 — Running-window switcher (implemented)
+
+Adds the static window_switcher module and Windows page under window.manage.
+Queries mapped input-capable ordinary clients only while visible; bounds labels,
+raw replies, and displayed windows. Focus requires a strict live address and
+post-dispatch confirmation. Search supports apps, titles, and workspaces; Enter
+switches to the first result. Successful focus hides the panel, errors keep it
+open. Titles remain in memory and frontend caches clear on hide/disconnect.
+Go race/permission/parser/limit tests, 123 QML tests, and a private nested Hyprland
+test verify focus across workspaces, active confirmation, closed targets, and
+empty desktops. Launching apps, previews, special workspaces, and layouts remain
+deferred. See [ADR-0019](docs/architecture/ADR-0019-window-switcher.md).

@@ -212,3 +212,21 @@ Phase 2 adds live system monitoring on top of the Phase 1 foundation and prepare
 - Provide keyboard-accessible expandable actions, read-only/busy states, and
   stable source focus. Verify synthetic real copies and untouched saved files in
   the private Wayland test.
+
+
+## Running-window switcher increment (implemented)
+
+- Query existing mapped, non-hidden input-capable Hyprland windows across ordinary
+  workspaces, with class/title/workspace/monitor/active metadata.
+- Search app/title/workspace locally, support keyboard Enter and Switch controls,
+  retain stable row focus, and hide only after confirmed target focus.
+- Require window.manage before any compositor call. Validate exact hexadecimal
+  addresses against a fresh list; reject stale targets and selector/command input.
+- Bound raw replies, label bytes, displayed windows, and RPC deadlines. Show
+  explicit unavailable, denied, busy, empty, and truncated states.
+- Require an explicit compositor instance; poll only while visible and retain
+  no persistent window history or title logs. Clear frontend caches on hide.
+- Verify cross-workspace focus and closed/invalid targets using synthetic windows
+  in a private compositor; leave host focus/config and application launching alone.
+- Previews, layouts, special-workspace/group restoration, and non-Hyprland support
+  are deferred.

@@ -28,8 +28,8 @@ network throughput, and battery status/power. The floating Quickshell dashboard
 uses the active Omarchy theme, live CPU/memory graphs, and expandable details.
 Timed Keep Awake, an audio mixer, microphone controls, and session clipboard
 history with saved favorites are also implemented. System, Audio, and Clipboard
-share the same panel alongside a session File shelf. The v0.1.0 release
-verification is still pending.
+share the same panel alongside a session File shelf and a Hyprland window
+switcher. The v0.1.0 release verification is still pending.
 
 Run the backend with `make run` and launch the panel with
 `quickshell -n -p ui/qml/shell.qml`. Click the CPU or memory card for details.
@@ -203,6 +203,30 @@ make e2e-shelf  # private nested Wayland session and synthetic files
 ```
 
 See [File shelf design and protocol](docs/architecture/ADR-0017-file-shelf.md).
+
+## Running-window switcher
+
+Open **Windows** to find an existing window by app, title, or workspace. Set
+`"window.manage" = true` under your existing `[permissions]` section in
+`~/.config/omnibar/config.toml`, then restart the backend. The example grant is
+false. Hyprland and `hyprctl` are required, with the compositor instance available
+in the backend's desktop-session environment.
+
+Choose **Switch →**, or press Enter in search to switch to its first result.
+Omnibar validates the live target and closes the panel only after Hyprland
+confirms focus. Switching can take you to another workspace. Closed windows and
+unavailable sessions show an error; Refresh retries. No application is launched.
+Only mapped, non-hidden windows outside special workspaces are included, up to
+100, with a notice if truncated. Titles refresh only while visible and are not
+saved to disk. Window previews, special-workspace restoration, and MRU ordering
+remain future work.
+
+```sh
+quickshell -p /absolute/path/to/omnibar/ui/qml/shell.qml ipc call -- panel showWindows
+make e2e-windows  # synthetic windows in a private nested Hyprland instance
+```
+
+See [window-switcher design and protocol](docs/architecture/ADR-0019-window-switcher.md).
 
 ## Documentation
 

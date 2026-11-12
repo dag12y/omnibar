@@ -116,3 +116,9 @@ M23 adds original fixed text Transform & copy actions on clipboard entries and
 favorites, with existing grants and preserved source text. No upstream source,
 branding, or assets were copied. See
 [ADR-0018](../architecture/ADR-0018-clipboard-transforms.md).
+
+
+M24 adds an original Hyprland running-window switcher with bounded metadata,
+exact focus validation/confirmation, and visible-only search. Application
+launching remains deferred as requested. No upstream source, branding, or assets
+were copied. See [ADR-0019](../architecture/ADR-0019-window-switcher.md).

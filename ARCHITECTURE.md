@@ -142,8 +142,8 @@ Registered → Initialized → Started → Running → Stopped → Disposed
 
 ### Current shipped utility modules
 
-`system_monitor`, `keep_awake`, `audio`, `clipboard`, and `file_shelf` are static
-in-process Go modules.
+`system_monitor`, `keep_awake`, `audio`, `clipboard`, `file_shelf`, and
+`window_switcher` are static in-process Go modules.
 System sampling and audio watching follow client demand; Keep Awake owns an
 explicit timed lease independently of visible pages. Audio uses short `pactl`
 commands and a cancellable `pactl subscribe` child process against PipeWire's
@@ -174,6 +174,11 @@ with separate `clipboard.write` checks for path copying. Visible snapshot polls
 refresh metadata; explicit actions invoke wl-copy or a directory-only xdg-open
 adapter. Clipboard and shelf share a frontend snapshot controller without sharing
 backend state. See [ADR-0017](docs/architecture/ADR-0017-file-shelf.md).
+
+The running-window switcher uses bounded on-demand hyprctl metadata and explicit
+exact-address focus under window.manage. Confirm focus before hiding the panel;
+require the compositor instance from the backend session environment. See
+[ADR-0019](docs/architecture/ADR-0019-window-switcher.md).
 
 ### Inter-module communication
 
@@ -406,7 +411,8 @@ omnibar/
 │   │   ├── ADR-0015-clipboard-history.md
 │   │   ├── ADR-0016-clipboard-favorites.md
 │   │   ├── ADR-0017-file-shelf.md
-│   │   └── ADR-0018-clipboard-transforms.md
+│   │   ├── ADR-0018-clipboard-transforms.md
+│   │   └── ADR-0019-window-switcher.md
 │   ├── development/
 │   └── features/
 ├── internal/

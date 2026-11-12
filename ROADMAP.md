@@ -31,7 +31,7 @@ System monitoring suite: event delivery, resource metrics, UI cards, and the v0.
 
 ## Phase 3 - Window Management
 - [ ] Application switcher
-- [ ] Window switcher
+- [x] Hyprland running-window switcher: search, exact focus, and workspace switching (M24)
 - [ ] Window previews
 - [ ] Window layouts
 
@@ -53,7 +53,7 @@ System monitoring suite: event delivery, resource metrics, UI cards, and the v0.
 - [ ] Keyboard customization
 
 ## Phase 6 - Productivity
-- [x] Quick panel: keyboard navigation, screen-aware scrolling, and System/Audio/Clipboard/Files pages
+- [x] Quick panel: keyboard navigation, screen-aware scrolling, and System/Audio/Windows/Clipboard/Files pages
 - [ ] Command bar
 - [ ] Scratchpad
 - [x] Keep awake: timed logind/Wayland inhibition with countdown and Stop

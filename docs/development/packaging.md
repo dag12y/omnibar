@@ -193,3 +193,14 @@ M23 reuses `wl-clipboard` and the existing `clipboard.read`/`clipboard.write`
 grants for Transform & copy. Package/config/storage formats are unchanged.
 Reinstall the rebuilt package, restart the backend, and relaunch the UI to use
 the new actions. See [ADR-0018](../architecture/ADR-0018-clipboard-transforms.md).
+
+
+### Running-window switcher
+
+M24 uses hyprctl from the optional Hyprland package dependency. No new required
+package is introduced. The example enables the module but leaves window.manage
+false; listing/focus require the grant and a compositor instance in the backend
+session environment. After upgrading, restart the service and relaunch the UI.
+No desktop keybindings/config are installed or changed. Titles are not persisted.
+See [ADR-0019](../architecture/ADR-0019-window-switcher.md) and the local development
+troubleshooting note for the user-service compositor environment.
