@@ -40,7 +40,7 @@ const (
 )
 
 var (
-	_ modules.Module   = (*Module)(nil)
+	_ modules.Module    = (*Module)(nil)
 	_ modules.Lifecycle = (*Module)(nil)
 )
 
@@ -211,11 +211,11 @@ func clampPercent(p float64) float64 {
 // monitoring. It owns a sampler goroutine that publishes cpu and memory
 // events while the module is running and at least one client is subscribed.
 type Module struct {
-	config   config.ModuleConfig
-	logger   *slog.Logger
-	hub      *events.Hub
+	config    config.ModuleConfig
+	logger    *slog.Logger
+	hub       *events.Hub
 	publisher *events.Publisher
-	sampler  *sampler
+	sampler   *sampler
 
 	running atomic.Bool
 }
@@ -244,11 +244,11 @@ func New(cfg config.ModuleConfig, logger *slog.Logger, hub *events.Hub) *Module 
 // capability and is enabled by default.
 func (m *Module) Info() modules.ModuleInfo {
 	return modules.ModuleInfo{
-		Name:        Name,
-		Description: "System monitoring: CPU, memory, and swap.",
-		Version:     Version,
+		Name:         Name,
+		Description:  "System monitoring: CPU, memory, and swap.",
+		Version:      Version,
 		Capabilities: []string{Capability},
-		Enabled:     true,
+		Enabled:      true,
 	}
 }
 
@@ -288,7 +288,7 @@ func (m *Module) isRunning() bool {
 // sample (no subscribers yet), it takes one sample on demand using the
 // delta since the baseline reading taken at Start.
 func (m *Module) Snapshot() *Snapshot {
-	if snap := m.sampler.currentSnapshot(); snap != nil {
+	if snap := m.sampler.currentSnapshot(); snap != nil && time.Since(m.sampler.sampleTime()) < m.sampler.interval {
 		return snap
 	}
 	snap, err := m.sampler.sampleOnce()

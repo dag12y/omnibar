@@ -144,3 +144,67 @@ func TestSampleOnceOnDemand(t *testing.T) {
 		t.Error("expected non-zero CPU percent with a baseline delta")
 	}
 }
+
+// A long idle period must not be presented as a current activity rate.
+func TestSamplerDiscardsRateBaselineAfterIdle(t *testing.T) {
+	s := newSampler("test", time.Second, newTestHub(), nil)
+	s.statPath = filepath.Join("fixtures", "stat_normal")
+	s.meminfoPath = filepath.Join("fixtures", "meminfo_normal")
+	s.diskPath = filepath.Join("fixtures", "diskstats_normal")
+	s.netdevPath = filepath.Join("fixtures", "netdev_normal")
+	if _, err := s.sampleOnce(); err != nil {
+		t.Fatal(err)
+	}
+	s.statPath = filepath.Join("fixtures", "stat_second")
+	s.diskPath = filepath.Join("fixtures", "diskstats_second")
+	s.netdevPath = filepath.Join("fixtures", "netdev_second")
+	s.lastSampleAt = time.Now().Add(-time.Hour)
+	snap, err := s.sampleOnce()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snap.CPU.Percent != 0 || snap.Disk.ReadBytesSec != 0 || snap.Network.RxBytesSec != 0 {
+		t.Fatalf("idle counters became current rates: %+v", snap)
+	}
+	if snap.Memory.Total == 0 {
+		t.Fatal("absolute memory reading must still be available")
+	}
+}
+
+func TestSamplerSleepsWithoutDemandAndResumes(t *testing.T) {
+	hub := newTestHub()
+	sub := &testSubscriber{}
+	s := newSampler("test", 20*time.Millisecond, hub, nil)
+	s.statPath = filepath.Join("fixtures", "stat_normal")
+	s.meminfoPath = filepath.Join("fixtures", "meminfo_normal")
+	s.start()
+	defer s.stop()
+	time.Sleep(60 * time.Millisecond)
+	if s.currentSnapshot() != nil {
+		t.Fatal("sampled without subscribers")
+	}
+	hub.Subscribe(sub, "test", nil)
+	deadline := time.Now().Add(time.Second)
+	for s.currentSnapshot() == nil && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if s.currentSnapshot() == nil {
+		t.Fatal("did not sample on subscription")
+	}
+	hub.Remove(sub)
+	deadline = time.Now().Add(time.Second)
+	for s.currentSnapshot() != nil && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if s.currentSnapshot() != nil {
+		t.Fatal("did not reset idle sampling state")
+	}
+	hub.Subscribe(sub, "test", nil)
+	deadline = time.Now().Add(time.Second)
+	for s.currentSnapshot() == nil && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if s.currentSnapshot() == nil {
+		t.Fatal("did not resume")
+	}
+}

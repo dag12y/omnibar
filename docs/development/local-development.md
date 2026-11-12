@@ -283,3 +283,10 @@ to hide. Click Processor or Memory to expand details. Hover an action for its
 label. The installed `omnibar-toggle` command toggles a running panel or launches
 one; it can be assigned to an Omarchy keybinding or bar button. No desktop
 configuration is changed by building the project.
+
+Closing the panel pauses its system-monitor subscription. With no other clients,
+the backend stops the sampling timer. Reopening requests fresh metrics and starts
+a new graph segment. Long sampling gaps reset activity-rate baselines.
+
+For IPC functions whose names overlap Quickshell commands, use the argument
+separator, for example `quickshell -p ui/qml/shell.qml ipc call -- panel show`.

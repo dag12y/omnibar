@@ -30,6 +30,20 @@ Item {
 
     // "connected", "connecting", or "unavailable".
     property string status: "connecting"
+    property bool monitoringActive: true
+    onMonitoringActiveChanged: {
+        if (!handshakeComplete || !socket.connected) return
+        if (monitoringActive) {
+            subscribeToModules()
+        } else {
+            const requestId = nextRequestId++
+            socket.write(Protocol.buildRequest(requestId, "module.unsubscribe", {module: "system_monitor"}) + "\n")
+            socket.flush()
+            subscriptions = Protocol.withState(subscriptions, "system_monitor", "paused")
+            snapshotStates = Protocol.withState(snapshotStates, "system_monitor", "stale")
+            console.info("[omnibar-ui] monitoring paused")
+        }
+    }
 
     property string lastError: ""
     property bool handshakeComplete: false
@@ -250,6 +264,7 @@ Item {
 
         const parsed = Protocol.classify(message)
         if (parsed.kind === "event") {
+            if (parsed.module === "system_monitor" && !monitoringActive) return
             moduleEvent(parsed.module, parsed.event, parsed.data)
             root.applyModuleEvent(parsed.module, parsed.event, parsed.data)
             return
@@ -330,6 +345,7 @@ Item {
         const plan = Protocol.subscriptionPlan(modules)
         for (let i = 0; i < plan.length; i++) {
             const module = plan[i]
+            if (module === "system_monitor" && !monitoringActive) continue
             const requestId = nextRequestId++
 
             pendingSubscriptions = Protocol.withState(pendingSubscriptions, requestId, module)
@@ -351,6 +367,8 @@ Item {
                 remaining[id] = pendingSubscriptions[id]
         }
         pendingSubscriptions = remaining
+
+        if (module === "system_monitor" && !monitoringActive) return
 
         const state = Protocol.subscriptionState(response)
         subscriptions = Protocol.withState(subscriptions, module, state)
@@ -395,6 +413,7 @@ Item {
                 remaining[id] = pendingSnapshots[id]
         }
         pendingSnapshots = remaining
+        if (module === "system_monitor" && !monitoringActive) return
 
         if (response.error) {
             snapshotStates = Protocol.withState(snapshotStates, module, "failed")

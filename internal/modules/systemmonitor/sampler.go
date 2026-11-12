@@ -16,12 +16,12 @@ import (
 // Baseline readings are taken when the sampler starts so the first
 // published value is a real delta, not an average since boot.
 type sampler struct {
-	module      string
-	hub         *events.Hub
-	interval    time.Duration
-	logger      *slog.Logger
-	statPath    string
-	meminfoPath string
+	module          string
+	hub             *events.Hub
+	interval        time.Duration
+	logger          *slog.Logger
+	statPath        string
+	meminfoPath     string
 	diskPath        string
 	netdevPath      string
 	powerSupplyPath string
@@ -33,11 +33,12 @@ type sampler struct {
 	done    chan struct{}
 	started bool
 
-	lastStat *StatSample
-	lastMem  *MemInfo
-	lastDisk *DiskSample
-	lastNet  *NetSample
-	snapshot *Snapshot
+	lastStat     *StatSample
+	lastMem      *MemInfo
+	lastDisk     *DiskSample
+	lastNet      *NetSample
+	snapshot     *Snapshot
+	lastSampleAt time.Time
 }
 
 func newSampler(module string, interval time.Duration, hub *events.Hub, logger *slog.Logger) *sampler {
@@ -96,63 +97,58 @@ func (s *sampler) run() {
 		return
 	}
 
-	s.takeBaseline()
-
 	watcher := s.hub.Watch(s.module)
-	ticker := time.NewTicker(s.interval)
-	defer ticker.Stop()
-
+	var ticker *time.Ticker
+	var ticks <-chan time.Time
+	defer func() {
+		if ticker != nil {
+			ticker.Stop()
+		}
+	}()
 	for {
+		if s.hub.HasSubscribers(s.module) {
+			if ticker == nil {
+				ticker = time.NewTicker(s.interval)
+				ticks = ticker.C
+				s.publishSample()
+			}
+		} else if ticker != nil {
+			ticker.Stop()
+			ticker = nil
+			ticks = nil
+			s.mu.Lock()
+			s.lastStat, s.lastDisk, s.lastNet = nil, nil, nil
+			s.snapshot = nil
+			s.mu.Unlock()
+		}
 		select {
 		case <-s.stopCh:
 			return
 		case <-watcher:
-			// Subscription count changed; re-evaluate below.
-		case <-ticker.C:
+		case <-ticks:
+			if s.hub.HasSubscribers(s.module) {
+				s.publishSample()
+			}
 		}
-
-		if !s.hub.HasSubscribers(s.module) {
-			continue
-		}
-
-		snap, err := s.sample()
-		if err != nil {
-			s.logger.Error("sample failed", "module", s.module, "error", err)
-			continue
-		}
-		s.publish(snap)
 	}
 }
 
-// takeBaseline reads /proc/stat, /proc/meminfo, and /proc/diskstats once to establish the
-// delta baseline. Errors are ignored: the first real sample will still
-// produce a usable (possibly zero) result.
-func (s *sampler) takeBaseline() {
-	if stat, err := ParseStatFile(s.statPath); err == nil {
-		s.mu.Lock()
-		s.lastStat = stat
-		s.mu.Unlock()
+func (s *sampler) publishSample() {
+	snap, err := s.sample()
+	if err != nil {
+		if s.logger != nil {
+			s.logger.Error("sample failed", "module", s.module, "error", err)
+		}
+		return
 	}
-	if mem, err := ParseMeminfoFile(s.meminfoPath); err == nil {
-		s.mu.Lock()
-		s.lastMem = mem
-		s.mu.Unlock()
-	}
-	if disk, err := ParseDiskstatsFile(s.diskPath, time.Now()); err == nil {
-		s.mu.Lock()
-		s.lastDisk = disk
-		s.mu.Unlock()
-	}
-	if net, err := ParseNetdevFile(s.netdevPath, time.Now()); err == nil {
-		s.mu.Lock()
-		s.lastNet = net
-		s.mu.Unlock()
-	}
+	s.publish(snap)
 }
 
 // sample reads /proc/stat, /proc/meminfo, /proc/diskstats, and /proc/net/dev, computes
 // deltas from previous readings, stores the snapshot, and returns it.
 func (s *sampler) sample() (*Snapshot, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	stat, err := ParseStatFile(s.statPath)
 	if err != nil {
 		return nil, err
@@ -166,9 +162,10 @@ func (s *sampler) sample() (*Snapshot, error) {
 	net, _ := ParseNetdevFile(s.netdevPath, now)
 	bat, _ := ReadBattery(s.powerSupplyPath)
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+	if !s.lastSampleAt.IsZero() && now.Sub(s.lastSampleAt) > 3*s.interval {
+		s.lastStat, s.lastDisk, s.lastNet = nil, nil, nil
+	}
+	s.lastSampleAt = now
 	snap := computeSnapshot(stat, mem, s.lastStat, disk, s.lastDisk, s.fsStat, s.fsPath, net, s.lastNet, bat)
 	s.lastStat = stat
 	s.lastMem = mem
@@ -186,33 +183,7 @@ func (s *sampler) sample() (*Snapshot, error) {
 // on-demand system.getSnapshot when no sample exists yet. It updates the
 // baseline so subsequent delta-based samples remain consistent.
 func (s *sampler) sampleOnce() (*Snapshot, error) {
-	stat, err := ParseStatFile(s.statPath)
-	if err != nil {
-		return nil, err
-	}
-	mem, err := ParseMeminfoFile(s.meminfoPath)
-	if err != nil {
-		return nil, err
-	}
-	now := time.Now()
-	disk, _ := ParseDiskstatsFile(s.diskPath, now)
-	net, _ := ParseNetdevFile(s.netdevPath, now)
-	bat, _ := ReadBattery(s.powerSupplyPath)
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	snap := computeSnapshot(stat, mem, s.lastStat, disk, s.lastDisk, s.fsStat, s.fsPath, net, s.lastNet, bat)
-	s.lastStat = stat
-	s.lastMem = mem
-	if disk != nil {
-		s.lastDisk = disk
-	}
-	if net != nil {
-		s.lastNet = net
-	}
-	s.snapshot = snap
-	return snap, nil
+	return s.sample()
 }
 
 // currentSnapshot returns the latest snapshot, or nil if none has been taken.
@@ -248,4 +219,10 @@ func (s *sampler) publish(snap *Snapshot) {
 	if err := s.hub.Publish(s.module, EventBattery, batData); err != nil {
 		s.logger.Error("publish battery event", "module", s.module, "error", err)
 	}
+}
+
+func (s *sampler) sampleTime() time.Time {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.lastSampleAt
 }

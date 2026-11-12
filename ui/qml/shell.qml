@@ -11,6 +11,7 @@ ShellRoot {
     id: root
     ThemeLoader {}
     property bool opened: true
+    onOpenedChanged: { cpuHistory = []; memoryHistory = [] }
     property string expanded: ""
     property var cpuHistory: []
     property var memoryHistory: []
@@ -26,6 +27,7 @@ ShellRoot {
     function rate(value) { return typeof value === "number" ? Format.formatBytes(value) + "/s" : "—" }
     BackendClient {
         id: client
+        monitoringActive: root.opened
         onModuleEvent: (module, event, data) => {
             if (module !== "system_monitor") return
             if (event === "cpu" && typeof data.percent === "number")

@@ -135,6 +135,15 @@ wait_for_count "subscribed to system_monitor" 1 5 "UI to subscribe to system_mon
 wait_for_count "snapshot for system_monitor received" 1 15 "UI to receive a live system_monitor snapshot"
 pass "UI connected, completed handshake, and subscribed; live values arrived"
 
+panel_call() {
+    WAYLAND_DISPLAY="$wayland_socket" XDG_RUNTIME_DIR="$tmp/run" quickshell -p "$shell_qml" ipc call -- panel "$1" >/dev/null
+}
+panel_call hide
+wait_for_count "monitoring paused" 1 5 "monitoring to pause while hidden"
+panel_call show
+wait_for_count "snapshot for system_monitor received" 2 10 "fresh metrics after reopening"
+pass "panel hide/show pauses monitoring and requests a fresh snapshot"
+
 stop_backend
 pass "backend SIGTERM exit 0 and socket removed"
 
