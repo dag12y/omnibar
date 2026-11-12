@@ -1,6 +1,7 @@
 # ADR-0015: Session clipboard history
 
-Status: Accepted
+Status: Accepted; favorite persistence and Clear semantics extended by
+[ADR-0016](ADR-0016-clipboard-favorites.md).
 
 ## Decision
 

@@ -27,7 +27,8 @@ System monitoring is implemented: CPU, RAM, swap, disk capacity and I/O,
 network throughput, and battery status/power. The floating Quickshell dashboard
 uses the active Omarchy theme, live CPU/memory graphs, and expandable details.
 Timed Keep Awake, an audio mixer, microphone controls, and session clipboard
-history are also implemented. System, Audio, and Clipboard share the same panel. The v0.1.0 release verification is still pending.
+history with saved favorites are also implemented. System, Audio, and Clipboard
+share the same panel. The v0.1.0 release verification is still pending.
 
 Run the backend with `make run` and launch the panel with
 `quickshell -n -p ui/qml/shell.qml`. Click the CPU or memory card for details.
@@ -115,16 +116,18 @@ false in the example config.
 
 Collection starts paused after every backend restart. Starting it can include the
 current clipboard selection. It continues when the panel is hidden; **Pause**
-stops collection while keeping existing entries. **Clear history** and **Delete**
-affect history only, leaving the system clipboard alone. Copy puts the full text
+stops collection while keeping existing entries. **Clear recent** keeps saved
+favorites; **Delete** removes a recent entry.
+These actions leave the system clipboard alone. Copy puts the full text
 back on the clipboard; paste it normally in the destination app.
 
-History stays in memory: up to 50 entries, 16 KiB per item, and 128 KiB of text in
-total, with oldest entries removed first. Repeated text moves to the top. Images,
+Recent history stays in memory. The combined list holds up to 50 entries,
+16 KiB per item, and 128 KiB of text in total, evicting oldest unsaved entries.
+Repeated text moves to the top within its group. Images,
 files, binary data, and sensitive-marked selections are skipped. Apps can copy
 secrets without marking them sensitive, so pause collection when needed. There
-is no persistent history, favorites, or automatic paste. Backend shutdown forgets
-history; the current system clipboard selection can remain available.
+is no automatic paste. Backend shutdown forgets recent history; the current
+system clipboard selection can remain available.
 
 ```sh
 quickshell -p /absolute/path/to/omnibar/ui/qml/shell.qml ipc call -- panel showClipboard
@@ -132,6 +135,27 @@ make e2e-clipboard  # synthetic text in a private nested Wayland compositor
 ```
 
 See [clipboard design and protocol](docs/architecture/ADR-0015-clipboard-history.md).
+
+## Clipboard favorites
+
+Select **Save favorite** on a copied item to save that text for future sessions.
+Favorites appear first, have a saved badge, and are available through the
+**Favorites** filter even while collection is paused. Search works in either
+filter. The existing `clipboard.read` grant permits saving/removing favorites;
+`clipboard.write` is still needed only for Copy.
+
+**Unsave** removes the disk copy but keeps the item in recent history until it is
+cleared, evicted, or the backend exits. **Remove** deletes a favorite from both
+the saved file and the current list. Clear recent and automatic eviction preserve
+favorites. Collection still starts paused after every backend restart.
+
+Only explicitly saved text is written to
+`$XDG_DATA_HOME/omnibar/clipboard-favorites.json` (default
+`~/.local/share/omnibar/clipboard-favorites.json`). This is an unencrypted JSON
+file with mode 0600 in a private directory. Up to 20 favorites and 32 KiB of
+favorite text are supported within the overall history limits. Save failures are
+shown without changing the item; invalid saved data is preserved and reported.
+See [favorites storage and protocol](docs/architecture/ADR-0016-clipboard-favorites.md).
 
 ## Documentation
 

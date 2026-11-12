@@ -160,3 +160,15 @@ read access and restarting the backend, select Start history in the Clipboard
 page for that session. Copy requires the separate write grant. History is
 memory-only and lost on backend restart; the current system selection may persist.
 The private compositor test is `make e2e-clipboard`; it installs no package.
+
+
+### Saved clipboard favorites
+
+M21 saves only explicitly selected favorites in
+`$XDG_DATA_HOME/omnibar/clipboard-favorites.json` (default
+`~/.local/share/omnibar/clipboard-favorites.json`), using private permissions and
+atomic replacement. No new dependency or permission grant is needed. Recent
+copies remain session-only; saved favorites restore after upgrade/restart while
+collection stays paused. Package removal preserves user data. Back up this JSON
+file for favorites; it contains unencrypted saved text. Invalid saved data is
+reported and preserved. See [ADR-0016](../architecture/ADR-0016-clipboard-favorites.md).

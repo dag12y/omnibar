@@ -97,3 +97,9 @@ and bounded in-memory storage, with separate read/write grants. No upstream
 clipboard implementation, branding, or assets were copied. Persistent favorites,
 image/file handling, and automatic paste remain deferred. See
 [ADR-0015](../architecture/ADR-0015-clipboard-history.md).
+
+
+M21 extends the independent Linux implementation with bounded explicitly saved
+text favorites, filtering, restore, and removal. The storage/permission behavior
+is original to Omnibar; no upstream source or branding was copied. See
+[ADR-0016](../architecture/ADR-0016-clipboard-favorites.md).

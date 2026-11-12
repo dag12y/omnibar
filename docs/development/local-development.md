@@ -417,3 +417,24 @@ window briefly appears; the host clipboard is never read or replaced. Processes
 are stopped in cleanup and logs/artifacts remain in the printed temp directory.
 Unit/race and QML tests run without a live clipboard. See
 [ADR-0015](../architecture/ADR-0015-clipboard-history.md) for RPCs and lifecycle.
+
+
+## Clipboard favorites (M21)
+
+Save favorite persists only the selected text. The versioned JSON file lives at
+`$XDG_DATA_HOME/omnibar/clipboard-favorites.json`, falling back to
+`~/.local/share/omnibar/clipboard-favorites.json`. It is unencrypted, mode 0600,
+in a 0700 Omnibar data directory. Set `XDG_DATA_HOME` to an absolute private test
+path when exercising save/restore. The collector remains paused after restart.
+No new config grants are needed: read permits managing favorites; write permits
+copy-back. Clear recent preserves favorites; Unsave leaves a recent item; Remove
+deletes a saved favorite from disk and the list.
+
+`make e2e-clipboard` now also checks explicit persistence, permissions, Clear recent,
+paused restart restoration, exact copy, and removal, using a private XDG data
+home. Go tests cover bounds, eviction, deduplication, failed-write rollback,
+corrupt-file preservation, unsafe-file rejection, and separate grants. QML tests
+cover filtering, saved controls, clear enablement, and errors surviving polling.
+For invalid data, save controls are disabled; correct/restore the file and restart
+the backend. Recent collection remains available. See
+[ADR-0016](../architecture/ADR-0016-clipboard-favorites.md).

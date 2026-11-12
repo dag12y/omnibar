@@ -35,6 +35,7 @@ This document breaks the approved architecture into small, sequential, independe
 | M18 | Playback-stream output routing | Per-row device selector, live target validation, confirmed-state reconciliation, isolated two-stream checks | Done |
 | M19 | Microphone controls and recording apps | Default input, gain/mute, capture metadata, Microphone view, isolated virtual-mic verification | Done |
 | M20 | Session clipboard history | Explicit collection, bounded text history, search/copy/delete/clear, separate grants, nested Wayland verification | Done |
+| M21 | Clipboard favorites | Explicit bounded persistence, protected favorites, filter, restore, and removal | Done |
 
 ---
 
@@ -908,3 +909,17 @@ Go race/permission/bounds tests, QML controls/cache tests, and a private nested
 Wayland test cover collection, exact copy, pause, hidden UI, and restart. No
 persistent storage, automatic paste, or favorites are introduced. See
 [ADR-0015](docs/architecture/ADR-0015-clipboard-history.md).
+
+
+## M21 — Clipboard favorites (implemented)
+
+Adds Save favorite/Unsave, saved badges, and All copies/Favorites filters. Only
+explicit favorites persist in private, atomically replaced JSON; recent copies
+stay session-only. Clear recent and eviction preserve saved entries. Remove
+updates disk before removing a favorite; failed writes preserve confirmed state.
+Twenty favorites and 32 KiB of saved text fit within the existing list/frame
+bounds. Corrupt/unsafe files remain untouched and are reported while recent
+history stays usable. Existing read/write grants are unchanged; startup remains
+paused. Go race/permission/storage tests, 94 QML tests, and private nested Wayland
+restart/copy/removal checks verify the increment. See
+[ADR-0016](docs/architecture/ADR-0016-clipboard-favorites.md).

@@ -6,6 +6,8 @@ All notable changes will be documented here.
 
 ### Added
 
+- Clipboard favorites: explicit Save/Unsave, protected saved entries, Favorites filter, private atomic JSON, restart restore, and Remove; ADR-0016.
+- Storage rollback, corrupt-file preservation, bounded favorites tests, and nested Wayland restore/copy/removal verification.
 - Session-only clipboard history with explicit Start/Pause, local search, exact copy-back, Delete, and Clear.
 - Independent clipboard read/write grants, bounded UTF-8 storage, sensitive-hint filtering, and restart cleanup; ADR-0015.
 - Clipboard page and `panel showClipboard`; private nested Wayland smoke test and wl-clipboard package dependency.

@@ -37,7 +37,7 @@ System monitoring suite: event delivery, resource metrics, UI cards, and the v0.
 
 ## Phase 4 - Clipboard and Files
 - [x] Session-only text clipboard history, search, copy, delete, and clear (M20)
-- [ ] Clipboard favorites
+- [x] Explicitly saved text favorites, restart restore, filter, and removal (M21)
 - [ ] File shelf
 - [ ] Clipboard utilities
 

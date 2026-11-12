@@ -156,6 +156,23 @@ Phase 2 adds live system monitoring on top of the Phase 1 foundation and prepare
 - Continue opted-in collection behind hidden pages; clear frontend caches when
   hidden/disconnected and forget backend history on shutdown.
 - Skip sensitive-marked and unsupported content without reading it into history.
-  Unmarked secrets cannot be reliably identified. No persistent storage or logs
-  containing clipboard text; favorites, images, files, and app exclusions deferred.
+  Unmarked secrets cannot be reliably identified. Ordinary history has no
+  persistence or content logs; images, files, and app exclusions deferred. M21 adds
+  explicit favorite persistence as described below.
 - Verify real behavior using synthetic data in a separate Wayland compositor.
+
+
+## Clipboard favorites increment (implemented)
+
+- Save only explicitly selected favorites across restarts, retaining exact text.
+- Restore favorites while keeping collection paused; require the existing read
+  grant before loading or accessing saved clipboard content.
+- Limit favorites to 20 entries and 32 KiB of text within the shared 50-entry,
+  128 KiB list budget. Evict only recent entries; Clear recent keeps favorites.
+- Unsave removes persisted text but leaves a recent item; Remove deletes from
+  both disk and list. Require the write grant only for copying to the clipboard.
+- Save atomically with private permissions. Preserve confirmed state on write
+  failure and preserve invalid files without silently overwriting them.
+- Display saved badges, a Favorites filter, local search, and storage errors.
+- Use isolated data directories and synthetic text for tests; no full persistent
+  clipboard history or encrypted storage is introduced.

@@ -24,7 +24,7 @@ The UI and core services are separate processes. They communicate over a Unix do
 | Core services | Go 1.27 | Static binary, low overhead, strong concurrency, `log/slog` in stdlib |
 | UI↔Backend IPC | JSON-RPC 2.0 over Unix domain socket (newline-delimited) | Quickshell `Quickshell.Io.Socket` QML type available; clean process boundary; failure isolation |
 | Configuration | TOML | Human-editable, supports comments, standard in Linux desktop configs |
-| Persistent storage | SQLite (WAL mode) — introduced only when a feature requires it | Zero server, single file, survives upgrades |
+| Persistent storage | Bounded JSON for explicit clipboard favorites; SQLite (WAL) deferred for richer data | Private atomic file now; database only when needed |
 | Database driver | `modernc.org/sqlite` (pure Go) — evaluated, not introduced in Phase 1 | No CGO, simpler cross-compilation and builds |
 | Desktop integration | Native Hyprland IPC | Zero extra dependencies, canonical Hyprland control interface |
 | Audio | PipeWire | Standard on Omarchy, `pw-cli`/`pw-dump` available |
@@ -161,7 +161,9 @@ internal capture helper, with in-memory history and separate read/write grants.
 The UI polls only while visible; collection follows the explicit session toggle,
 independently of panel visibility. This supersedes the planned persistent or
 separate-service clipboard path for this increment. See
-[ADR-0015](docs/architecture/ADR-0015-clipboard-history.md).
+[ADR-0015](docs/architecture/ADR-0015-clipboard-history.md). Explicitly saved
+favorites extend it in [ADR-0016](docs/architecture/ADR-0016-clipboard-favorites.md),
+using bounded private JSON, atomic replacement, and no ordinary-history persistence.
 
 ### Inter-module communication
 
@@ -311,7 +313,7 @@ Omnibar never uses `sudo` or escalates privileges. All operations run as the inv
 ### Storage
 
 - SQLite is kept as the selected future storage solution, but the SQLite driver and database implementation are **not introduced in Phase 1**.
-- The database is introduced when the first feature actually requires persistent structured data (e.g., persistent clipboard history or monitoring history).
+- Explicit clipboard favorites use bounded versioned JSON (ADR-0016). SQLite is deferred until a feature needs querying or richer persistent data (e.g., monitoring history).
 - WAL mode for concurrent reads.
 - Schema version in a `meta` table; migrations are transactional and additive.
 - Phase 1: no database tables required (settings live in TOML).
@@ -391,7 +393,8 @@ omnibar/
 │   │   ├── ADR-0012-audio-mixer.md
 │   │   ├── ADR-0013-stream-routing.md
 │   │   ├── ADR-0014-microphone-controls.md
-│   │   └── ADR-0015-clipboard-history.md
+│   │   ├── ADR-0015-clipboard-history.md
+│   │   └── ADR-0016-clipboard-favorites.md
 │   ├── development/
 │   └── features/
 ├── internal/
