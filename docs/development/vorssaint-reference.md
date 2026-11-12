@@ -69,3 +69,13 @@ playback-stream volume/mute and default output selection using PipeWire's Pulse
 compatibility layer, with a separate Audio page. Boost, grouping, reset controls,
 and per-app output routing remain outside this increment. See
 [ADR-0012](../architecture/ADR-0012-audio-mixer.md).
+
+
+## Stream routing follow-up (2026-11-12)
+
+Omnibar now adds a device selector to each playback row, independently of the
+system default selector. The Linux implementation moves an existing stream using
+`pactl`, revalidates live targets, and reconciles confirmed state. The isolated
+smoke test checks one stream can move while the other and default output remain
+unchanged. No upstream source/assets or persistent routing rules were added.
+See [ADR-0013](../architecture/ADR-0013-stream-routing.md).

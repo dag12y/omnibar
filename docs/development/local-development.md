@@ -325,8 +325,11 @@ The module uses `pactl` (`libpulse` on Arch) and `pipewire-pulse`. Verify the
 existing service with `pactl info`. Rows represent playback streams, so an app
 can have multiple rows or disappear when it closes its stream. Paused streams
 can remain listed. Set a row's volume/mute, or select the default output. The
-output selector does not implement explicit per-app routing: movement of
-existing streams follows WirePlumber/session-manager policy.
+DEFAULT OUTPUT selector changes the system default: movement of existing streams
+then follows WirePlumber/session-manager policy. Each playback row's OUTPUT
+selector instead moves only that stream to a chosen device. A vanished device
+shows unavailable; stale move requests are rejected, and failed requests restore
+the last confirmed selection. No routing rules are saved by Omnibar.
 
 Updates are event-driven with a three-second resync while subscribed. Hiding
 Audio or switching to System stops this client's audio demand. A missing audio
@@ -337,7 +340,8 @@ Normal playback is never modified merely by opening Audio.
 `make e2e-audio` builds the backend and runs a real UI test against isolated
 PipeWire core/pulse services, WirePlumber's policy-only profile, virtual outputs,
 and a silent stream. It checks volume/mute, default selection, output and stream
-removal, pulse/core restarts, and hide/show demand. It needs Python 3, `pactl`,
+removal, independent two-stream routing, volume/mute/default preservation,
+stale-target rejection, pulse/core restarts, and hide/show demand. It needs Python 3, `pactl`,
 `pacat`, `pipewire`, `pipewire-pulse`, `wireplumber`, `quickshell`, and `hyprctl`.
 It never restarts the user's audio stack or changes real playback/output devices.
 Run `python3 scripts/e2e-audio.py --capture` after building to additionally save
@@ -348,3 +352,8 @@ hotplug test verifies the device-list path with virtual outputs.
 RPC examples and the snapshot/event schema are in
 [ADR-0012](../architecture/ADR-0012-audio-mixer.md). No levels or device preferences
 are persisted by Omnibar; the audio server/session manager owns that behavior.
+
+
+Stream routing RPC is `audio.moveStream` with `{"key":"…","output":"sink-name"}`,
+using the current stream key and output name from a snapshot. It requires the
+existing `audio.control` grant. See [ADR-0013](../architecture/ADR-0013-stream-routing.md).

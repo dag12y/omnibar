@@ -31,8 +31,10 @@ are limited to 100. A scalar volume command applies to all stream channels.
 
 The output selector sets the system default playback device. Existing streams
 follow the session manager's policy; this is not explicit per-stream routing.
-Per-app routing, microphone controls, boost, master-output volume, persistent
-levels, and grouping multiple streams into one app row are deferred.
+Per-stream routing was deferred in this initial increment and is now implemented
+by [ADR-0013](ADR-0013-stream-routing.md). Microphone controls, boost,
+master-output volume, persistent levels, and grouping multiple streams into one
+app row remain deferred.
 
 ## Runtime behavior
 
@@ -71,6 +73,7 @@ state. Missing grants fail closed before contacting the audio service.
 | `audio.setVolume` | `{"key":"…","volume":45}` | Snapshot after change |
 | `audio.setMute` | `{"key":"…","muted":true}` | Snapshot after change |
 | `audio.setDefaultOutput` | `{"output":"sink-name"}` | Snapshot after change |
+| `audio.moveStream` (ADR-0013) | `{"key":"…","output":"sink-name"}` | Snapshot after move |
 
 A snapshot includes `revision`, `available`, optional `error`, `server`,
 `default_output`, `outputs`, and `streams`. Subscribe with `module.subscribe`

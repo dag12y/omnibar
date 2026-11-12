@@ -61,9 +61,15 @@ Select **Audio** to control playback streams by app name, icon, and media title.
 Adjust volume from 0–100%, mute/unmute, or choose the default playback output.
 Apps appear when they have an audio stream; an app with multiple streams gets
 multiple rows. Paused streams may remain visible. Volume drags apply on release;
-arrow keys adjust a focused slider. Per-app output routing and microphone
-controls are future work. Existing streams follow the session manager's policy
-when the system default output changes.
+arrow keys adjust a focused slider. Each row's **OUTPUT** selector moves just
+that playback stream to another connected device, preserving its volume/mute
+and leaving the default output and other streams alone. The separate **DEFAULT
+OUTPUT** selector changes the system default; movement of existing streams then
+follows the session manager's policy. Microphone controls remain future work.
+
+A disappeared device displays "Output unavailable" until the audio server picks
+a fallback or you select another output. Omnibar stores no routing rules; new
+streams and device reconnections follow the audio server/session manager policy.
 
 The mixer uses `pactl` with PipeWire's `pipewire-pulse` service. On Arch, `libpulse`
 provides `pactl`; both are package dependencies. Grant `"audio.control" = true`
@@ -73,8 +79,9 @@ explanation; unavailable audio services reconnect automatically. Audio watchers
 stop when the page is hidden or you switch back to System.
 
 Run `make e2e-audio` for a real backend/UI test using isolated PipeWire services,
-virtual outputs, and a silent test stream. Your normal playback is left alone.
-See [the audio design and protocol](docs/architecture/ADR-0012-audio-mixer.md).
+virtual outputs, and silent test streams. Your normal playback is left alone.
+See [the audio design and protocol](docs/architecture/ADR-0012-audio-mixer.md)
+and [stream routing](docs/architecture/ADR-0013-stream-routing.md).
 
 ## Documentation
 

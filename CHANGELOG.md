@@ -5,6 +5,9 @@ All notable changes will be documented here.
 ## [Unreleased]
 
 ### Added
+- Playback-stream routing via `audio.moveStream`, with an OUTPUT picker on each audio row and fresh stream/device validation.
+- Shared keyboard-accessible output picker that keeps open menus stable on normal refresh and closes them when device options change.
+- Routing tests for default/other-stream/volume/mute preservation, stale targets, keyboard selection, failed-request rollback, and device removal; ADR-0013.
 - Playback audio module (`audio.control`) using `pactl` with PipeWire's PulseAudio compatibility service: stream discovery, app/media metadata, volume, mute, and default output selection.
 - System/Audio page navigation, app icons, keyboard-accessible sliders, output picker, empty/offline/denied states, and stable mixer rows across live refreshes.
 - Demand-driven audio event watcher with debounced updates, bounded operations, automatic reconnection, stale-target validation, and snapshot revisions.
@@ -50,6 +53,7 @@ All notable changes will be documented here.
 - Documented reconnect backoff consistently as 1s, 2s, 4s, 8s, 16s, then capped at 30s.
 
 ### Fixed
+- Startup tests now use private runtime/config paths, so they can run alongside an installed Omnibar backend.
 - Live snapshot updates replace cached objects so QML bindings receive new values; CPU core count is available before delta sampling.
 - QML snapshot parsing in `BackendClient.qml` to handle already parsed object results from JSON-RPC without throwing `SyntaxError`.
 - Relative import path of `components/format.js` in `shell.qml`.

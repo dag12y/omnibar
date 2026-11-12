@@ -148,7 +148,9 @@ explicit timed lease independently of visible pages. Audio uses short `pactl`
 commands and a cancellable `pactl subscribe` child process against PipeWire's
 PulseAudio compatibility service. Its snapshots, actions, permissions, retries,
 and UI behavior are specified in [ADR-0012](docs/architecture/ADR-0012-audio-mixer.md).
-This is the implemented audio path; a separate supervised audio service remains
+Per-stream output routing extends it in
+[ADR-0013](docs/architecture/ADR-0013-stream-routing.md), using the same capability
+and revisioned snapshots. This is the implemented audio path; a separate supervised audio service remains
 a possible future design. Keep Awake is described in [ADR-0011](docs/architecture/ADR-0011-keep-awake.md).
 
 ### Inter-module communication
@@ -376,7 +378,8 @@ omnibar/
 │   │   ├── ADR-0009-event-subscription.md
 │   │   ├── ADR-0010-system-monitor.md
 │   │   ├── ADR-0011-keep-awake.md
-│   │   └── ADR-0012-audio-mixer.md
+│   │   ├── ADR-0012-audio-mixer.md
+│   │   └── ADR-0013-stream-routing.md
 │   ├── development/
 │   └── features/
 ├── internal/

@@ -103,7 +103,9 @@ Phase 2 adds live system monitoring on top of the Phase 1 foundation and prepare
 - The Audio page lists current playback streams with app/media identity and icons
   when available; distinct streams remain independently controllable.
 - Users can set volume from 0–100%, mute/unmute, and select a default playback
-  output. Pointer volume changes commit on release; keyboard steps work.
+  output. Each playback row also supports moving that stream to a chosen output
+  without changing other streams or the default. Pointer volume changes commit
+  on release; keyboard steps and output selection work.
 - `audio.control` is required for reading, subscribing, and changing audio.
   Missing grants fail closed; disabled modules cannot contact the audio service.
 - Stream/device creation and removal update the UI. An audio service restart
@@ -111,5 +113,16 @@ Phase 2 adds live system monitoring on top of the Phase 1 foundation and prepare
 - Background watching stops when no clients subscribe. Switching pages pauses
   the previous page's demand; active Keep Awake sessions continue independently.
 - Automated tests use isolated drivers/services and do not change normal playback.
-- Per-app output routing, grouped app controls, microphone controls, master-output
+- Grouped app controls, microphone controls, master-output
   volume, boost, and persistent app levels remain future work.
+
+
+### Stream routing acceptance (implemented)
+
+- Validate the live stream and destination before moving; reject stale targets.
+- Preserve volume, mute, default output, and unrelated streams.
+- Keep output pickers stable on ordinary refresh, close stale device menus on
+  hotplug, and show an unavailable current destination explicitly.
+- Reconcile selections with confirmed state after success or failure.
+- Store no automatic routing rules; existing audio-session policy owns fallback
+  and persistence. Physical Bluetooth transitions still need hardware testing.

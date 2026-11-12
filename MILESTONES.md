@@ -32,6 +32,7 @@ This document breaks the approved architecture into small, sequential, independe
 | M15 | Release v0.1.0 | Tag, release, real checksums, install verification | Planned |
 | M16 | Panel usability and Keep Awake | Keyboard controls, bounded scrolling, visibility-aware monitoring, timed logind/Wayland inhibition | Done |
 | M17 | Playback audio mixer | PipeWire compatibility adapter, volume/mute, default output, Audio page, isolated service-recovery checks | Done |
+| M18 | Playback-stream output routing | Per-row device selector, live target validation, confirmed-state reconciliation, isolated two-stream checks | Done |
 
 ---
 
@@ -866,3 +867,15 @@ Go unit/integration and race tests, QML tests, real UI lifecycle checks, and an
 isolated audio-stack smoke test cover these increments. Per-app output routing,
 master-output volume, microphone controls, volume boost, and persistent app
 levels are not part of M17. M15 remains pending until release/install verification.
+
+
+## M18 — Playback-stream output routing (implemented)
+
+Adds `audio.moveStream` and a device selector on each playback row, independently
+of the system default output. Validate both targets against current server state,
+preserve volume/mute/unrelated streams, and handle failures without retaining an
+unconfirmed UI selection. The shared picker preserves open menus across ordinary
+refresh and closes them on device-list changes. Verification includes fake-driver
+and RPC permission tests, QML keyboard/hotplug/rollback tests, and the isolated
+PipeWire test with two concurrent streams. No persistent routing rules or app-wide
+grouping are introduced. See [ADR-0013](docs/architecture/ADR-0013-stream-routing.md).
