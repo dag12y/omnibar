@@ -4,6 +4,7 @@ import QtQuick.Controls
 Button {
     id: root
     property string description: text
+    property bool selected: false
     focusPolicy: Qt.StrongFocus
     Keys.onReturnPressed: clicked()
     Keys.onEnterPressed: clicked()
@@ -16,7 +17,7 @@ Button {
     ToolTip.text: description
     background: Rectangle {
         radius: 9
-        color: root.down ? Qt.alpha(Theme.accent, 0.22) : root.hovered ? Theme.surface : "transparent"
+        color: root.down ? Qt.alpha(Theme.accent, 0.22) : root.selected ? Qt.alpha(Theme.accent, 0.14) : root.hovered ? Theme.surface : "transparent"
         border.color: root.visualFocus ? Theme.accent : "transparent"
         border.width: 2
     }

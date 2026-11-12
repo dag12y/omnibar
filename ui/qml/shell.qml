@@ -12,6 +12,11 @@ ShellRoot {
     ThemeLoader {
         active: root.opened
     }
+    property string page: "system"
+    onPageChanged: {
+        cpuHistory = [];
+        memoryHistory = [];
+    }
     property bool opened: true
     onOpenedChanged: {
         cpuHistory = [];
@@ -38,7 +43,7 @@ ShellRoot {
     }
     BackendClient {
         id: client
-        monitoringActive: root.opened
+        monitoringActive: root.opened && root.page === "system"
         onModuleEvent: (module, event, data) => {
             if (module !== "system_monitor")
                 return;
@@ -51,6 +56,11 @@ ShellRoot {
             root.cpuHistory = [];
             root.memoryHistory = [];
         }
+    }
+    AudioController {
+        id: audio
+        client: client
+        active: root.opened && root.page === "audio"
     }
     // A separate mapped surface keeps display-idle inhibition alive when the
     // dashboard is hidden. It takes no keyboard focus or pointer input.
@@ -85,6 +95,10 @@ ShellRoot {
         }
         function show(): void {
             root.opened = true;
+        }
+        function selectPage(name: string): void {
+            if (name === "system" || name === "audio")
+                root.page = name;
         }
         function hide(): void {
             root.opened = false;
@@ -159,7 +173,7 @@ ShellRoot {
                                     font.weight: Font.DemiBold
                                 }
                                 Text {
-                                    text: "YOUR SYSTEM, AT A GLANCE"
+                                    text: root.page === "audio" ? "YOUR SOUND, YOUR CONTROL" : "YOUR SYSTEM, AT A GLANCE"
                                     color: Theme.muted
                                     font.pixelSize: 9
                                     font.letterSpacing: 1
@@ -174,126 +188,170 @@ ShellRoot {
                                 onClicked: root.opened = false
                             }
                         }
-                        Rectangle {
-                            visible: root.state === "denied" || root.state === "unavailable" || root.state === "failed" || root.state === "pending" || !client.backendConnected
-                            Layout.fillWidth: true
-                            implicitHeight: notice.implicitHeight + 24
-                            radius: 12
-                            color: Qt.alpha(Theme.accent, 0.08)
-                            Text {
-                                id: notice
-                                anchors.fill: parent
-                                anchors.margins: 12
-                                wrapMode: Text.WordWrap
-                                color: Theme.muted
-                                font.pixelSize: 12
-                                text: root.state === "denied" ? "Monitoring needs the system.info permission in your Omnibar config." : root.state === "unavailable" ? "System monitoring is disabled." : root.state === "failed" ? "Could not load system metrics." : root.stale && root.snap.sampled_at ? "Connection lost · showing the last reading. Reconnecting…" : client.backendConnected ? "Loading system metrics…" : "Connecting to your system…"
-                            }
-                        }
                         RowLayout {
-                            spacing: 12
-                            Layout.fillWidth: true
-                            SummaryCard {
-                                Layout.fillWidth: true
-                                label: "Processor"
-                                iconName: "cpu"
-                                stale: root.stale
-                                value: typeof root.field("cpu", "percent") === "number" ? Math.round(root.field("cpu", "percent")) + "%" : "—"
-                                detail: root.field("cpu", "core_count") > 0 ? root.field("cpu", "core_count") + " logical cores" : "Waiting for sample"
-                                samples: root.cpuHistory
-                                onActivated: root.expanded = root.expanded === "cpu" ? "" : "cpu"
-                            }
-                            SummaryCard {
-                                Layout.fillWidth: true
-                                label: "Memory"
-                                iconName: "memory"
-                                stale: root.stale
-                                value: root.field("memory", "total") > 0 ? Math.round(root.percent("memory")) + "%" : "—"
-                                detail: root.bytes(root.field("memory", "used")) + " / " + root.bytes(root.field("memory", "total"))
-                                samples: root.memoryHistory
-                                onActivated: root.expanded = root.expanded === "memory" ? "" : "memory"
-                            }
-                        }
-                        ColumnLayout {
-                            visible: root.expanded.length > 0
                             Layout.fillWidth: true
                             spacing: 8
-                            Flickable {
-                                visible: root.expanded === "cpu"
+                            PanelButton {
                                 Layout.fillWidth: true
-                                implicitHeight: Math.min(coreRows.implicitHeight, 220)
-                                contentHeight: coreRows.implicitHeight
-                                clip: true
-                                boundsBehavior: Flickable.StopAtBounds
-                                ColumnLayout {
-                                    id: coreRows
-                                    width: parent.width
-                                    spacing: 8
-                                    Repeater {
-                                        model: root.expanded === "cpu" ? root.field("cpu", "cores") || [] : []
-                                        MetricBar {
-                                            required property int index
-                                            required property real modelData
-                                            label: "Core " + (index + 1)
-                                            iconName: "cpu"
-                                            value: Format.formatPercent(modelData)
-                                            percent: modelData
-                                            stale: root.stale
+                                text: "System"
+                                selected: root.page === "system"
+                                description: "Show system monitoring"
+                                onClicked: root.page = "system"
+                            }
+                            PanelButton {
+                                Layout.fillWidth: true
+                                text: "Audio"
+                                selected: root.page === "audio"
+                                description: "Show audio mixer"
+                                onClicked: root.page = "audio"
+                            }
+                        }
+                        AudioPage {
+                            visible: root.page === "audio"
+                            Layout.fillWidth: true
+                            snapshot: audio.snapshot
+                            state: audio.state
+                            errorText: audio.errorText
+                            busy: audio.busy
+                            resolveIcon: name => name ? Quickshell.iconPath(name, true) : ""
+                            onVolumeRequested: (key, volume) => audio.request("audio.setVolume", {
+                                    key: key,
+                                    volume: volume
+                                })
+                            onMuteRequested: (key, muted) => audio.request("audio.setMute", {
+                                    key: key,
+                                    muted: muted
+                                })
+                            onOutputRequested: output => audio.request("audio.setDefaultOutput", {
+                                    output: output
+                                })
+                            onRefreshRequested: audio.request("audio.getSnapshot")
+                        }
+                        ColumnLayout {
+                            visible: root.page === "system"
+                            Layout.fillWidth: true
+                            spacing: 18
+                            Rectangle {
+                                visible: root.state === "denied" || root.state === "unavailable" || root.state === "failed" || root.state === "pending" || !client.backendConnected
+                                Layout.fillWidth: true
+                                implicitHeight: notice.implicitHeight + 24
+                                radius: 12
+                                color: Qt.alpha(Theme.accent, 0.08)
+                                Text {
+                                    id: notice
+                                    anchors.fill: parent
+                                    anchors.margins: 12
+                                    wrapMode: Text.WordWrap
+                                    color: Theme.muted
+                                    font.pixelSize: 12
+                                    text: root.state === "denied" ? "Monitoring needs the system.info permission in your Omnibar config." : root.state === "unavailable" ? "System monitoring is disabled." : root.state === "failed" ? "Could not load system metrics." : root.stale && root.snap.sampled_at ? "Connection lost · showing the last reading. Reconnecting…" : client.backendConnected ? "Loading system metrics…" : "Connecting to your system…"
+                                }
+                            }
+                            RowLayout {
+                                spacing: 12
+                                Layout.fillWidth: true
+                                SummaryCard {
+                                    Layout.fillWidth: true
+                                    label: "Processor"
+                                    iconName: "cpu"
+                                    stale: root.stale
+                                    value: typeof root.field("cpu", "percent") === "number" ? Math.round(root.field("cpu", "percent")) + "%" : "—"
+                                    detail: root.field("cpu", "core_count") > 0 ? root.field("cpu", "core_count") + " logical cores" : "Waiting for sample"
+                                    samples: root.cpuHistory
+                                    onActivated: root.expanded = root.expanded === "cpu" ? "" : "cpu"
+                                }
+                                SummaryCard {
+                                    Layout.fillWidth: true
+                                    label: "Memory"
+                                    iconName: "memory"
+                                    stale: root.stale
+                                    value: root.field("memory", "total") > 0 ? Math.round(root.percent("memory")) + "%" : "—"
+                                    detail: root.bytes(root.field("memory", "used")) + " / " + root.bytes(root.field("memory", "total"))
+                                    samples: root.memoryHistory
+                                    onActivated: root.expanded = root.expanded === "memory" ? "" : "memory"
+                                }
+                            }
+                            ColumnLayout {
+                                visible: root.expanded.length > 0
+                                Layout.fillWidth: true
+                                spacing: 8
+                                Flickable {
+                                    visible: root.expanded === "cpu"
+                                    Layout.fillWidth: true
+                                    implicitHeight: Math.min(coreRows.implicitHeight, 220)
+                                    contentHeight: coreRows.implicitHeight
+                                    clip: true
+                                    boundsBehavior: Flickable.StopAtBounds
+                                    ColumnLayout {
+                                        id: coreRows
+                                        width: parent.width
+                                        spacing: 8
+                                        Repeater {
+                                            model: root.expanded === "cpu" ? root.field("cpu", "cores") || [] : []
+                                            MetricBar {
+                                                required property int index
+                                                required property real modelData
+                                                label: "Core " + (index + 1)
+                                                iconName: "cpu"
+                                                value: Format.formatPercent(modelData)
+                                                percent: modelData
+                                                stale: root.stale
+                                            }
                                         }
                                     }
                                 }
+                                MetricBar {
+                                    visible: root.expanded === "memory"
+                                    label: "Swap"
+                                    iconName: "swap"
+                                    stale: root.stale
+                                    value: root.bytes(root.field("swap", "used")) + " / " + root.bytes(root.field("swap", "total"))
+                                    percent: root.percent("swap")
+                                }
+                            }
+                            KeepAwakeCard {
+                                Layout.fillWidth: true
+                                active: client.keepAwakeStatus.active === true
+                                expiresAt: client.keepAwakeStatus.expires_at || ""
+                                connected: client.backendConnected
+                                busy: client.keepAwakeBusy
+                                available: client.subscriptions["keep_awake"] === "subscribed"
+                                denied: client.subscriptions["keep_awake"] === "denied"
+                                errorText: client.keepAwakeError
+                                clockRunning: root.opened && root.page === "system"
+                                onStartRequested: seconds => client.keepAwakeRequest("keepAwake.start", seconds)
+                                onStopRequested: client.keepAwakeRequest("keepAwake.stop")
+                            }
+                            Rectangle {
+                                Layout.fillWidth: true
+                                height: 1
+                                color: Theme.border
                             }
                             MetricBar {
-                                visible: root.expanded === "memory"
-                                label: "Swap"
-                                iconName: "swap"
+                                label: "Network"
+                                iconName: "network"
+                                showTrack: false
                                 stale: root.stale
-                                value: root.bytes(root.field("swap", "used")) + " / " + root.bytes(root.field("swap", "total"))
-                                percent: root.percent("swap")
+                                value: "↓ " + root.rate(root.field("network", "rx_bytes_sec"))
+                                detail: "↑ " + root.rate(root.field("network", "tx_bytes_sec"))
                             }
-                        }
-                        KeepAwakeCard {
-                            Layout.fillWidth: true
-                            active: client.keepAwakeStatus.active === true
-                            expiresAt: client.keepAwakeStatus.expires_at || ""
-                            connected: client.backendConnected
-                            busy: client.keepAwakeBusy
-                            available: client.subscriptions["keep_awake"] === "subscribed"
-                            denied: client.subscriptions["keep_awake"] === "denied"
-                            errorText: client.keepAwakeError
-                            clockRunning: root.opened
-                            onStartRequested: seconds => client.keepAwakeRequest("keepAwake.start", seconds)
-                            onStopRequested: client.keepAwakeRequest("keepAwake.stop")
-                        }
-                        Rectangle {
-                            Layout.fillWidth: true
-                            height: 1
-                            color: Theme.border
-                        }
-                        MetricBar {
-                            label: "Network"
-                            iconName: "network"
-                            showTrack: false
-                            stale: root.stale
-                            value: "↓ " + root.rate(root.field("network", "rx_bytes_sec"))
-                            detail: "↑ " + root.rate(root.field("network", "tx_bytes_sec"))
-                        }
-                        MetricBar {
-                            label: "Storage"
-                            iconName: "disk"
-                            stale: root.stale
-                            value: root.bytes(root.field("disk", "used")) + " / " + root.bytes(root.field("disk", "total"))
-                            detail: "Read " + root.rate(root.field("disk", "read_bytes_sec")) + "   ·   Write " + root.rate(root.field("disk", "write_bytes_sec"))
-                            percent: root.percent("disk")
-                        }
-                        MetricBar {
-                            visible: root.field("battery", "present") === true
-                            label: "Battery"
-                            iconName: "battery"
-                            stale: root.stale
-                            value: Format.formatPercent(root.field("battery", "percent") || 0)
-                            detail: (root.field("battery", "state") || "Unknown") + (root.field("battery", "power_watts") > 0 ? " · " + root.field("battery", "power_watts").toFixed(1) + " W" : "")
-                            percent: root.field("battery", "percent") || 0
+                            MetricBar {
+                                label: "Storage"
+                                iconName: "disk"
+                                stale: root.stale
+                                value: root.bytes(root.field("disk", "used")) + " / " + root.bytes(root.field("disk", "total"))
+                                detail: "Read " + root.rate(root.field("disk", "read_bytes_sec")) + "   ·   Write " + root.rate(root.field("disk", "write_bytes_sec"))
+                                percent: root.percent("disk")
+                            }
+                            MetricBar {
+                                visible: root.field("battery", "present") === true
+                                label: "Battery"
+                                iconName: "battery"
+                                stale: root.stale
+                                value: Format.formatPercent(root.field("battery", "percent") || 0)
+                                detail: (root.field("battery", "state") || "Unknown") + (root.field("battery", "power_watts") > 0 ? " · " + root.field("battery", "power_watts").toFixed(1) + " W" : "")
+                                percent: root.field("battery", "percent") || 0
+                            }
                         }
                         RowLayout {
                             Layout.fillWidth: true
@@ -304,7 +362,7 @@ ShellRoot {
                                 color: root.stale ? Theme.muted : Theme.accent
                             }
                             Text {
-                                text: root.stale ? "Offline" : root.state === "fresh" ? "Live monitoring" : "Waiting for metrics"
+                                text: !client.backendConnected ? "Offline" : root.page === "audio" ? (audio.state === "ready" ? "Audio connected" : "Audio " + audio.state) : root.state === "fresh" ? "Live monitoring" : "Waiting for metrics"
                                 color: Theme.muted
                                 font.pixelSize: 10
                                 Layout.fillWidth: true
@@ -312,7 +370,8 @@ ShellRoot {
                             PanelButton {
                                 text: client.backendConnected ? "Refresh ↻" : "Retry ↻"
                                 description: client.backendConnected ? "Refresh system metrics" : "Reconnect to backend"
-                                onClicked: client.backendConnected ? client.refreshHandshake() : client.retryNow()
+                                visible: root.page === "system" || !client.backendConnected
+                                onClicked: client.backendConnected ? (root.page === "audio" ? audio.request("audio.getSnapshot") : client.refreshHandshake()) : client.retryNow()
                             }
                         }
                     }

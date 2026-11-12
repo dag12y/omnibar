@@ -5,7 +5,7 @@ QMLTESTRUNNER ?= /usr/lib/qt6/bin/qmltestrunner
 BIN_DIR := build
 BINARY := $(BIN_DIR)/omnibar
 
-.PHONY: all build test ui-test e2e-ui e2e-awake package run clean help
+.PHONY: all build test ui-test e2e-ui e2e-awake e2e-audio package run clean help
 
 all: build
 
@@ -21,6 +21,9 @@ ui-test:
 
 e2e-ui: build
 	OMNIBAR_BIN=$(abspath $(BINARY)) ./scripts/e2e-ui.sh
+
+e2e-audio: build
+	python3 scripts/e2e-audio.py
 
 e2e-awake: build
 	python3 scripts/e2e-keep-awake.py
@@ -47,3 +50,5 @@ run: ## Build and run the omnibar backend
 clean: ## Remove generated build artifacts
 
 e2e-awake: ## Verify real logind and Wayland Keep Awake (needs Hyprland; briefly inhibits idle/sleep)
+
+e2e-audio: ## Verify mixer with isolated PipeWire services (needs Hyprland and WirePlumber)
