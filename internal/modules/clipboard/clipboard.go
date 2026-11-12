@@ -273,6 +273,17 @@ func (m *Module) Clear() Snapshot {
 	return m.Snapshot()
 }
 func (m *Module) Copy(ctx context.Context, id string) (Snapshot, error) {
+	return m.copyText(ctx, id, "")
+}
+
+// TransformCopy copies a derived value without editing history or saved text.
+func (m *Module) TransformCopy(ctx context.Context, id, operation string) (Snapshot, error) {
+	if !IsTransform(operation) {
+		return Snapshot{}, fmt.Errorf("unsupported clipboard transform")
+	}
+	return m.copyText(ctx, id, operation)
+}
+func (m *Module) copyText(ctx context.Context, id, operation string) (Snapshot, error) {
 	m.opMu.Lock()
 	defer m.opMu.Unlock()
 	m.mu.Lock()
@@ -286,6 +297,13 @@ func (m *Module) Copy(ctx context.Context, id string) (Snapshot, error) {
 	m.mu.Unlock()
 	if text == "" {
 		return Snapshot{}, fmt.Errorf("history item is no longer available")
+	}
+	if operation != "" {
+		var err error
+		text, err = transformText(text, operation)
+		if err != nil {
+			return Snapshot{}, err
+		}
 	}
 	if err := m.driver.Copy(ctx, text); err != nil {
 		return Snapshot{}, err

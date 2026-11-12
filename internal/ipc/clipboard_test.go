@@ -37,7 +37,7 @@ func TestClipboardReadAndWritePermissionsAreIndependent(t *testing.T) {
 			defer registry.Stop(context.Background())
 			d := jsonrpc.NewDispatcher()
 			RegisterClipboardMethods(d, registry, m)
-			for _, tc := range []struct{ method, params string }{{"clipboard.getSnapshot", `{}`}, {"clipboard.setCollecting", `{"collecting":true}`}, {"clipboard.setCollecting", `{"collecting":false}`}, {"clipboard.copy", `{"id":"stale"}`}, {"clipboard.clear", `{}`}, {"clipboard.setFavorite", `{"id":"stale","favorite":true}`}} {
+			for _, tc := range []struct{ method, params string }{{"clipboard.getSnapshot", `{}`}, {"clipboard.setCollecting", `{"collecting":true}`}, {"clipboard.setCollecting", `{"collecting":false}`}, {"clipboard.copy", `{"id":"stale"}`}, {"clipboard.transformCopy", `{"id":"stale","operation":"trim"}`}, {"clipboard.clear", `{}`}, {"clipboard.setFavorite", `{"id":"stale","favorite":true}`}} {
 				out, err := d.Handle([]byte(fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":%q,"params":%s}`, tc.method, tc.params)))
 				if err != nil {
 					t.Fatal(err)
@@ -51,7 +51,7 @@ func TestClipboardReadAndWritePermissionsAreIndependent(t *testing.T) {
 					want = jsonrpc.CodeModuleUnavailable
 				} else if tc.method == "clipboard.setFavorite" {
 					want = jsonrpc.CodeInternalError
-				} else if tc.method == "clipboard.copy" {
+				} else if tc.method == "clipboard.copy" || tc.method == "clipboard.transformCopy" {
 					want = jsonrpc.CodeInternalError
 					if mode == "read-only" {
 						want = jsonrpc.CodePermissionDenied
@@ -92,6 +92,10 @@ func TestClipboardInvalidActionParameters(t *testing.T) {
 		{"clipboard.setCollecting", `null`},
 		{"clipboard.copy", `{"id":7}`},
 		{"clipboard.copy", `{}`},
+		{"clipboard.transformCopy", `{"id":"1"}`},
+		{"clipboard.transformCopy", `{"id":"1","operation":"unknown"}`},
+		{"clipboard.transformCopy", `{"id":"1","operation":3}`},
+		{"clipboard.transformCopy", `{"operation":"trim"}`},
 		{"clipboard.delete", `{"id":""}`},
 		{"clipboard.setFavorite", `{"id":"1"}`},
 		{"clipboard.setFavorite", `{"id":"1","favorite":"yes"}`},
@@ -142,5 +146,51 @@ func TestClipboardReadOnlyCanManageSavedFavorites(t *testing.T) {
 		if snap.CanCopy || !snap.CanFavorite || snap.Entries[0].Favorite != favorite {
 			t.Fatal("incorrect favorite or grant state")
 		}
+	}
+}
+
+type transformRPCDriver struct {
+	copied   string
+	deadline bool
+}
+
+func (f *transformRPCDriver) Watch(ctx context.Context, _ func(clipboard.Capture)) error {
+	<-ctx.Done()
+	return ctx.Err()
+}
+func (f *transformRPCDriver) Copy(ctx context.Context, text string) error {
+	f.copied = text
+	_, f.deadline = ctx.Deadline()
+	return nil
+}
+func TestClipboardTransformRPCUsesConfirmedSourceAndDeadline(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Permissions[clipboard.ReadCapability] = true
+	cfg.Permissions[clipboard.WriteCapability] = true
+	store := clipboard.FileStore{Path: filepath.Join(t.TempDir(), "favorites.json")}
+	store.Save([]clipboard.Entry{{Text: "  Exact Source  ", CopiedAt: "2026-11-12T10:00:00Z"}})
+	driver := &transformRPCDriver{}
+	m := clipboard.NewWithStore(driver, store)
+	registry := modules.NewRegistry(cfg, nil)
+	registry.Register(m)
+	registry.Initialize(context.Background())
+	registry.Start(context.Background())
+	defer registry.Stop(context.Background())
+	d := jsonrpc.NewDispatcher()
+	RegisterClipboardMethods(d, registry, m)
+	id := m.Snapshot().Entries[0].ID
+	out, err := d.Handle([]byte(fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":"clipboard.transformCopy","params":{"id":%q,"operation":"trim","text":"untrusted replacement"}}`, id)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var response jsonrpc.Response
+	json.Unmarshal(out, &response)
+	if response.Error != nil || driver.copied != "Exact Source" || !driver.deadline {
+		t.Fatalf("transform RPC failed: %s", out)
+	}
+	var snap clipboard.Snapshot
+	json.Unmarshal(response.Result, &snap)
+	if !snap.CanCopy || snap.Entries[0].Text != "  Exact Source  " || !snap.Entries[0].Favorite {
+		t.Fatal("RPC changed original or grants")
 	}
 }
