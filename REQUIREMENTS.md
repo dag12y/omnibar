@@ -113,7 +113,7 @@ Phase 2 adds live system monitoring on top of the Phase 1 foundation and prepare
 - Background watching stops when no clients subscribe. Switching pages pauses
   the previous page's demand; active Keep Awake sessions continue independently.
 - Automated tests use isolated drivers/services and do not change normal playback.
-- Grouped app controls, microphone controls, master-output
+- Grouped app controls, master-output
   volume, boost, and persistent app levels remain future work.
 
 
@@ -126,3 +126,21 @@ Phase 2 adds live system monitoring on top of the Phase 1 foundation and prepare
 - Reconcile selections with confirmed state after success or failure.
 - Store no automatic routing rules; existing audio-session policy owns fallback
   and persistence. Physical Bluetooth transitions still need hardware testing.
+
+
+## Microphone increment (implemented)
+
+- Select the default non-monitor microphone, set gain from 0–100%, and mute/unmute.
+- List recording-stream app identity, current source, and paused/open metadata;
+  distinguish microphone sources from speaker/system-audio monitors.
+- Reuse `audio.control` and reject missing/stale inputs, malformed settings,
+  disabled modules, and monitor targets before mutation.
+- Preserve unrelated microphone and playback settings. Selecting a default input
+  issues no explicit volume/mute or recording-stream move command.
+- Open the Microphone view without recording audio or changing settings; gain is
+  a control value rather than a sampled sound-level meter.
+- Handle absent devices, audio-service restarts, and unavailable/cached metadata.
+- Test using isolated FIFO-backed sources and discarded virtual recording data,
+  preserving the user's actual audio services and microphone settings.
+- Per-recording-app input routing, live meters, noise suppression, global
+  all-microphone mute, and hardware-specific verification remain future work.

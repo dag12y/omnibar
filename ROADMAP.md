@@ -46,7 +46,9 @@ System monitoring suite: event delivery, resource metrics, UI cards, and the v0.
 - [x] Default playback output selection
 - [x] Audio page, live device/stream updates, and service reconnection
 - [x] Per-app playback-stream output routing
-- [ ] Microphone controls
+- [x] Default microphone selection, gain, and mute
+- [x] Recording-app/source metadata
+- [ ] Per-recording-app input routing and live sound-level meters
 - [ ] Mouse customization
 - [ ] Keyboard customization
 

@@ -79,3 +79,12 @@ system default selector. The Linux implementation moves an existing stream using
 smoke test checks one stream can move while the other and default output remain
 unchanged. No upstream source/assets or persistent routing rules were added.
 See [ADR-0013](../architecture/ADR-0013-stream-routing.md).
+
+
+## Microphone follow-up (2026-11-12)
+
+The Audio page now includes a Microphone view with source selection, gain/mute,
+and recording-app/source metadata. This independently uses Linux audio-server
+controls and opens no capture stream. No upstream code/assets were reused. Live
+sound meters and recording-app routing remain future work. See
+[ADR-0014](../architecture/ADR-0014-microphone-controls.md).

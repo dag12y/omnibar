@@ -5,6 +5,10 @@ All notable changes will be documented here.
 ## [Unreleased]
 
 ### Added
+- Microphone gain/mute/default-input controls under `audio.control`, source/recording-app snapshot metadata, and source event refreshes.
+- Audio Playback/Microphone views, a default microphone selector, recording-source labels, and `panel showMicrophone` IPC.
+- Shared device picker for inputs and outputs, with microphone monitor exclusion and per-device pending gain/mute queues.
+- Isolated virtual-microphone tests for settings, recording-app discovery, passive view loading, and device/stream removal; ADR-0014.
 - Playback-stream routing via `audio.moveStream`, with an OUTPUT picker on each audio row and fresh stream/device validation.
 - Shared keyboard-accessible output picker that keeps open menus stable on normal refresh and closes them when device options change.
 - Routing tests for default/other-stream/volume/mute preservation, stale targets, keyboard selection, failed-request rollback, and device removal; ADR-0013.

@@ -357,3 +357,36 @@ are persisted by Omnibar; the audio server/session manager owns that behavior.
 Stream routing RPC is `audio.moveStream` with `{"key":"…","output":"sink-name"}`,
 using the current stream key and output name from a snapshot. It requires the
 existing `audio.control` grant. See [ADR-0013](../architecture/ADR-0013-stream-routing.md).
+
+
+## Microphone controls and recording apps
+
+Audio now has Playback and Microphone views. Use the latter to select the default
+microphone, adjust gain, and mute/unmute it. It uses the same `audio.control`
+grant and `[modules.audio]` setting as playback. Speaker monitors are shown only
+as recording-source metadata and cannot be selected as microphones. Gain applies
+to the named source; it is not an audio-level meter. Changing the default may
+affect existing clients according to session-manager policy.
+
+The recording-app list reports open/paused audio-server streams and their source,
+not whether a particular app is saving a recording. Omnibar creates no capture
+stream. `showMicrophone` opens this page directly:
+
+```sh
+quickshell -p ui/qml/shell.qml ipc call -- panel showMicrophone
+```
+
+`make e2e-audio` now creates FIFO-backed virtual microphones (`module-pipe-source`)
+and a test recorder writing virtual data to `/dev/null`, all inside the private
+audio stack. It checks gain/mute/default selection, recording app/source discovery,
+monitor rejection, passive UI loading, recording-client exit, and microphone
+removal, as well as playback and restart checks. `--capture` saves the Microphone
+view. No real microphone is recorded or changed. Physical Bluetooth profile and
+hardware mute-switch behavior still need device verification.
+
+The added RPC methods are `audio.setInputVolume` (`input`, `volume`),
+`audio.setInputMute` (`input`, `muted`), and `audio.setDefaultInput` (`input`).
+Input names come from the snapshot's `inputs`; `default_input` is the current
+source name, and `recordings` maps apps to source IDs. See
+[ADR-0014](../architecture/ADR-0014-microphone-controls.md). Recording-stream routing,
+noise suppression, live meters, and persistent input rules are not implemented.

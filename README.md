@@ -65,7 +65,7 @@ arrow keys adjust a focused slider. Each row's **OUTPUT** selector moves just
 that playback stream to another connected device, preserving its volume/mute
 and leaving the default output and other streams alone. The separate **DEFAULT
 OUTPUT** selector changes the system default; movement of existing streams then
-follows the session manager's policy. Microphone controls remain future work.
+follows the session manager's policy.
 
 A disappeared device displays "Output unavailable" until the audio server picks
 a fallback or you select another output. Omnibar stores no routing rules; new
@@ -82,6 +82,27 @@ Run `make e2e-audio` for a real backend/UI test using isolated PipeWire services
 virtual outputs, and silent test streams. Your normal playback is left alone.
 See [the audio design and protocol](docs/architecture/ADR-0012-audio-mixer.md)
 and [stream routing](docs/architecture/ADR-0013-stream-routing.md).
+
+## Microphone controls
+
+Open **Audio → Microphone** to select the default input, adjust its gain, or
+mute/unmute it. Gain is a volume setting, not a live sound meter. Speaker-monitor
+sources are excluded from the microphone selector. The recording-app list shows
+open streams and their sources, including system-audio captures and paused apps.
+It reports audio-server metadata; Omnibar does not record microphone samples.
+
+Microphone controls use the existing `audio.control` grant. Default-input changes
+follow the audio server/session manager's policy for existing recordings. Gain
+and mute target the named microphone; other devices and playback remain unchanged.
+No input preferences are saved by Omnibar. Missing devices and stale metadata
+are shown explicitly. Per-recording-app input routing and live meters are future
+work. See [microphone design and protocol](docs/architecture/ADR-0014-microphone-controls.md).
+
+The panel can open this view directly from a shortcut:
+
+```sh
+quickshell -p /absolute/path/to/omnibar/ui/qml/shell.qml ipc call -- panel showMicrophone
+```
 
 ## Documentation
 

@@ -150,7 +150,10 @@ PulseAudio compatibility service. Its snapshots, actions, permissions, retries,
 and UI behavior are specified in [ADR-0012](docs/architecture/ADR-0012-audio-mixer.md).
 Per-stream output routing extends it in
 [ADR-0013](docs/architecture/ADR-0013-stream-routing.md), using the same capability
-and revisioned snapshots. This is the implemented audio path; a separate supervised audio service remains
+and revisioned snapshots. Microphone gain/mute/default-input and recording-app
+metadata extend the same module in [ADR-0014](docs/architecture/ADR-0014-microphone-controls.md).
+Microphone samples are not captured; input gain is metadata, and recording apps
+are the audio server's source-output list. This is the implemented audio path; a separate supervised audio service remains
 a possible future design. Keep Awake is described in [ADR-0011](docs/architecture/ADR-0011-keep-awake.md).
 
 ### Inter-module communication
@@ -264,7 +267,7 @@ A module can only use a capability if it both declares the permission **and** th
 | `"window.manage"` | Query and control windows via Hyprland IPC | Medium |
 | `"clipboard.read"` | Read clipboard contents | Medium |
 | `"clipboard.write"` | Write to clipboard | Medium |
-| `"audio.control"` | Volume, routing via PipeWire | Medium |
+| `"audio.control"` | Playback routing, microphone controls, and audio metadata | Medium |
 | `"screen.capture"` | Screenshot/screencast via xdg-desktop-portal | High |
 | `"process.manage"` | List, signal, kill processes | High |
 | `"filesystem.access"` | Read/write user files | High |
@@ -379,7 +382,8 @@ omnibar/
 │   │   ├── ADR-0010-system-monitor.md
 │   │   ├── ADR-0011-keep-awake.md
 │   │   ├── ADR-0012-audio-mixer.md
-│   │   └── ADR-0013-stream-routing.md
+│   │   ├── ADR-0013-stream-routing.md
+│   │   └── ADR-0014-microphone-controls.md
 │   ├── development/
 │   └── features/
 ├── internal/

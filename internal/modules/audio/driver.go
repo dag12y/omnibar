@@ -1,4 +1,4 @@
-// Package audio provides playback-stream controls through PipeWire's
+// Package audio provides playback/microphone controls and metadata through PipeWire's
 // PulseAudio-compatible service. No raw audio is captured or processed.
 package audio
 

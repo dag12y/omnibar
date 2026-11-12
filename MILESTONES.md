@@ -33,6 +33,7 @@ This document breaks the approved architecture into small, sequential, independe
 | M16 | Panel usability and Keep Awake | Keyboard controls, bounded scrolling, visibility-aware monitoring, timed logind/Wayland inhibition | Done |
 | M17 | Playback audio mixer | PipeWire compatibility adapter, volume/mute, default output, Audio page, isolated service-recovery checks | Done |
 | M18 | Playback-stream output routing | Per-row device selector, live target validation, confirmed-state reconciliation, isolated two-stream checks | Done |
+| M19 | Microphone controls and recording apps | Default input, gain/mute, capture metadata, Microphone view, isolated virtual-mic verification | Done |
 
 ---
 
@@ -879,3 +880,16 @@ refresh and closes them on device-list changes. Verification includes fake-drive
 and RPC permission tests, QML keyboard/hotplug/rollback tests, and the isolated
 PipeWire test with two concurrent streams. No persistent routing rules or app-wide
 grouping are introduced. See [ADR-0013](docs/architecture/ADR-0013-stream-routing.md).
+
+
+## M19 — Microphone controls and recording apps (implemented)
+
+Extends audio snapshots with inputs, default input, and recording-app/source
+metadata. Adds named-source gain/mute and default-input methods under the existing
+capability. The Microphone view excludes speaker monitors from mutation controls,
+shows recording sources, and loads without opening a capture stream. Gain/mute
+queues preserve commands for distinct inputs; input/output selectors share the
+same stable-model control. Tests cover source parsing, grants/validation,
+unchanged unrelated state, missing devices, and FIFO-backed virtual sources with
+a recorder discarding test data. Live sound meters and recording-app routing are
+not part of this milestone. See [ADR-0014](docs/architecture/ADR-0014-microphone-controls.md).

@@ -32,15 +32,17 @@ are limited to 100. A scalar volume command applies to all stream channels.
 The output selector sets the system default playback device. Existing streams
 follow the session manager's policy; this is not explicit per-stream routing.
 Per-stream routing was deferred in this initial increment and is now implemented
-by [ADR-0013](ADR-0013-stream-routing.md). Microphone controls, boost,
+by [ADR-0013](ADR-0013-stream-routing.md). Microphone controls and recording-app
+metadata are added in [ADR-0014](ADR-0014-microphone-controls.md). Boost,
 master-output volume, persistent levels, and grouping multiple streams into one
 app row remain deferred.
 
 ## Runtime behavior
 
-- `pactl --format=json info`, `list sinks`, and `list sink-inputs` supply state.
-- `pactl subscribe` watches sink-input, sink, server, and card changes. Ignore
-  client/source events, including connections made by Omnibar's own commands.
+- `pactl --format=json info`, `list sinks`, `list sink-inputs`, `list sources`,
+  and `list source-outputs` supply state.
+- `pactl subscribe` watches sink-input, sink, source, source-output, server, and
+  card changes. Ignore client events, including Omnibar's own command connections.
 - Coalesce notifications for 100 ms and resync every three seconds while needed.
 - Start the watcher only while a client subscribes. Cancel and reap it when the
   last subscriber leaves, including on disconnect or page hide. Retry failed
