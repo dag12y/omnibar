@@ -13,3 +13,4 @@ KeepAwakeCard 1.0 KeepAwakeCard.qml
 AudioController 1.0 AudioController.qml
 AudioPage 1.0 AudioPage.qml
 MixerRow 1.0 MixerRow.qml
+OutputPicker 1.0 OutputPicker.qml

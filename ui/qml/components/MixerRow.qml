@@ -7,6 +7,8 @@ Rectangle {
     property string title: ""
     property string subtitle: ""
     property string iconSource: ""
+    property var outputs: []
+    property string outputName: ""
     property int level: 0
     property bool muted: false
     property bool paused: false
@@ -18,7 +20,8 @@ Rectangle {
     }
     signal volumeRequested(int volume)
     signal muteRequested(bool muted)
-    implicitHeight: 108
+    signal routeRequested(string output)
+    implicitHeight: 152
     radius: 16
     color: Qt.alpha(Theme.surface, 0.55)
     border.color: Theme.border
@@ -135,6 +138,25 @@ Rectangle {
                 horizontalAlignment: Text.AlignRight
                 color: root.muted ? Theme.muted : Theme.foreground
                 font.pixelSize: 11
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            Text {
+                text: "OUTPUT"
+                color: Theme.muted
+                font.pixelSize: 9
+                font.letterSpacing: 0.5
+            }
+            OutputPicker {
+                objectName: "streamOutputSelector"
+                Layout.fillWidth: true
+                enabled: root.controlsEnabled && count > 0
+                outputs: root.outputs
+                selectedOutput: root.outputName
+                pending: root.pending
+                Accessible.name: root.title + " playback output · " + root.subtitle
+                onOutputChosen: output => root.routeRequested(output)
             }
         }
     }

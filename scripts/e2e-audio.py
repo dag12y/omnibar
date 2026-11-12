@@ -87,12 +87,15 @@ def main():
 
     request_id = 0
 
-    def rpc(method, params=None):
+    def rpc(method, params=None, expect_error=False):
         nonlocal request_id
         request_id += 1
         request = dict(jsonrpc="2.0", id=request_id, method=method, params=params or {})
         stream.write((json.dumps(request) + "\n").encode())
         answer = json.loads(stream.readline())
+        if expect_error:
+            assert "error" in answer, answer
+            return answer["error"]
         assert "error" not in answer, answer
         return answer["result"]
 
@@ -131,6 +134,25 @@ def main():
         assert not rpc("audio.setMute", dict(key=key, muted=False))["streams"][0]["muted"]
         assert rpc("audio.setDefaultOutput", dict(output="omnibar_two"))["default_output"] == "omnibar_two"
         print("PASS: volume, mute/unmute, and default output selection")
+        control = launch("control-playback", "pacat", "--playback", "--device=omnibar_two",
+                         "--client-name=Omnibar Control", "/dev/zero")
+        wait_until(lambda: len(snapshot()["streams"]) == 2, "control stream did not appear")
+        wait_until(lambda: all(item["output_id"] in [output["id"] for output in snapshot()["outputs"]]
+                               for item in snapshot()["streams"]), "streams did not connect to outputs")
+        before = snapshot()
+        other = next(item for item in before["streams"] if item["key"] != key)
+        destination = next(output for output in before["outputs"] if output["name"] == "omnibar_one")
+        rpc("audio.setMute", dict(key=key, muted=True))
+        moved = rpc("audio.moveStream", dict(key=key, output=destination["name"]))
+        routed = next(item for item in moved["streams"] if item["key"] == key)
+        unaffected = next(item for item in moved["streams"] if item["key"] == other["key"])
+        assert routed["output_id"] == destination["id"], moved
+        assert routed["volume"] == 37 and routed["muted"], routed
+        assert moved["default_output"] == before["default_output"]
+        for field in ("output_id", "volume", "muted"):
+            assert unaffected[field] == other[field], (field, other, unaffected)
+        rpc("audio.setMute", dict(key=key, muted=False))
+        print("PASS: stream routing preserves default output, other playback, volume, and mute")
         ui = launch("ui", "quickshell", "-p", qml)
         wait_until(lambda: "handshake complete" in ui_log(), "UI did not handshake")
         panel_call("selectPage", "audio")
@@ -146,9 +168,14 @@ def main():
             subprocess.run(["grim", "-g", geometry, str(trial / "audio.png")], check=True)
         run("pactl", "unload-module", second)
         wait_until(lambda: len(snapshot()["outputs"]) == 1, "removed output stayed listed")
+        error = rpc("audio.moveStream", dict(key=key, output="omnibar_two"), expect_error=True)
+        assert "no longer available" in error["message"], error
         stop(playback)
+        stop(control)
         wait_until(lambda: not snapshot()["streams"], "ended stream stayed listed")
-        print("PASS: output and playback stream removal")
+        error = rpc("audio.moveStream", dict(key=key, output="omnibar_one"), expect_error=True)
+        assert "stream ended or changed" in error["message"], error
+        print("PASS: output/stream removal and stale route rejection")
         ready_count = ui_log().count("audio state: ready")
         stop(pulse)
         wait_until(lambda: "audio state: unavailable" in ui_log(), "UI did not notice service loss")

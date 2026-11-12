@@ -19,6 +19,7 @@ ColumnLayout {
     signal volumeRequested(string key, int volume)
     signal muteRequested(string key, bool muted)
     signal outputRequested(string output)
+    signal routeRequested(string key, string output)
     signal refreshRequested
     spacing: 14
     ListModel {
@@ -102,34 +103,17 @@ ColumnLayout {
             font.pixelSize: 9
             font.letterSpacing: 1
         }
-        ComboBox {
+        OutputPicker {
             id: outputs
             objectName: "outputSelector"
             implicitHeight: 38
-            leftPadding: 12
-            rightPadding: 32
-            font.pixelSize: 12
             Layout.fillWidth: true
             enabled: root.ready && count > 0
-            model: root.snapshot.outputs || []
-            textRole: "description"
-            valueRole: "name"
-            currentIndex: {
-                const items = root.snapshot.outputs || [];
-                return items.findIndex(item => item.name === root.snapshot.default_output);
-            }
+            outputs: root.snapshot.outputs || []
+            selectedOutput: root.snapshot.default_output || ""
+            pending: root.busy
             Accessible.name: "Default playback output"
-            onActivated: index => root.outputRequested(root.snapshot.outputs[index].name)
-            palette.text: Theme.foreground
-            palette.buttonText: Theme.foreground
-            palette.base: Theme.background
-            palette.highlight: Theme.accent
-            palette.highlightedText: Theme.background
-            background: Rectangle {
-                radius: 10
-                color: Theme.surface
-                border.color: outputs.visualFocus ? Theme.accent : Theme.border
-            }
+            onOutputChosen: output => root.outputRequested(output)
         }
         Text {
             text: "No playback outputs connected"
@@ -169,10 +153,10 @@ ColumnLayout {
             controlsEnabled: root.ready
             pending: root.busy
             iconSource: root.resolveIcon(iconName)
-            subtitle: {
-                const output = (root.snapshot.outputs || []).find(item => item.id === outputId);
-                return media + (output ? " · " + output.description : "");
-            }
+            subtitle: media
+            outputs: root.snapshot.outputs || []
+            outputName: ((root.snapshot.outputs || []).find(item => item.id === outputId) || {}).name || ""
+            onRouteRequested: output => root.routeRequested(streamKey, output)
             onVolumeRequested: volume => root.volumeRequested(streamKey, volume)
             onMuteRequested: muted => root.muteRequested(streamKey, muted)
         }

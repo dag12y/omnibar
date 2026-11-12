@@ -4,8 +4,10 @@ import "../components"
 
 Item {
     width: 400; height: 600
-    AudioPage { id: page; width: 360; state: "ready" }
+    property var page
+    Component { id: pageFactory; AudioPage { width: 360; state: "ready" } }
     SignalSpy { id: volumeSpy; target: page; signalName: "volumeRequested" }
+    SignalSpy { id: routeSpy; target: page; signalName: "routeRequested" }
     SignalSpy { id: muteSpy; target: page; signalName: "muteRequested" }
     TestCase {
         name: "AudioPage"
@@ -17,17 +19,77 @@ Item {
             return {key:key, name:"Music", media:"Song", icon:"", volume:level, muted:false, paused:false, output_id:"1"}
         }
         function init() {
+            page = createTemporaryObject(pageFactory,parent)
+            verify(page !== null)
             page.state = "ready"; page.busy = false
             page.snapshot = snap([])
-            wait(0)
+            waitForRendering(page)
             page.snapshot = snap([stream("one",50)])
-            volumeSpy.clear(); muteSpy.clear()
+            volumeSpy.clear(); muteSpy.clear(); routeSpy.clear()
+            waitForPolish(page)
+            waitForRendering(page)
+        }
+        function routingState(outputId) {
+            const state = snap([stream("one",50)])
+            state.streams[0].output_id = outputId || "1"
+            state.outputs.push({id:"2",name:"headphones",description:"Headphones"})
+            return state
+        }
+        function test_keyboard_route_and_actual_output_update() {
+            page.snapshot = routingState("1")
             wait(0)
+            const selector = findChild(page,"streamOutputSelector")
+            compare(selector.currentIndex,0)
+            selector.forceActiveFocus()
+            keyClick(Qt.Key_Down)
+            compare(routeSpy.count,1)
+            compare(routeSpy.signalArguments[0][0],"one")
+            compare(routeSpy.signalArguments[0][1],"headphones")
+            page.snapshot = routingState("2")
+            compare(selector.currentIndex,1)
+            compare(page.snapshot.default_output,"speaker")
+            compare(findChild(page,"streamOutputSelector"),selector)
+        }
+        function test_failed_route_restores_confirmed_output() {
+            page.snapshot = routingState("1")
+            wait(0)
+            const selector = findChild(page,"streamOutputSelector")
+            page.busy = true
+            selector.forceActiveFocus()
+            keyClick(Qt.Key_Down)
+            compare(selector.currentIndex,1)
+            page.errorText = "Output is no longer available"
+            page.busy = false
+            compare(selector.currentIndex,0)
+            compare(routeSpy.count,1)
+            page.errorText = ""
+        }
+        function test_refresh_keeps_popup_but_hotplug_closes_it() {
+            page.snapshot = routingState("1")
+            wait(0)
+            const selector = findChild(page,"streamOutputSelector")
+            selector.popup.open()
+            tryCompare(selector.popup,"visible",true)
+            page.snapshot = routingState("1")
+            verify(selector.popup.visible)
+            page.snapshot = snap([stream("one",50)])
+            tryCompare(selector.popup,"visible",false)
+            compare(selector.count,1)
+            compare(routeSpy.count,0)
+        }
+        function test_missing_current_output_is_explicit() {
+            page.snapshot = routingState("2")
+            wait(0)
+            const selector = findChild(page,"streamOutputSelector")
+            page.snapshot = snap([Object.assign(stream("one",50),{output_id:"2"})])
+            compare(selector.currentIndex,-1)
+            compare(selector.displayText,"Output unavailable")
+            compare(routeSpy.count,0)
         }
         function test_mute_and_keyboard_volume() {
             const mute = findChild(page,"mute")
             verify(mute !== null)
-            mouseClick(mute)
+            mouseClick(mute, mute.width/2, mute.height/2)
             compare(muteSpy.signalArguments[0][0], "one")
             compare(muteSpy.signalArguments[0][1], true)
             const slider = findChild(page,"volume")

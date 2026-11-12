@@ -68,6 +68,24 @@ Item {
             reply({revision:3,available:true,outputs:[],streams:[]})
             verify(!controller.busy)
         }
+        function test_route_queue_keeps_destinations_separate_by_stream() {
+            controller.active = true
+            reply({module:"audio",events:[]})
+            reply({revision:1,available:true,outputs:[],streams:[]})
+            controller.request("audio.moveStream",{key:"one",output:"speaker"})
+            controller.request("audio.moveStream",{key:"one",output:"headphones"})
+            controller.request("audio.moveStream",{key:"two",output:"speaker"})
+            controller.request("audio.moveStream",{key:"one",output:"hdmi"})
+            compare(controller.queuedRequests.length,2)
+            reply({revision:2,available:true,outputs:[],streams:[]})
+            compare(lastRequest().params.key,"one")
+            compare(lastRequest().params.output,"hdmi")
+            reply({revision:3,available:true,outputs:[],streams:[]})
+            compare(lastRequest().params.key,"two")
+            compare(lastRequest().params.output,"speaker")
+            reply({revision:4,available:true,outputs:[],streams:[]})
+            verify(!controller.busy)
+        }
         function test_old_snapshot_cannot_override_new_event() {
             controller.active = true
             controller.applySnapshot({revision:8,available:true,streams:[{volume:70}]})

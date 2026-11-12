@@ -222,6 +222,10 @@ ShellRoot {
                                     key: key,
                                     muted: muted
                                 })
+                            onRouteRequested: (key, output) => audio.request("audio.moveStream", {
+                                    key: key,
+                                    output: output
+                                })
                             onOutputRequested: output => audio.request("audio.setDefaultOutput", {
                                     output: output
                                 })
