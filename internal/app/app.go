@@ -152,7 +152,11 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 	if err := registry.Register(mixer); err != nil {
 		return nil, fmt.Errorf("register audio: %w", err)
 	}
-	history := clipboard.New(nil)
+	var favorites clipboard.FavoritesStore
+	if cfg.Permissions[clipboard.ReadCapability] {
+		favorites = clipboard.DefaultFavoritesStore()
+	}
+	history := clipboard.NewWithStore(nil, favorites)
 	if err := registry.Register(history); err != nil {
 		return nil, fmt.Errorf("register clipboard: %w", err)
 	}

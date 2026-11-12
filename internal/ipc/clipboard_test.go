@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"testing"
 
 	"omnibar/internal/config"
@@ -36,7 +37,7 @@ func TestClipboardReadAndWritePermissionsAreIndependent(t *testing.T) {
 			defer registry.Stop(context.Background())
 			d := jsonrpc.NewDispatcher()
 			RegisterClipboardMethods(d, registry, m)
-			for _, tc := range []struct{ method, params string }{{"clipboard.getSnapshot", `{}`}, {"clipboard.setCollecting", `{"collecting":true}`}, {"clipboard.setCollecting", `{"collecting":false}`}, {"clipboard.copy", `{"id":"stale"}`}, {"clipboard.clear", `{}`}} {
+			for _, tc := range []struct{ method, params string }{{"clipboard.getSnapshot", `{}`}, {"clipboard.setCollecting", `{"collecting":true}`}, {"clipboard.setCollecting", `{"collecting":false}`}, {"clipboard.copy", `{"id":"stale"}`}, {"clipboard.clear", `{}`}, {"clipboard.setFavorite", `{"id":"stale","favorite":true}`}} {
 				out, err := d.Handle([]byte(fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":%q,"params":%s}`, tc.method, tc.params)))
 				if err != nil {
 					t.Fatal(err)
@@ -48,6 +49,8 @@ func TestClipboardReadAndWritePermissionsAreIndependent(t *testing.T) {
 					want = jsonrpc.CodePermissionDenied
 				} else if mode == "disabled" {
 					want = jsonrpc.CodeModuleUnavailable
+				} else if tc.method == "clipboard.setFavorite" {
+					want = jsonrpc.CodeInternalError
 				} else if tc.method == "clipboard.copy" {
 					want = jsonrpc.CodeInternalError
 					if mode == "read-only" {
@@ -90,6 +93,9 @@ func TestClipboardInvalidActionParameters(t *testing.T) {
 		{"clipboard.copy", `{"id":7}`},
 		{"clipboard.copy", `{}`},
 		{"clipboard.delete", `{"id":""}`},
+		{"clipboard.setFavorite", `{"id":"1"}`},
+		{"clipboard.setFavorite", `{"id":"1","favorite":"yes"}`},
+		{"clipboard.setFavorite", `{"favorite":true}`},
 	} {
 		out, err := d.Handle([]byte(fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":%q,"params":%s}`, tc.method, tc.params)))
 		if err != nil {
@@ -105,5 +111,36 @@ func TestClipboardInvalidActionParameters(t *testing.T) {
 	}
 	if m.Snapshot().Collecting {
 		t.Fatal("invalid request started collection")
+	}
+}
+
+func TestClipboardReadOnlyCanManageSavedFavorites(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Permissions[clipboard.ReadCapability] = true
+	store := clipboard.FileStore{Path: filepath.Join(t.TempDir(), "favorites.json")}
+	if err := store.Save([]clipboard.Entry{{Text: "saved fixture", CopiedAt: "2026-11-12T10:00:00Z"}}); err != nil {
+		t.Fatal(err)
+	}
+	m := clipboard.NewWithStore(clipboardStub{}, store)
+	registry := modules.NewRegistry(cfg, nil)
+	registry.Register(m)
+	registry.Initialize(context.Background())
+	registry.Start(context.Background())
+	defer registry.Stop(context.Background())
+	d := jsonrpc.NewDispatcher()
+	RegisterClipboardMethods(d, registry, m)
+	id := m.Snapshot().Entries[0].ID
+	for _, favorite := range []bool{false, true} {
+		out, _ := d.Handle([]byte(fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":"clipboard.setFavorite","params":{"id":%q,"favorite":%t}}`, id, favorite)))
+		var response jsonrpc.Response
+		json.Unmarshal(out, &response)
+		if response.Error != nil {
+			t.Fatalf("read-only favorite action failed: %s", out)
+		}
+		var snap clipboard.Snapshot
+		json.Unmarshal(response.Result, &snap)
+		if snap.CanCopy || !snap.CanFavorite || snap.Entries[0].Favorite != favorite {
+			t.Fatal("incorrect favorite or grant state")
+		}
 	}
 }

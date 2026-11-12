@@ -1,5 +1,5 @@
-// Package clipboard implements bounded, session-only text history. Collection
-// starts only after an explicit request; history is never written to disk.
+// Package clipboard implements bounded text history. Collection starts only
+// after an explicit request; only explicitly saved favorites are written to disk.
 package clipboard
 
 import (

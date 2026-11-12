@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 
 	"omnibar/internal/ipc"
 	"omnibar/internal/ipc/jsonrpc"
+	"omnibar/internal/modules/clipboard"
 )
 
 func TestRunHelp(t *testing.T) {
@@ -304,5 +306,43 @@ func TestRunHandshakeIncludesCoreModule(t *testing.T) {
 	}
 	if status.Name != "core" || !status.Enabled || !status.Running {
 		t.Errorf("core status = %+v, want enabled and running", status)
+	}
+}
+
+func TestClipboardFavoritesRestoreRequiresReadAndEnabledModule(t *testing.T) {
+	for _, mode := range []string{"denied", "write-only", "read-only", "disabled"} {
+		t.Run(mode, func(t *testing.T) {
+			runtimeDir, err := os.MkdirTemp("", "obf-")
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { os.RemoveAll(runtimeDir) })
+			t.Setenv("XDG_RUNTIME_DIR", runtimeDir)
+			dataDir := t.TempDir()
+			t.Setenv("XDG_DATA_HOME", dataDir)
+			store := clipboard.FileStore{Path: filepath.Join(dataDir, "omnibar", "clipboard-favorites.json")}
+			if err := store.Save([]clipboard.Entry{{Text: "saved test text", CopiedAt: "2026-11-12T10:00:00Z"}}); err != nil {
+				t.Fatal(err)
+			}
+			configPath := filepath.Join(t.TempDir(), "config.toml")
+			data := fmt.Sprintf("[modules.clipboard]\nenabled = %t\n[permissions]\n\"clipboard.read\" = %t\n\"clipboard.write\" = %t\n", mode != "disabled", mode == "read-only" || mode == "disabled", mode == "write-only")
+			if err := os.WriteFile(configPath, []byte(data), 0600); err != nil {
+				t.Fatal(err)
+			}
+			backend, err := Run([]string{"--config", configPath}, &bytes.Buffer{}, &bytes.Buffer{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer backend.Shutdown()
+			module, _ := backend.Modules.Get(clipboard.Name)
+			snap := module.(*clipboard.Module).Snapshot()
+			want := 0
+			if mode == "read-only" {
+				want = 1
+			}
+			if len(snap.Entries) != want || snap.Collecting {
+				t.Fatalf("%s restored wrong data or started collection", mode)
+			}
+		})
 	}
 }

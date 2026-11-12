@@ -11,7 +11,7 @@ import (
 )
 
 func RegisterClipboardMethods(d *jsonrpc.Dispatcher, registry *modules.Registry, history *clipboard.Module) {
-	for _, method := range []string{"clipboard.getSnapshot", "clipboard.setCollecting", "clipboard.copy", "clipboard.delete", "clipboard.clear"} {
+	for _, method := range []string{"clipboard.getSnapshot", "clipboard.setCollecting", "clipboard.copy", "clipboard.delete", "clipboard.clear", "clipboard.setFavorite"} {
 		d.RegisterContext(method, func(ctx context.Context, params json.RawMessage) (json.RawMessage, *jsonrpc.Error) {
 			if !registry.IsEnabled(clipboard.Name) {
 				return nil, jsonrpc.NewError(jsonrpc.CodeModuleUnavailable, "Clipboard history is disabled", clipboard.Name)
@@ -26,12 +26,13 @@ func RegisterClipboardMethods(d *jsonrpc.Dispatcher, registry *modules.Registry,
 			var p struct {
 				ID         string `json:"id"`
 				Collecting *bool  `json:"collecting"`
+				Favorite   *bool  `json:"favorite"`
 			}
 			if method != "clipboard.getSnapshot" && method != "clipboard.clear" {
 				if err := json.Unmarshal(params, &p); err != nil {
 					return nil, jsonrpc.NewError(jsonrpc.CodeInvalidParams, "Invalid clipboard parameters", clipboard.Name)
 				}
-				if (method == "clipboard.setCollecting" && p.Collecting == nil) || (method != "clipboard.setCollecting" && p.ID == "") {
+				if (method == "clipboard.setCollecting" && p.Collecting == nil) || (method != "clipboard.setCollecting" && p.ID == "") || (method == "clipboard.setFavorite" && p.Favorite == nil) {
 					return nil, jsonrpc.NewError(jsonrpc.CodeInvalidParams, "Missing clipboard parameters", clipboard.Name)
 				}
 			}
@@ -46,6 +47,8 @@ func RegisterClipboardMethods(d *jsonrpc.Dispatcher, registry *modules.Registry,
 				snap = history.Clear()
 			case "clipboard.delete":
 				snap, err = history.Delete(p.ID)
+			case "clipboard.setFavorite":
+				snap, err = history.SetFavorite(p.ID, *p.Favorite)
 			case "clipboard.copy":
 				var cancel context.CancelFunc
 				ctx, cancel = context.WithTimeout(ctx, 3*time.Second)
