@@ -34,6 +34,7 @@ This document breaks the approved architecture into small, sequential, independe
 | M17 | Playback audio mixer | PipeWire compatibility adapter, volume/mute, default output, Audio page, isolated service-recovery checks | Done |
 | M18 | Playback-stream output routing | Per-row device selector, live target validation, confirmed-state reconciliation, isolated two-stream checks | Done |
 | M19 | Microphone controls and recording apps | Default input, gain/mute, capture metadata, Microphone view, isolated virtual-mic verification | Done |
+| M20 | Session clipboard history | Explicit collection, bounded text history, search/copy/delete/clear, separate grants, nested Wayland verification | Done |
 
 ---
 
@@ -893,3 +894,17 @@ same stable-model control. Tests cover source parsing, grants/validation,
 unchanged unrelated state, missing devices, and FIFO-backed virtual sources with
 a recorder discarding test data. Live sound meters and recording-app routing are
 not part of this milestone. See [ADR-0014](docs/architecture/ADR-0014-microphone-controls.md).
+
+
+## M20 — Session clipboard history (implemented)
+
+Adds an explicitly started, memory-only text collector using wl-clipboard. Each
+backend session starts paused; read and write grants are independent and denied
+by default. History supports stable-ID deduplication, local search, copy-back,
+delete, clear, and pause. Collection continues behind a hidden panel. Bounds are
+50 entries, 16 KiB/item, and 128 KiB total. Marked-sensitive selections, binary
+content, files, and images are skipped; unmarked secrets may still be collected.
+Go race/permission/bounds tests, QML controls/cache tests, and a private nested
+Wayland test cover collection, exact copy, pause, hidden UI, and restart. No
+persistent storage, automatic paste, or favorites are introduced. See
+[ADR-0015](docs/architecture/ADR-0015-clipboard-history.md).

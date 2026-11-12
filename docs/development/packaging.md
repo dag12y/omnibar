@@ -150,3 +150,13 @@ tree.
 Committing a PKGBUILD does not publish anything. Omarchy Package Repository
 (OPR) publication is a separate step: contribute a package recipe to the OPR and
 have its maintainers accept it. That is outside this repository.
+
+### Clipboard history dependency
+
+M20 adds `wl-clipboard` as a runtime dependency for text collection and copy-back.
+The example config enables the module but leaves `clipboard.read` and
+`clipboard.write` false. Installing/upgrading starts no collection. After granting
+read access and restarting the backend, select Start history in the Clipboard
+page for that session. Copy requires the separate write grant. History is
+memory-only and lost on backend restart; the current system selection may persist.
+The private compositor test is `make e2e-clipboard`; it installs no package.

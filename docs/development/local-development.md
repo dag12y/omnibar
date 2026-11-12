@@ -390,3 +390,30 @@ Input names come from the snapshot's `inputs`; `default_input` is the current
 source name, and `recordings` maps apps to source IDs. See
 [ADR-0014](../architecture/ADR-0014-microphone-controls.md). Recording-stream routing,
 noise suppression, live meters, and persistent input rules are not implemented.
+
+## Session clipboard history (M20)
+
+The Clipboard page requires `clipboard.read`; Copy additionally requires
+`clipboard.write`. Both example grants are false. Change your development config
+and restart the backend to grant them. Opening the page never starts collection:
+select Start history each backend session. Collection can include the current
+selection and continues when the panel is hidden. Pause stops the watcher;
+Delete/Clear remove history without changing the clipboard. History is bounded
+in memory (50 entries, 16 KiB/item, 128 KiB total) and discarded on shutdown.
+Marked-sensitive, binary, and unsupported selections are skipped; unmarked
+secrets may still be collected. No persistent history or automatic paste.
+
+```sh
+make e2e-clipboard
+python3 scripts/e2e-clipboard.py --capture  # optional panel image in printed temp dir
+quickshell -p "$PWD/ui/qml/shell.qml" ipc call -- panel showClipboard
+```
+
+The opt-in test requires Hyprland, wl-clipboard, Quickshell, and an active Wayland
+desktop; optional capture also needs grim. It starts a nested compositor with a
+private runtime/config/state and synthetic selections. `HYPRLAND_NO_SD_VARS=1`
+and `HYPRLAND_NO_SD_NOTIFY=1` prevent activation-environment updates. A nested
+window briefly appears; the host clipboard is never read or replaced. Processes
+are stopped in cleanup and logs/artifacts remain in the printed temp directory.
+Unit/race and QML tests run without a live clipboard. See
+[ADR-0015](../architecture/ADR-0015-clipboard-history.md) for RPCs and lifecycle.

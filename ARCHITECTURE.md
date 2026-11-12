@@ -142,7 +142,7 @@ Registered → Initialized → Started → Running → Stopped → Disposed
 
 ### Current shipped utility modules
 
-`system_monitor`, `keep_awake`, and `audio` are static in-process Go modules.
+`system_monitor`, `keep_awake`, `audio`, and `clipboard` are static in-process Go modules.
 System sampling and audio watching follow client demand; Keep Awake owns an
 explicit timed lease independently of visible pages. Audio uses short `pactl`
 commands and a cancellable `pactl subscribe` child process against PipeWire's
@@ -155,6 +155,13 @@ metadata extend the same module in [ADR-0014](docs/architecture/ADR-0014-microph
 Microphone samples are not captured; input gain is metadata, and recording apps
 are the audio server's source-output list. This is the implemented audio path; a separate supervised audio service remains
 a possible future design. Keep Awake is described in [ADR-0011](docs/architecture/ADR-0011-keep-awake.md).
+
+Clipboard uses an explicitly started `wl-paste --watch` child and a bounded
+internal capture helper, with in-memory history and separate read/write grants.
+The UI polls only while visible; collection follows the explicit session toggle,
+independently of panel visibility. This supersedes the planned persistent or
+separate-service clipboard path for this increment. See
+[ADR-0015](docs/architecture/ADR-0015-clipboard-history.md).
 
 ### Inter-module communication
 
@@ -304,7 +311,7 @@ Omnibar never uses `sudo` or escalates privileges. All operations run as the inv
 ### Storage
 
 - SQLite is kept as the selected future storage solution, but the SQLite driver and database implementation are **not introduced in Phase 1**.
-- The database is introduced when the first feature actually requires persistent structured data (e.g., clipboard history in Phase 4).
+- The database is introduced when the first feature actually requires persistent structured data (e.g., persistent clipboard history or monitoring history).
 - WAL mode for concurrent reads.
 - Schema version in a `meta` table; migrations are transactional and additive.
 - Phase 1: no database tables required (settings live in TOML).
@@ -383,7 +390,8 @@ omnibar/
 │   │   ├── ADR-0011-keep-awake.md
 │   │   ├── ADR-0012-audio-mixer.md
 │   │   ├── ADR-0013-stream-routing.md
-│   │   └── ADR-0014-microphone-controls.md
+│   │   ├── ADR-0014-microphone-controls.md
+│   │   └── ADR-0015-clipboard-history.md
 │   ├── development/
 │   └── features/
 ├── internal/
@@ -409,6 +417,6 @@ The initial structure is minimal. Directories are created only when code is adde
 ## Unresolved decisions
 
 - Module permission UI: how users grant/revoke permissions (config file only in Phase 1; a settings UI may come later)
-- Exact SQLite schema for future features (clipboard history, monitoring history) — designed when those features are implemented
+- Exact SQLite schema for future features (persistent clipboard history, monitoring history) — designed when those features are implemented
 - Whether future external modules use separate executables with manifests (concept accepted, details TBD)
 - OS-level sandboxing mechanism (future work)

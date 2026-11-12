@@ -144,3 +144,18 @@ Phase 2 adds live system monitoring on top of the Phase 1 foundation and prepare
   preserving the user's actual audio services and microphone settings.
 - Per-recording-app input routing, live meters, noise suppression, global
   all-microphone mute, and hardware-specific verification remain future work.
+
+
+## Clipboard increment (implemented)
+
+- Start paused each backend session, requiring both a read grant and explicit Start.
+- Collect UTF-8 text in memory, deduplicate by exact contents, and cap history at
+  50 entries, 16 KiB/item, and 128 KiB total; evict oldest entries first.
+- Search locally, copy exact text with a separate write grant, delete, clear, and
+  pause. Clear/delete leave the system clipboard unchanged; no injected paste.
+- Continue opted-in collection behind hidden pages; clear frontend caches when
+  hidden/disconnected and forget backend history on shutdown.
+- Skip sensitive-marked and unsupported content without reading it into history.
+  Unmarked secrets cannot be reliably identified. No persistent storage or logs
+  containing clipboard text; favorites, images, files, and app exclusions deferred.
+- Verify real behavior using synthetic data in a separate Wayland compositor.

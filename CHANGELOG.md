@@ -5,6 +5,10 @@ All notable changes will be documented here.
 ## [Unreleased]
 
 ### Added
+
+- Session-only clipboard history with explicit Start/Pause, local search, exact copy-back, Delete, and Clear.
+- Independent clipboard read/write grants, bounded UTF-8 storage, sensitive-hint filtering, and restart cleanup; ADR-0015.
+- Clipboard page and `panel showClipboard`; private nested Wayland smoke test and wl-clipboard package dependency.
 - Microphone gain/mute/default-input controls under `audio.control`, source/recording-app snapshot metadata, and source event refreshes.
 - Audio Playback/Microphone views, a default microphone selector, recording-source labels, and `panel showMicrophone` IPC.
 - Shared device picker for inputs and outputs, with microphone monitor exclusion and per-device pending gain/mute queues.

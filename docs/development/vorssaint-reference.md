@@ -88,3 +88,12 @@ and recording-app/source metadata. This independently uses Linux audio-server
 controls and opens no capture stream. No upstream code/assets were reused. Live
 sound meters and recording-app routing remain future work. See
 [ADR-0014](../architecture/ADR-0014-microphone-controls.md).
+
+## Clipboard follow-up
+
+M20 adds an independently implemented Linux session-text history with search,
+copy-back, delete, clear, and explicit collection controls. It uses wl-clipboard
+and bounded in-memory storage, with separate read/write grants. No upstream
+clipboard implementation, branding, or assets were copied. Persistent favorites,
+image/file handling, and automatic paste remain deferred. See
+[ADR-0015](../architecture/ADR-0015-clipboard-history.md).

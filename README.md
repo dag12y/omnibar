@@ -26,13 +26,13 @@ TOML configuration, and an Arch package with a systemd user service.
 System monitoring is implemented: CPU, RAM, swap, disk capacity and I/O,
 network throughput, and battery status/power. The floating Quickshell dashboard
 uses the active Omarchy theme, live CPU/memory graphs, and expandable details.
-Timed Keep Awake and a playback audio mixer are also implemented. System and
-Audio pages share the same panel. The v0.1.0 release verification is still pending.
+Timed Keep Awake, an audio mixer, microphone controls, and session clipboard
+history are also implemented. System, Audio, and Clipboard share the same panel. The v0.1.0 release verification is still pending.
 
 Run the backend with `make run` and launch the panel with
 `quickshell -n -p ui/qml/shell.qml`. Click the CPU or memory card for details.
 The panel opens at startup; its close button hides it and pauses page updates.
-Active Keep Awake sessions continue.
+Active Keep Awake sessions and explicitly started clipboard collection continue.
 Use `./scripts/toggle-panel.sh` during development, or the installed
 `omnibar-toggle` command from a keybinding or bar action. Direct IPC also works:
 
@@ -103,6 +103,35 @@ The panel can open this view directly from a shortcut:
 ```sh
 quickshell -p /absolute/path/to/omnibar/ui/qml/shell.qml ipc call -- panel showMicrophone
 ```
+
+## Clipboard history
+
+Open **Clipboard**, then **Start history** to collect copied text for this backend
+session. Install `wl-clipboard` (included in the package dependencies), grant
+`"clipboard.read" = true` under `[permissions]` in your Omnibar config, and restart
+the backend first. Grant `"clipboard.write" = true` to enable **Copy**; read-only
+history, search, Delete, and Clear work without that grant. Both grants remain
+false in the example config.
+
+Collection starts paused after every backend restart. Starting it can include the
+current clipboard selection. It continues when the panel is hidden; **Pause**
+stops collection while keeping existing entries. **Clear history** and **Delete**
+affect history only, leaving the system clipboard alone. Copy puts the full text
+back on the clipboard; paste it normally in the destination app.
+
+History stays in memory: up to 50 entries, 16 KiB per item, and 128 KiB of text in
+total, with oldest entries removed first. Repeated text moves to the top. Images,
+files, binary data, and sensitive-marked selections are skipped. Apps can copy
+secrets without marking them sensitive, so pause collection when needed. There
+is no persistent history, favorites, or automatic paste. Backend shutdown forgets
+history; the current system clipboard selection can remain available.
+
+```sh
+quickshell -p /absolute/path/to/omnibar/ui/qml/shell.qml ipc call -- panel showClipboard
+make e2e-clipboard  # synthetic text in a private nested Wayland compositor
+```
+
+See [clipboard design and protocol](docs/architecture/ADR-0015-clipboard-history.md).
 
 ## Documentation
 

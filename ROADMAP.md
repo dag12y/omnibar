@@ -36,7 +36,7 @@ System monitoring suite: event delivery, resource metrics, UI cards, and the v0.
 - [ ] Window layouts
 
 ## Phase 4 - Clipboard and Files
-- [ ] Clipboard history
+- [x] Session-only text clipboard history, search, copy, delete, and clear (M20)
 - [ ] Clipboard favorites
 - [ ] File shelf
 - [ ] Clipboard utilities
@@ -53,7 +53,7 @@ System monitoring suite: event delivery, resource metrics, UI cards, and the v0.
 - [ ] Keyboard customization
 
 ## Phase 6 - Productivity
-- [x] Quick panel: keyboard navigation, screen-aware scrolling, and System/Audio pages
+- [x] Quick panel: keyboard navigation, screen-aware scrolling, and System/Audio/Clipboard pages
 - [ ] Command bar
 - [ ] Scratchpad
 - [x] Keep awake: timed logind/Wayland inhibition with countdown and Stop
