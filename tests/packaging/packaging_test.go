@@ -41,6 +41,7 @@ func TestPKGBUILDInstallsEveryShippedFile(t *testing.T) {
 	for _, want := range []string{
 		`"$pkgdir/usr/bin/omnibar"`,
 		`"$pkgdir/usr/bin/omnibar-ui"`,
+		`"$pkgdir/usr/bin/omnibar-toggle"`,
 		`"$pkgdir/usr/lib/systemd/user/omnibar.service"`,
 		`"$pkgdir/usr/share/omnibar/qml/shell.qml"`,
 		`ui/qml/components/*`,

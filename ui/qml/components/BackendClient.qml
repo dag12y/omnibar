@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import "backoff.js" as Backoff
 import "protocol.js" as Protocol
+import "snapshots.js" as Snapshots
 
 // BackendClient owns the Unix socket connection to the Omnibar backend.
 //
@@ -30,6 +31,27 @@ Item {
 
     // "connected", "connecting", or "unavailable".
     property string status: "connecting"
+    property var keepAwakeStatus: ({active: false})
+    property string keepAwakeError: ""
+    property bool keepAwakeBusy: false
+    property var pendingKeepAwake: ({})
+    property Timer keepAwakeTimeout: Timer {
+        interval: 5000
+        onTriggered: {
+            root.keepAwakeBusy = false
+            root.keepAwakeError = "Keep awake request timed out. Reconnect to check its state."
+        }
+    }
+    function keepAwakeRequest(method, seconds) {
+        if (!socket.connected || !handshakeComplete || keepAwakeBusy) return
+        const id = nextRequestId++
+        pendingKeepAwake = Protocol.withState(pendingKeepAwake, id, method)
+        keepAwakeBusy = true
+        keepAwakeError = ""
+        socket.write(Protocol.buildRequest(id, method, seconds === undefined ? {} : {seconds: seconds}) + "\n")
+        socket.flush()
+        keepAwakeTimeout.restart()
+    }
     property bool monitoringActive: true
     onMonitoringActiveChanged: {
         if (!handshakeComplete || !socket.connected) return
@@ -195,6 +217,9 @@ Item {
     }
 
     function resetSubscriptions() {
+        keepAwakeTimeout.stop()
+        pendingKeepAwake = ({})
+        keepAwakeBusy = false
         subscriptions = ({})
         pendingSubscriptions = ({})
         snapshotStates = ({})
@@ -263,7 +288,22 @@ Item {
         messageReceived(message)
 
         const parsed = Protocol.classify(message)
+        if (parsed.kind === "response" && pendingKeepAwake[parsed.id] !== undefined) {
+            const remaining = {}
+            for (const id in pendingKeepAwake)
+                if (String(id) !== String(parsed.id)) remaining[id] = pendingKeepAwake[id]
+            pendingKeepAwake = remaining
+            keepAwakeTimeout.stop()
+            keepAwakeBusy = false
+            if (parsed.error) keepAwakeError = parsed.error.message || "Keep awake request failed"
+            else keepAwakeStatus = parsed.result
+            return
+        }
         if (parsed.kind === "event") {
+            if (parsed.module === "keep_awake") {
+                if (parsed.event === "state") keepAwakeStatus = parsed.data
+                return
+            }
             if (parsed.module === "system_monitor" && !monitoringActive) return
             moduleEvent(parsed.module, parsed.event, parsed.data)
             root.applyModuleEvent(parsed.module, parsed.event, parsed.data)
@@ -312,25 +352,7 @@ Item {
     // Merge a live module.event into the stored snapshot so the UI can
     // keep showing current values between snapshots.
     function applyModuleEvent(module, event, data) {
-        var snap = snapshots[module]
-        if (!snap || typeof snap !== "object") {
-            snap = {}
-        }
-        if (event === "cpu") {
-            snap.cpu = data
-        } else if (event === "memory") {
-            snap.memory = data
-            if (data.swap_total !== undefined) {
-                snap.swap = { total: data.swap_total, used: data.swap_used }
-            }
-        } else if (event === "disk") {
-            snap.disk = data
-        } else if (event === "network") {
-            snap.network = data
-        } else if (event === "battery") {
-            snap.battery = data
-        }
-        snap.sampled_at = new Date().toISOString()
+        const snap = Snapshots.applySystemEvent(snapshots[module], event, data)
         snapshots = Protocol.withState(snapshots, module, snap)
         snapshotStates = Protocol.withState(snapshotStates, module, "fresh")
         snapshotReceived(module, snap)
@@ -388,6 +410,8 @@ Item {
             // event (ADR-0009: subscribe before fetching avoids a gap).
             if (module === "system_monitor")
                 requestSnapshot(module)
+            if (module === "keep_awake")
+                keepAwakeRequest("keepAwake.getStatus")
         }
     }
 

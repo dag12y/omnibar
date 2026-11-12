@@ -10,11 +10,11 @@ import (
 
 // sampler drives on-demand sampling of /proc/stat and /proc/meminfo.
 //
-// The run loop ticks at the configured interval and only samples (and
-// publishes) when the hub has at least one subscriber for this module.
+// The run loop samples and publishes at the configured interval only
+// when the hub has at least one subscriber for this module.
 // With no subscribers it does nothing, keeping idle cost near zero.
-// Baseline readings are taken when the sampler starts so the first
-// published value is a real delta, not an average since boot.
+// A fresh subscription establishes rate baselines; subsequent readings
+// report deltas. There is no sampling timer while nobody is subscribed.
 type sampler struct {
 	module          string
 	hub             *events.Hub
@@ -86,8 +86,7 @@ func (s *sampler) stop() {
 	<-done
 }
 
-// run is the sampling loop. It takes a baseline reading, then ticks at the
-// interval. On each tick it samples and publishes if there are subscribers.
+// run waits for demand, samples immediately, then ticks at the interval.
 // A nil hub means no event delivery: the loop only waits for stop.
 func (s *sampler) run() {
 	defer close(s.done)

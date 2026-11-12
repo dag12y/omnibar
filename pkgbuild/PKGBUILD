@@ -9,6 +9,7 @@ url='https://github.com/dag12y/omnibar'
 license=('MIT')
 depends=(
   'glibc'
+  'systemd'
   'qt6-declarative'
   'quickshell'
 )

@@ -58,8 +58,9 @@ type Snapshot struct {
 
 // CPUSnapshot holds overall and per-core CPU usage as percentages (0-100).
 type CPUSnapshot struct {
-	Percent float64   `json:"percent"`
-	Cores   []float64 `json:"cores,omitempty"`
+	CoreCount int       `json:"core_count"`
+	Percent   float64   `json:"percent"`
+	Cores     []float64 `json:"cores,omitempty"`
 }
 
 // MemorySnapshot holds memory sizes in bytes.
@@ -114,6 +115,10 @@ func computeSnapshot(
 ) *Snapshot {
 	snap := &Snapshot{
 		SampledAt: time.Now().UTC().Format(time.RFC3339),
+	}
+
+	if stat != nil {
+		snap.CPU.CoreCount = len(stat.Cores)
 	}
 
 	// CPU usage from delta between consecutive readings. Guard against
@@ -284,9 +289,8 @@ func (m *Module) isRunning() bool {
 	return m.running.Load()
 }
 
-// Snapshot returns the latest sample. If the sampler has never produced a
-// sample (no subscribers yet), it takes one sample on demand using the
-// delta since the baseline reading taken at Start.
+// Snapshot returns a recent sample, or samples on demand if the cache is
+// absent or older than the configured sampling interval.
 func (m *Module) Snapshot() *Snapshot {
 	if snap := m.sampler.currentSnapshot(); snap != nil && time.Since(m.sampler.sampleTime()) < m.sampler.interval {
 		return snap
@@ -302,8 +306,9 @@ func (m *Module) Snapshot() *Snapshot {
 // marshalCPUEvent returns the JSON payload for a cpu event.
 func marshalCPUEvent(snap *Snapshot) json.RawMessage {
 	out, _ := json.Marshal(map[string]any{
-		"percent": snap.CPU.Percent,
-		"cores":   snap.CPU.Cores,
+		"percent":    snap.CPU.Percent,
+		"core_count": snap.CPU.CoreCount,
+		"cores":      snap.CPU.Cores,
 	})
 	return out
 }

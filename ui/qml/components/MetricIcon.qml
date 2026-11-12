@@ -13,6 +13,8 @@ Item {
 
     readonly property real lw: 1.5
 
+    implicitWidth: size
+    implicitHeight: size
     width: size
     height: size
 

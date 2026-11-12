@@ -5,7 +5,7 @@ QMLTESTRUNNER ?= /usr/lib/qt6/bin/qmltestrunner
 BIN_DIR := build
 BINARY := $(BIN_DIR)/omnibar
 
-.PHONY: all build test ui-test e2e-ui package run clean help
+.PHONY: all build test ui-test e2e-ui e2e-awake package run clean help
 
 all: build
 
@@ -21,6 +21,9 @@ ui-test:
 
 e2e-ui: build
 	OMNIBAR_BIN=$(abspath $(BINARY)) ./scripts/e2e-ui.sh
+
+e2e-awake: build
+	python3 scripts/e2e-keep-awake.py
 
 package:
 	./scripts/package-local.sh
@@ -42,3 +45,5 @@ e2e-ui: ## Run the real Quickshell UI against the real backend (needs Wayland)
 package: ## Build the Arch package into dist/ from the working tree (does not install)
 run: ## Build and run the omnibar backend
 clean: ## Remove generated build artifacts
+
+e2e-awake: ## Verify real logind and Wayland Keep Awake (needs Hyprland; briefly inhibits idle/sleep)
