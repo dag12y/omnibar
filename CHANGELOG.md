@@ -5,6 +5,8 @@ All notable changes will be documented here.
 ## [Unreleased]
 
 ### Added
+- Battery charge, status, and power monitoring from sysfs, with snapshot/event delivery and desktop-safe absence handling.
+- Floating dashboard with Omarchy theme colors, CPU/memory sparklines, expandable core/swap details, and panel show/hide/toggle IPC.
 - Initial project documentation.
 - Initial development roadmap.
 - Initial requirements.
