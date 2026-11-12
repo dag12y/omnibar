@@ -17,6 +17,7 @@ depends=(
   'qt6-declarative'
   'quickshell'
 )
+optdepends=('hyprland: running-window switcher via hyprctl')
 makedepends=('go')
 options=('!debug')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")

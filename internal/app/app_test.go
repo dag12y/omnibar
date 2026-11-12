@@ -276,8 +276,8 @@ func TestRunHandshakeIncludesCoreModule(t *testing.T) {
 	if err := json.Unmarshal(resp.Result, &result); err != nil {
 		t.Fatalf("unmarshal handshake result: %v", err)
 	}
-	if len(result.Modules) != 6 || result.Modules[0] != "core" || result.Modules[1] != "system_monitor" || result.Modules[2] != "keep_awake" || result.Modules[3] != "audio" || result.Modules[4] != "clipboard" || result.Modules[5] != "file_shelf" {
-		t.Errorf("handshake modules = %v, want [core system_monitor keep_awake audio clipboard file_shelf]", result.Modules)
+	if len(result.Modules) != 7 || result.Modules[0] != "core" || result.Modules[1] != "system_monitor" || result.Modules[2] != "keep_awake" || result.Modules[3] != "audio" || result.Modules[4] != "clipboard" || result.Modules[5] != "file_shelf" || result.Modules[6] != "window_switcher" {
+		t.Errorf("handshake modules = %v, want [core system_monitor keep_awake audio clipboard file_shelf window_switcher]", result.Modules)
 	}
 
 	if _, err := conn.Write([]byte(`{"jsonrpc":"2.0","id":2,"method":"module.getStatus","params":{"module":"core"}}` + "\n")); err != nil {

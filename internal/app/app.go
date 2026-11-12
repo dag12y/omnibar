@@ -25,6 +25,7 @@ import (
 	"omnibar/internal/modules/fileshelf"
 	"omnibar/internal/modules/keepawake"
 	"omnibar/internal/modules/systemmonitor"
+	"omnibar/internal/modules/windows"
 )
 
 // Backend is a running Omnibar backend: the IPC server plus its module
@@ -165,6 +166,10 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 	if err := registry.Register(shelf); err != nil {
 		return nil, fmt.Errorf("register file shelf: %w", err)
 	}
+	switcher := windows.New(nil)
+	if err := registry.Register(switcher); err != nil {
+		return nil, fmt.Errorf("register window switcher: %w", err)
+	}
 	for name := range cfg.Modules {
 		if _, ok := registry.Info(name); !ok {
 			logger.Warn("configuration references unknown module", "module", name)
@@ -200,6 +205,7 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 	ipc.RegisterAudioMethods(dispatcher, registry, mixer)
 	ipc.RegisterClipboardMethods(dispatcher, registry, history)
 	ipc.RegisterFileShelfMethods(dispatcher, registry, shelf)
+	ipc.RegisterWindowMethods(dispatcher, registry, switcher)
 
 	// Resolve IPC socket path.
 	socketPath, err := ipc.SocketPath()
