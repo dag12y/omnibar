@@ -11,6 +11,7 @@ depends=(
   'glibc'
   'systemd'
   'libpulse'
+  'wl-clipboard'
   'pipewire-pulse'
   'qt6-declarative'
   'quickshell'

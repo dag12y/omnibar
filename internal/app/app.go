@@ -20,6 +20,7 @@ import (
 	"omnibar/internal/logging"
 	"omnibar/internal/modules"
 	"omnibar/internal/modules/audio"
+	"omnibar/internal/modules/clipboard"
 	"omnibar/internal/modules/core"
 	"omnibar/internal/modules/keepawake"
 	"omnibar/internal/modules/systemmonitor"
@@ -151,6 +152,10 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 	if err := registry.Register(mixer); err != nil {
 		return nil, fmt.Errorf("register audio: %w", err)
 	}
+	history := clipboard.New(nil)
+	if err := registry.Register(history); err != nil {
+		return nil, fmt.Errorf("register clipboard: %w", err)
+	}
 	for name := range cfg.Modules {
 		if _, ok := registry.Info(name); !ok {
 			logger.Warn("configuration references unknown module", "module", name)
@@ -184,6 +189,7 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 	ipc.RegisterSystemMethods(dispatcher, registry, sm)
 	ipc.RegisterKeepAwakeMethods(dispatcher, registry, awake)
 	ipc.RegisterAudioMethods(dispatcher, registry, mixer)
+	ipc.RegisterClipboardMethods(dispatcher, registry, history)
 
 	// Resolve IPC socket path.
 	socketPath, err := ipc.SocketPath()

@@ -32,6 +32,10 @@ enabled = true
 [modules.audio]
 enabled = true
 
+[modules.clipboard]
+# Starts paused; collection is opt-in for each backend session.
+enabled = true
+
 # Permissions granted to modules.
 #
 # Permissions are quoted dotted strings because TOML bare keys cannot

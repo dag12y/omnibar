@@ -12,9 +12,13 @@ import (
 	"syscall"
 
 	"omnibar/internal/app"
+	"omnibar/internal/modules/clipboard"
 )
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "--clipboard-capture" {
+		os.Exit(clipboard.CaptureCommand(os.Stdin, os.Stdout, os.Getenv("CLIPBOARD_STATE")))
+	}
 	backend, err := app.Run(os.Args[1:], os.Stdout, os.Stderr)
 	if err != nil {
 		os.Exit(1)
