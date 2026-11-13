@@ -12,6 +12,15 @@ ShellRoot {
     ThemeLoader {
         active: root.opened
     }
+    function revealItem(item) {
+        if (!root.opened || !item) return;
+        const flick = scroll.contentItem;
+        const top = item.mapToItem(flick, 0, 0).y;
+        let offset = 0;
+        if (top < 0) offset = top;
+        else if (top + item.height > flick.height) offset = top + item.height - flick.height;
+        flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, flick.contentY + offset));
+    }
     function openSearch() {
         root.page = "search";
         root.opened = true;
@@ -88,6 +97,14 @@ ShellRoot {
         client: client
         active: root.opened && (root.page === "windows" || root.page === "search")
         onWindowFocused: root.opened = false
+    }
+    PreviewController {
+        id: previews
+        client: client
+        active: root.opened && (root.page === "windows" || root.page === "search")
+        scope: root.page
+        allowed: windows.state === "ready" && windows.snapshot.previewsAllowed === true
+        eligibleAddresses: (windows.snapshot.windows || []).map(window => window.address)
     }
     // A separate mapped surface keeps display-idle inhibition alive when the
     // dashboard is hidden. It takes no keyboard focus or pointer input.
@@ -318,14 +335,8 @@ ShellRoot {
                                 windows.request("windows.getSnapshot");
                                 apps.request("apps.getSnapshot");
                             }
-                            onHighlightRequested: item => {
-                                const flick = scroll.contentItem;
-                                const top = item.mapToItem(flick, 0, 0).y;
-                                let offset = 0;
-                                if (top < 0) offset = top;
-                                else if (top + item.height > flick.height) offset = top + item.height - flick.height;
-                                flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, flick.contentY + offset));
-                            }
+                            preview: previews
+                            onHighlightRequested: item => root.revealItem(item)
                         }
                         AppPage {
                             visible: root.page === "apps"
@@ -339,8 +350,11 @@ ShellRoot {
                         }
                         WindowPage {
                             visible: root.page === "windows"
+                            active: root.opened && root.page === "windows"
                             Layout.fillWidth: true
                             snapshot: root.page === "windows" ? windows.snapshot : ({ windows: [] })
+                            preview: previews
+                            onPreviewRevealed: item => root.revealItem(item)
                             state: windows.state
                             errorText: windows.errorText
                             busy: windows.busy

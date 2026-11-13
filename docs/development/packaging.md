@@ -248,3 +248,14 @@ package and restart the UI to load the new components. The backend protocol
 and version remain compatible with M25. `make e2e-search` checks keyboard app
 launch and window focus in a private compositor; `make ui-test` covers partial
 source permissions, stable selection, bounds, and query disposal.
+
+
+### Window previews (0.2.0 development, package release 3)
+
+M27 adds optional `grim>=1.5.0` for exact-window preview capture. Both
+window.manage and screen.capture are required; the example leaves capture
+false. Upgrading preserves existing configs. Grant capture explicitly and
+restart the backend/UI to load the new RPC and controls. The standalone Windows
+and Search pages expose Preview per running window; there is no automatic
+capture on startup or page navigation and no image storage directory. The
+private `make e2e-previews` check also needs ImageMagick to verify fixture pixels.

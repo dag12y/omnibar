@@ -32,7 +32,7 @@ System monitoring suite: event delivery, resource metrics, UI cards, and the v0.
 ## Phase 3 - Window Management
 - [x] Installed application launcher: search and explicit desktop-entry launch (M25)
 - [x] Hyprland running-window switcher: search, exact focus, and workspace switching (M24)
-- [ ] Window previews
+- [x] Optional in-memory window previews in Windows and Search (M27)
 - [ ] Window layouts
 
 ## Phase 4 - Clipboard and Files

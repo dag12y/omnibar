@@ -10,7 +10,10 @@ ColumnLayout {
         })
     property string state: "pending"
     property string errorText: ""
+    property bool active: visible
     property bool busy: false
+    property var preview: null
+    signal previewRevealed(var item)
     readonly property bool ready: state === "ready"
     signal focusRequested(string address)
     signal refreshRequested
@@ -50,6 +53,14 @@ ColumnLayout {
         }
     }
     onSnapshotChanged: syncRows()
+    function focusSearch() {
+        if (active && ready)
+            search.forceActiveFocus();
+    }
+    onActiveChanged: if (active)
+        Qt.callLater(focusSearch)
+    onReadyChanged: if (active && ready)
+        Qt.callLater(focusSearch)
     Component.onCompleted: syncRows()
     RowLayout {
         Layout.fillWidth: true
@@ -81,6 +92,14 @@ ColumnLayout {
         font.pixelSize: 12
         wrapMode: Text.WordWrap
         textFormat: Text.PlainText
+    }
+    Text {
+        Layout.fillWidth: true
+        visible: root.ready && root.snapshot.previewsAllowed !== true
+        text: "Optional previews require screen.capture in your config."
+        color: Theme.muted
+        font.pixelSize: 11
+        wrapMode: Text.WordWrap
     }
     TextField {
         id: search
@@ -176,6 +195,12 @@ ColumnLayout {
                     elide: Text.ElideRight
                     Layout.fillWidth: true
                 }
+                WindowThumbnail {
+                    controller: root.preview
+                    address: card.parent.address
+                    Layout.fillWidth: true
+                    onRevealRequested: item => root.previewRevealed(item)
+                }
                 RowLayout {
                     Layout.fillWidth: true
                     Text {
@@ -185,6 +210,13 @@ ColumnLayout {
                         font.pixelSize: 10
                         Layout.fillWidth: true
                         elide: Text.ElideRight
+                    }
+                    PanelButton {
+                        objectName: "previewWindow"
+                        text: "Preview"
+                        description: "Preview " + appClass
+                        enabled: root.preview !== null && root.snapshot.previewsAllowed === true && root.ready && !root.busy && !root.preview.busy
+                        onClicked: root.preview.request(address)
                     }
                     PanelButton {
                         objectName: "switchWindow"

@@ -5,6 +5,7 @@ Requires Hyprland, wl-clipboard, Quickshell and an active Wayland desktop.
 Only synthetic text is copied in the private compositor. --capture saves its UI.
 """
 import argparse
+import base64
 import json
 import os
 from pathlib import Path
@@ -22,7 +23,10 @@ def main():
     parser.add_argument("--windows", action="store_true", help="verify window switching inside the private compositor")
     parser.add_argument("--apps", action="store_true", help="verify installed desktop app launching in the private compositor")
     parser.add_argument("--search", action="store_true", help="verify unified app/window search in the private compositor")
+    parser.add_argument("--previews", action="store_true", help="verify in-memory exact-window preview capture")
     args = parser.parse_args()
+    if args.previews:
+        args.windows = True
     if args.search:
         args.apps = True
     root = Path(__file__).resolve().parent.parent
@@ -37,6 +41,8 @@ def main():
         config = config.replace('"filesystem.access" = false', '"filesystem.access" = true')
     if args.windows or args.search:
         config = config.replace('"window.manage" = false', '"window.manage" = true')
+    if args.previews:
+        config = config.replace('"screen.capture" = false', '"screen.capture" = true')
     if args.apps:
         config = config.replace('"process.manage" = false', '"process.manage" = true')
     (trial / "config/omnibar/config.toml").write_text(config)
@@ -63,6 +69,13 @@ def main():
         opener.chmod(0o700)
         env["PATH"] = str(trial / "bin") + ":" + env["PATH"]
         env["OMNIBAR_TEST_OPEN_LOG"] = str(trial / "opened.json")
+    if args.previews:
+        (trial / "bin").mkdir(exist_ok=True)
+        grim = trial / "bin/grim"
+        grim.write_text('#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$PREVIEW_REQUEST_LOG"\nexec /usr/bin/grim "$@"\n')
+        grim.chmod(0o700)
+        env["PATH"] = str(trial / "bin") + ":" + env["PATH"]
+        env["PREVIEW_REQUEST_LOG"] = str(trial / "preview-requests.log")
     if args.apps:
         env["XDG_DATA_DIRS"] = str(trial / "system-data")
         env["XDG_CURRENT_DESKTOP"] = "Hyprland"
@@ -252,9 +265,59 @@ def main():
             address_a = next(item["address"] for item in clients if item.get("title") == "Omnibar fixture Alpha")
             address_b = next(item["address"] for item in clients if item.get("title") == "Omnibar fixture Beta")
             subprocess.run(["hyprctl", "dispatch", "movetoworkspacesilent", "2,address:" + address_b], env=env, check=True, stdout=subprocess.DEVNULL)
+            if args.previews:
+                def capture_count():
+                    log = trial / "preview-requests.log"
+                    return sum(line.startswith("-T ") for line in log.read_text().splitlines()) if log.exists() else 0
+                before_workspace = compositor("activeworkspace")["id"]
+                before_active = compositor("activewindow").get("address")
+                preview = rpc("windows.getPreview", dict(address=address_b))
+                assert 0 < preview["width"] <= 320 and 0 < preview["height"] <= 200
+                raw = base64.b64decode(preview["dataURL"].split(",", 1)[1], validate=True)
+                assert len(raw) <= 128 * 1024 and raw.startswith(b"\xff\xd8")
+                pixel = subprocess.check_output(["magick", "jpeg:-", "-resize", "1x1!", "-depth", "8", "rgb:-"], input=raw)
+                assert len(pixel) == 3 and all(abs(a-b) < 8 for a,b in zip(pixel, (52,66,38))), list(pixel)
+                assert compositor("activeworkspace")["id"] == before_workspace
+                assert compositor("activewindow").get("address") == before_active
+                assert capture_count() == 1
+                print("PASS: bounded in-memory preview pixels match the off-workspace target without changing focus")
             listed = rpc("windows.getSnapshot")
             assert any(item["address"] == address_b and item["workspace"] == "2" for item in listed["windows"])
             subprocess.run(["quickshell", "-p", qml, "ipc", "call", "--", "panel", "showWindows"], env=env, check=True, stdout=subprocess.DEVNULL)
+            if args.previews:
+                assert listed["previewsAllowed"]
+                def ready_count():
+                    return (trial / "ui.log").read_text().count("window preview ready")
+                ready = ready_count()
+                time.sleep(0.4)
+                subprocess.run(["wtype", "Beta", "-k", "Tab", "-k", "space"], env=env, check=True)
+                wait_until(lambda: ready_count() > ready, "Windows Preview button did not render its thumbnail")
+                assert capture_count() == 2
+                if args.capture:
+                    layers = compositor("layers")
+                    panel = next(item for monitor in layers.values() for level in monitor.get("levels", {}).values() for item in level if item.get("namespace") == "omnibar-panel")
+                    subprocess.run(["grim", "-g", f"{panel['x']},{panel['y']} {panel['w']}x{panel['h']}", str(trial / "preview-windows.png")], env=env, check=True)
+                subprocess.run(["quickshell", "-p", qml, "ipc", "call", "--", "panel", "showSearch"], env=env, check=True, stdout=subprocess.DEVNULL)
+                time.sleep(0.4)
+                assert capture_count() == 2, "page change automatically captured a frame"
+                ready = ready_count()
+                subprocess.run(["wtype", "Beta", "-k", "Tab", "-k", "space"], env=env, check=True)
+                wait_until(lambda: ready_count() > ready, "Search Preview button did not render its thumbnail")
+                assert capture_count() == 3
+                if args.capture:
+                    layers = compositor("layers")
+                    panel = next(item for monitor in layers.values() for level in monitor.get("levels", {}).values() for item in level if item.get("namespace") == "omnibar-panel")
+                    subprocess.run(["grim", "-g", f"{panel['x']},{panel['y']} {panel['w']}x{panel['h']}", str(trial / "preview-search.png")], env=env, check=True)
+                subprocess.run(["quickshell", "-p", qml, "ipc", "call", "--", "panel", "hide"], env=env, check=True, stdout=subprocess.DEVNULL)
+                time.sleep(0.2)
+                assert capture_count() == 3
+                subprocess.run(["quickshell", "-p", qml, "ipc", "call", "--", "panel", "showSearch"], env=env, check=True, stdout=subprocess.DEVNULL)
+                time.sleep(0.3)
+                assert capture_count() == 3 and ready_count() == ready + 1, "preview image survived hiding or recaptured automatically"
+                assert rpc_error("windows.getPreview", dict(address="0x1;bad"))["code"] == -32602
+                assert rpc_error("windows.getPreview", dict(address="0x1"))["code"] == -32603
+                assert capture_count() == 3
+                print("PASS: real Windows/Search Preview buttons, page/hide disposal, no automatic captures, and stale/invalid targets")
             for address in [address_a, address_b]:
                 switched = rpc("windows.focus", dict(address=address))
                 assert any(item["address"] == address and item["active"] for item in switched["windows"])
@@ -265,6 +328,9 @@ def main():
             wait_until(lambda: not any(item.get("title", "").startswith("Omnibar fixture ") for item in compositor("clients")), "closed fixtures still mapped")
             assert rpc_error("windows.focus", dict(address=address_a))["code"] == -32603
             assert not rpc("windows.getSnapshot")["windows"]
+            if args.previews:
+                assert rpc_error("windows.getPreview", dict(address=address_b))["code"] == -32603
+                assert capture_count() == 3
             print("PASS: private running-window list, confirmed focus across workspaces, real Windows page, invalid/stale targets, and empty desktop")
         if args.apps:
             appdir = trial / "data/applications"

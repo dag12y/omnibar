@@ -41,6 +41,7 @@ This document breaks the approved architecture into small, sequential, independe
 | M24 | Running-window switcher | Bounded Hyprland windows, search, exact focus, workspace switching, and confirmation | Done |
 | M25 | Application launcher | Installed desktop entries, search, explicit GIO launch, and Apps page | Done |
 | M26 | Unified app/window search | Shared query, ranked results, keyboard selection, and explicit Switch/Launch | Done |
+| M27 | Window preview thumbnails | Optional exact-window capture, bounded in-memory images, Windows/Search controls | Done |
 
 ---
 
@@ -1033,3 +1034,30 @@ captures verified both the query and a scrolled selection. The package passed
 UI smoke and full-payload upgrade/downgrade/remove checks against M25. Local
 0.2.0-2 is installed with 55 files and zero alterations; both sources respond
 (71 apps and 3 windows at verification), and Search is open in the packaged UI.
+
+
+## M27 — Optional window previews (implemented)
+
+Adds Preview on running-window rows in Windows and Search, guarded by both
+window.manage and screen.capture. Each explicit action captures one snapshot
+through grim's exact foreign-toplevel protocol on the matching Hyprland socket.
+Frames are bounded, normalized to JPEG thumbnails, and held in memory only.
+Closing/changing pages, removing targets, permission loss, or disconnect clears
+frontend image references and invalidates late replies. There is no periodic
+capture, full-screen fallback, or image persistence. Ordinary listing/focus
+keeps its independent window.manage gate. The optional grim dependency and
+existing screen.capture grant are off by default in the example. Go/QML and
+private compositor checks verify identity, pixels, limits, grants, lifecycle,
+and real Preview buttons. See [ADR-0022](docs/architecture/ADR-0022-window-previews.md).
+
+
+M27 verification: Go vet/race checks and all 153 QML tests passed. Private
+compositor tests verified decoded pixels from the intended off-workspace
+window without moving focus, both real Preview buttons, image rendering,
+hide/page cleanup, no automatic recapture, and invalid/closed targets. Search
+and UI reconnect regressions passed. The package passed full-payload lifecycle
+and extracted UI smoke checks, then 0.2.0-3 was installed locally: 57 files with
+zero alterations, matching running backend, active preview grant, and no service
+overrides. The user's config was backed up before enabling screen.capture;
+Windows is open for explicit Preview actions. No host-window image was requested
+by the agent during installed-service verification.

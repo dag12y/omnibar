@@ -65,6 +65,7 @@ enabled = true
 "clipboard.read" = false
 "clipboard.write" = false
 "audio.control" = true
+# Optional one-shot window preview thumbnails; requires window.manage too.
 "screen.capture" = false
 # Apps: list and explicitly launch installed desktop entries via GIO.
 "process.manage" = false

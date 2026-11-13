@@ -20,9 +20,44 @@ Item {
         target: page
         signalName: "focusRequested"
     }
+    Component {
+        id: previewFactory
+        QtObject {
+            property bool active: true
+            property bool busy: false
+            property string address: ""
+            property string imageSource: ""
+            property string errorText: ""
+            property int requests: 0
+            function request(target) {
+                address = target;
+                requests++;
+            }
+            function clear() {
+                address = "";
+                imageSource = "";
+            }
+        }
+    }
     TestCase {
         name: "WindowPage"
         when: windowShown
+        function test_preview_requires_grant_and_never_switches() {
+            const preview = createTemporaryObject(previewFactory, parent);
+            page.preview = preview;
+            const row = findChild(page, "window-0x2");
+            const button = findChild(row, "previewWindow");
+            verify(!button.enabled);
+            page.snapshot = {
+                windows: page.snapshot.windows,
+                previewsAllowed: true
+            };
+            button.forceActiveFocus();
+            keyClick(Qt.Key_Space);
+            compare(preview.address, "0x2");
+            compare(preview.requests, 1);
+            compare(focusSpy.count, 0);
+        }
         function initTestCase() {
             host.Window.window.width = 420;
             host.Window.window.height = 800;

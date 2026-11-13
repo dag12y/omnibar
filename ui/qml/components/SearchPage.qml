@@ -17,6 +17,7 @@ ColumnLayout {
     property string windowError: ""
     property string appError: ""
     property bool busy: false
+    property var preview: null
     readonly property bool ready: windowState === "ready" || appState === "ready"
     property string selectedKey: ""
     property bool selectionExplicit: false
@@ -199,6 +200,14 @@ ColumnLayout {
         color: Theme.muted
         font.pixelSize: 11
     }
+    Text {
+        Layout.fillWidth: true
+        visible: root.windowState === "ready" && root.windowSnapshot.previewsAllowed !== true
+        text: "Optional previews require screen.capture in your config."
+        wrapMode: Text.WordWrap
+        color: Theme.muted
+        font.pixelSize: 11
+    }
     Repeater {
         model: [
             {
@@ -247,6 +256,7 @@ ColumnLayout {
         delegate: Rectangle {
             id: card
             required property string key
+            required property string target
             required property string kind
             required property string title
             required property string detail
@@ -284,6 +294,12 @@ ColumnLayout {
                     font.pixelSize: 11
                     elide: Text.ElideRight
                 }
+                WindowThumbnail {
+                    controller: root.preview
+                    address: card.kind === "window" ? card.target : ""
+                    Layout.fillWidth: true
+                    onRevealRequested: item => root.highlightRequested(item)
+                }
                 RowLayout {
                     Layout.fillWidth: true
                     Text {
@@ -291,6 +307,18 @@ ColumnLayout {
                         color: Theme.muted
                         font.pixelSize: 10
                         Layout.fillWidth: true
+                    }
+                    PanelButton {
+                        objectName: "searchPreview"
+                        visible: card.kind === "window"
+                        text: "Preview"
+                        description: "Preview " + card.title
+                        enabled: root.preview !== null && root.windowSnapshot.previewsAllowed === true && !root.busy && !root.preview.busy && root.windowState === "ready"
+                        onActiveFocusChanged: if (activeFocus && !root.syncing) {
+                            root.selectionExplicit = true;
+                            root.selectedKey = card.key;
+                        }
+                        onClicked: root.preview.request(card.target)
                     }
                     PanelButton {
                         objectName: "searchAction"

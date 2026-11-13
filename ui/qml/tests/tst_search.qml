@@ -62,9 +62,46 @@ Item {
         target: page
         signalName: "highlightRequested"
     }
+    Component {
+        id: previewFactory
+        QtObject {
+            property bool active: true
+            property bool busy: false
+            property string address: ""
+            property string imageSource: ""
+            property string errorText: ""
+            property int requests: 0
+            function request(target) {
+                address = target;
+                requests++;
+            }
+            function clear() {
+                address = "";
+                imageSource = "";
+            }
+        }
+    }
     TestCase {
         name: "UnifiedSearch"
         when: windowShown
+        function test_preview_is_window_only_and_requires_grant() {
+            const preview = createTemporaryObject(previewFactory, host);
+            page.preview = preview;
+            const windowButton = findChild(findChild(page, "search-window:0x1"), "searchPreview");
+            verify(!windowButton.enabled);
+            page.windowSnapshot = {
+                windows: host.windows,
+                previewsAllowed: true
+            };
+            windowButton.forceActiveFocus();
+            keyClick(Qt.Key_Space);
+            compare(preview.address, "0x1");
+            compare(preview.requests, 1);
+            compare(focused.count, 0);
+            compare(launched.count, 0);
+            const appButton = findChild(findChild(page, "search-app:alpha.desktop"), "searchPreview");
+            verify(!appButton.visible);
+        }
         function initTestCase() {
             host.Window.window.width = 420;
             host.Window.window.height = 800;

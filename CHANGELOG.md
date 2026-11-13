@@ -5,11 +5,16 @@ All notable changes will be documented here.
 ## [Unreleased]
 
 ### Added
+- Optional one-shot window previews in Windows and Search, requiring screen.capture plus window.manage (M27, ADR-0022).
+- Exact toplevel capture on the selected Hyprland instance, bounded in-memory JPEG thumbnails, lifecycle cleanup, and private pixel/UI checks via make e2e-previews.
 - Unified Search for apps and windows, with token matching, running-window priority, explicit Switch/Launch actions, and stable keyboard selection (M26, ADR-0021).
 - Search header button, in-panel Ctrl+K, panel showSearch, and private-compositor launch/focus checks via make e2e-search.
 - Apps page with installed desktop-entry search and explicit GIO launch under `process.manage`; ADR-0020 (M25).
 - XDG precedence/visibility/localization, bounded catalogs, stale-entry rejection, and button/Enter launch with accepted-only dismissal.
 - `panel showApps`, `make e2e-apps`, and Go/QML/private-compositor launch verification.
+
+### Fixed
+- Hyprland subprocess output caps also apply to io.Copy; embedded bytes.Buffer methods can no longer bypass bounded writes.
 
 ### Changed
 - Development version is 0.2.0; GIO (`glib2`) is an explicit runtime dependency.

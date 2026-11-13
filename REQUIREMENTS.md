@@ -264,3 +264,21 @@ Phase 2 adds live system monitoring on top of the Phase 1 foundation and prepare
   query/results on hide. Store no search history and introduce no raw commands.
 - Verify real app launch and exact window focus in a private compositor, plus
   partial permissions, late replies, bounds, keyboard actions, and cache reset.
+
+
+## Window preview increment (implemented)
+
+- Provide explicit single-frame Preview actions for running-window rows in
+  Windows and Search under window.manage plus screen.capture.
+- Capture only the freshly validated target's exact toplevel identifier in the
+  matching compositor; preserve focus/workspace and reject closed/reused targets.
+- Bound capture output, image dimensions/pixels, normalized thumbnail bytes, and
+  RPC time. Keep capture data in memory and omit image caches, saved files,
+  clipboard writes, full-screen fallback, and background frame collection.
+- Start requests only while visible and authorized. Clear frontend image
+  references and pending IDs on hide, page change, permission loss, disconnect,
+  or target removal; discard late frames from already issued requests.
+- Show preview errors without dismissing the panel or changing normal actions.
+  Keep one preview at a time and require another explicit action to refresh it.
+- Verify permission denial, pixel/size/identity bounds, lifecycle disposal, and
+  real UI buttons with synthetic windows in a private compositor.

@@ -18,6 +18,7 @@ import (
 
 const Name = "window_switcher"
 const Capability = "window.manage"
+const PreviewCapability = "screen.capture"
 const MaxWindows = 100
 
 var addressPattern = regexp.MustCompile(`^0x[0-9a-fA-F]{1,16}$`)
@@ -42,20 +43,21 @@ type Driver interface {
 	Focus(context.Context, string) error
 }
 type Module struct {
-	mu       sync.Mutex
-	driver   Driver
-	revision uint64
-	last     Snapshot
+	mu          sync.Mutex
+	driver      Driver
+	revision    uint64
+	last        Snapshot
+	previewGate chan struct{}
 }
 
 func New(driver Driver) *Module {
 	if driver == nil {
 		driver = Hyprland{}
 	}
-	return &Module{driver: driver, revision: 1}
+	return &Module{driver: driver, revision: 1, previewGate: make(chan struct{}, 1)}
 }
 func (m *Module) Info() modules.ModuleInfo {
-	return modules.ModuleInfo{Name: Name, Description: "Switch between running Hyprland windows", Version: "0.1.0", Enabled: true, Capabilities: []string{Capability}}
+	return modules.ModuleInfo{Name: Name, Description: "Switch between running Hyprland windows", Version: "0.1.0", Enabled: true, Capabilities: []string{Capability, PreviewCapability}}
 }
 func (m *Module) Initialize(context.Context) error { return nil }
 func (m *Module) Start(context.Context) error      { return nil }

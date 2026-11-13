@@ -289,3 +289,25 @@ make e2e-search  # private app launch, keyboard selection, and window-focus chec
 ```
 
 See [unified search design](docs/architecture/ADR-0021-unified-search.md).
+
+
+## Window previews (0.2.0 development)
+
+Install `grim` 1.5.0 or newer, enable `"screen.capture" = true` alongside
+`"window.manage" = true` in your existing config, and restart the backend.
+Choose **Preview** on a running-window row in **Windows** or **Search**. A
+snapshot appears inside that row; **×** clears it and Preview refreshes it.
+Only one preview is kept at a time. Capture leaves focus and workspace intact.
+
+Previews use exact-window capture on Hyprland; unsupported or protected targets
+show an error. Images are small JPEG thumbnails held in memory. Opening pages
+or moving selection does not capture frames. Hiding the panel, changing pages,
+disconnecting, or removing the target clears the image. A pending one-shot frame
+can finish after hiding, but its reply is discarded. No image file or history is
+saved. Switching/launching still works independently of preview failures.
+
+```sh
+make e2e-previews  # synthetic off-workspace capture, decoded pixels, and UI checks
+```
+
+See [window preview design](docs/architecture/ADR-0022-window-previews.md).

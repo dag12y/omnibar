@@ -26,3 +26,5 @@ WindowPage 1.0 WindowPage.qml
 AppController 1.0 AppController.qml
 AppPage 1.0 AppPage.qml
 SearchPage 1.0 SearchPage.qml
+PreviewController 1.0 PreviewController.qml
+WindowThumbnail 1.0 WindowThumbnail.qml

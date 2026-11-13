@@ -14,9 +14,14 @@ const maxReplyBytes = 2 * 1024 * 1024
 
 // A bounded writer prevents compositor output from growing backend memory.
 type boundedOutput struct {
-	bytes.Buffer
+	buffer   bytes.Buffer
 	overflow bool
 }
+
+// Do not embed bytes.Buffer: its promoted ReadFrom method would let io.Copy
+// in os/exec bypass the bounded Write implementation.
+func (b *boundedOutput) Len() int      { return b.buffer.Len() }
+func (b *boundedOutput) Bytes() []byte { return b.buffer.Bytes() }
 
 func (b *boundedOutput) Write(data []byte) (int, error) {
 	n := len(data)
@@ -25,7 +30,7 @@ func (b *boundedOutput) Write(data []byte) (int, error) {
 		b.overflow = true
 		data = data[:remaining]
 	}
-	_, _ = b.Buffer.Write(data)
+	_, _ = b.buffer.Write(data)
 	return n, nil
 }
 
@@ -47,6 +52,7 @@ func command(ctx context.Context, args ...string) ([]byte, error) {
 
 type client struct {
 	Address      string `json:"address"`
+	StableID     string `json:"stableId"`
 	Title        string `json:"title"`
 	Class        string `json:"class"`
 	InitialClass string `json:"initialClass"`
@@ -59,6 +65,10 @@ type client struct {
 	AcceptsInput *bool `json:"acceptsInput"`
 }
 
+func (c client) eligible() bool {
+	return c.Mapped && !c.Hidden && (c.AcceptsInput == nil || *c.AcceptsInput) && c.Workspace.Name != "special" && !strings.HasPrefix(c.Workspace.Name, "special:")
+}
+
 func parseClients(data []byte) ([]Window, error) {
 	var clients []client
 	if json.Unmarshal(data, &clients) != nil || bytes.Equal(bytes.TrimSpace(data), []byte("null")) {
@@ -66,7 +76,7 @@ func parseClients(data []byte) ([]Window, error) {
 	}
 	result := make([]Window, 0, len(clients))
 	for _, c := range clients {
-		if !c.Mapped || c.Hidden || (c.AcceptsInput != nil && !*c.AcceptsInput) || (c.Workspace.Name == "special" || strings.HasPrefix(c.Workspace.Name, "special:")) {
+		if !c.eligible() {
 			continue
 		}
 		if c.Class == "" {

@@ -2,7 +2,7 @@
 
 pkgname=omnibar
 pkgver=0.2.0
-pkgrel=2
+pkgrel=3
 pkgdesc='Modular desktop utility suite for Omarchy: Go backend with a Quickshell UI'
 arch=('x86_64' 'aarch64')
 url='https://github.com/dag12y/omnibar'
@@ -18,7 +18,7 @@ depends=(
   'qt6-declarative'
   'quickshell'
 )
-optdepends=('hyprland: running-window switcher via hyprctl')
+optdepends=('hyprland: running-window switcher via hyprctl' 'grim>=1.5.0: exact-window preview thumbnails')
 makedepends=('go')
 options=('!debug')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
