@@ -27,6 +27,7 @@ import (
 	"omnibar/internal/modules/keepawake"
 	"omnibar/internal/modules/notes"
 	"omnibar/internal/modules/systemmonitor"
+	"omnibar/internal/modules/timers"
 	"omnibar/internal/modules/windows"
 )
 
@@ -188,6 +189,14 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 	if err := registry.Register(scratchpad); err != nil {
 		return nil, fmt.Errorf("register notes: %w", err)
 	}
+	var timerStore timers.Store
+	if cfg.Permissions[timers.Capability] {
+		timerStore = timers.DefaultStore()
+	}
+	countdowns := timers.New(timerStore, nil, nil, hub)
+	if err := registry.Register(countdowns); err != nil {
+		return nil, fmt.Errorf("register timers: %w", err)
+	}
 	for name := range cfg.Modules {
 		if _, ok := registry.Info(name); !ok {
 			logger.Warn("configuration references unknown module", "module", name)
@@ -226,6 +235,7 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 	ipc.RegisterWindowMethods(dispatcher, registry, switcher)
 	ipc.RegisterAppMethods(dispatcher, registry, launcher)
 	ipc.RegisterNoteMethods(dispatcher, registry, scratchpad)
+	ipc.RegisterTimerMethods(dispatcher, registry, countdowns)
 
 	// Resolve IPC socket path.
 	socketPath, err := ipc.SocketPath()

@@ -5,6 +5,12 @@ All notable changes will be documented here.
 ## [Unreleased]
 
 ### Added
+- Durable named countdowns with 5/15/25/60-minute presets, custom durations,
+  Pause/Resume/Cancel/Dismiss, private storage, and compact panel indicator (M31).
+- Suspend-aware boot-clock deadlines, same/new-boot restart recovery, bounded
+  completion history, explicit timers.manage grant, and private alert verification.
+- At-most-once desktop notification attempts after durable completion; unavailable
+  alerts remain visible as completed timers. No hidden UI polling or idle writes.
 - Scratchpad Notes page with local autosave, title/body search, pinning, exact
   saved-text copying, confirmed deletion, and restart persistence (M30, ADR-0025).
 - Dedicated notes.manage gate, bounded private atomic storage, revision conflict

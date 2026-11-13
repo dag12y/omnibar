@@ -373,3 +373,32 @@ hidden, a pending save can finish; ordinary note refreshes stop while hidden.
 
 Use `panel showNotes` through Quickshell IPC to open this page directly.
 See [Scratchpad design](docs/architecture/ADR-0025-scratchpad.md).
+
+
+## Timers (0.3.0 development)
+
+Open **Timers**, enter an optional name, and click **5m**, **15m**, **25m**, or
+**60m** to start. For a custom countdown, set minutes and seconds and choose
+**Start**. Pause/resume a running timer, **Cancel** an unfinished one, or
+**Dismiss** a completion. The Timers button shows unfinished and completed counts.
+
+Enable `"timers.manage" = true` in your existing `[permissions]` config and
+restart the backend. The grant covers Omnibar's private timer storage and
+completion alerts. It is off in the example. No arbitrary filesystem or power
+inhibition permission is needed. State lives at
+`$XDG_DATA_HOME/omnibar/timers.json` (default `~/.local/share/omnibar/timers.json`).
+
+Timers continue with the panel hidden and survive UI/backend restarts. Sleep
+counts toward a running timer; it does not wake your computer, and alerts arrive
+after wake. Clock changes during the same boot do not change the countdown.
+After reboot, recovery uses the saved UTC deadline and the system clock. Paused
+timers keep their remaining time. Limits are 1 second–24 hours, 10 unfinished
+timers, and the latest 20 completions.
+
+Completion appears in Omnibar and requests one desktop notification. A missing
+notification service does not lose completion. Alerts are not retried after a
+restart; a crash during delivery may miss an alert, while the completion stays
+saved. Corrupt or unsafe timer data is preserved and its error shown.
+
+`panel showTimers` opens the page through Quickshell IPC. See
+[timer design](docs/architecture/ADR-0026-timers.md).

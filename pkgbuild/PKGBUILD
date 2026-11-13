@@ -2,7 +2,7 @@
 
 pkgname=omnibar
 pkgver=0.3.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Modular desktop utility suite for Omarchy: Go backend with a Quickshell UI'
 arch=('x86_64' 'aarch64')
 url='https://github.com/dag12y/omnibar'

@@ -5,7 +5,7 @@
 Quick productivity: Scratchpad, Timers, expanded Search, and navigation/settings,
 followed by stabilization and release verification (M30–M35). See the
 [detailed v0.3.0 plan](docs/planning/v0.3.0.md) for scope, sequence, completion
-criteria, and deferred work. M30 Scratchpad is implemented; M31 Timers is next.
+criteria, and deferred work. M30 Scratchpad and M31 Timers are implemented; M32 expanded Search is next.
 
 ## Phase 0 - Planning
 - [ ] Research Vorssaint features
@@ -64,6 +64,7 @@ System monitoring suite: event delivery, resource metrics, UI cards, and the v0.
 - [x] Quick panel: keyboard navigation, screen-aware scrolling, and System/Audio/Windows/Clipboard/Files pages
 - [x] App/window command bar: unified search and explicit Switch/Launch (M26)
 - [x] Scratchpad: local notes, autosave, search, pinning, and copy (M30)
+- [x] Countdown timers: presets/custom durations, pause/resume, durable completions (M31)
 - [x] Keep awake: timed logind/Wayland inhibition with countdown and Stop
 - [ ] Color picker
 - [ ] OCR and QR reader
@@ -88,7 +89,7 @@ System monitoring suite: event delivery, resource metrics, UI cards, and the v0.
 - [ ] Music controls
 - [ ] Notifications
 - [ ] Calendar
-- [ ] Timers
+- [ ] Dynamic Island timer display
 - [ ] Download progress
 - [ ] AI agent monitoring
 

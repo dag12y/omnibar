@@ -326,3 +326,19 @@ Phase 2 adds live system monitoring on top of the Phase 1 foundation and prepare
   Saving/Saved/Unsaved; require confirmation before reload/discard and deletion.
 - Verify real editor autosave, hidden saves, UI/backend restart, pin/copy/search,
   permission denial, corruption preservation, and package lifecycle data retention.
+
+
+## Countdown timer increment (M31)
+
+- Start named preset/custom timers, pause/resume, cancel unfinished timers, and
+  dismiss completions under timers.manage, with validated IDs/revisions.
+- Persist private bounded timer data atomically, acknowledging changes only after
+  storage succeeds. Keep previous state after failure and preserve corrupt data.
+- Use suspend-aware monotonic deadlines within a boot; recover deadlines across
+  backend restart and from UTC after reboot, with original-duration clamping.
+- Persist completion before one notification attempt; retain completion when the
+  desktop service is missing and prevent alert replay after crashes/restarts.
+- Bound 10 unfinished and 20 completed timers; avoid per-second writes, idle
+  workers, hidden UI polling, sleep inhibition, and automatic service activation.
+- Verify clocks/suspend/restarts through a test clock, failure and permission
+  behavior, live page actions, hidden expiry, and isolated notification delivery.

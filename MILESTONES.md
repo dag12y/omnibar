@@ -1146,3 +1146,47 @@ This is a development build, not a published v0.3.0 release. M31–M35 remain
 planned; latest published release is still v0.2.0. aarch64, physical reboot, and
 fresh-machine installation were not tested. Logs are local under
 `/tmp/omnibar-m30-*` and `/tmp/omnibar-notes-*`.
+
+
+## M31 — Countdown timers (implemented)
+
+Adds named presets/custom durations, Pause/Resume/Cancel/Dismiss, stable timer
+rows, and an event-driven compact navigation indicator. timers.manage covers
+only app-owned storage and explicit completion alerts. Private atomic state is
+bounded to 10 unfinished/20 completed timers and 64 KiB. Boot-clock deadlines
+include suspend and ignore wall-clock jumps; same-boot restart keeps them, while
+reboot recovery uses UTC with duration clamping. Paused time is preserved.
+Completion is persisted before a single notification attempt; unavailable alerts
+remain completed. No hidden UI polling, idle timer worker, periodic disk write,
+sleep inhibitor, or host notification service activation is introduced. See
+[ADR-0026](docs/architecture/ADR-0026-timers.md) for delivery guarantees and limits.
+
+Verification includes test-clock jumps/suspend/reboots, stale revisions,
+idempotent Start, private/corrupt storage, rollback, completion retention,
+notification failures/no replay, and shutdown cancellation. The private desktop
+harness exercises real buttons and custom seconds, hidden expiry, UI/backend
+restart, offline expiry, paused recovery, escaped alert delivery, and absent
+notification service on an isolated bus. Package/install verification follows.
+
+
+M31 final verification: Go vet/race checks and all 185 QML tests passed. Notes,
+layouts/controls, previews, Search, and UI reconnect regressions passed. The exact
+0.3.0-2 working-tree package passed private timer UI/alert tests and extracted UI
+smoke, plus full-payload install/upgrade/reinstall/downgrade/remove/reinstall
+checks against 0.3.0-1. Synthetic notes, timers, favorites, layouts, config, and
+state preserved contents and modes. All alert tests used an isolated session
+bus with host activation disabled. No host timer or notification was created.
+
+Installed locally as 0.3.0-2: 63 files, zero alterations, active packaged service,
+no overrides, running binary matching `/usr/bin/omnibar`, Timers page open,
+and no timer/note storage errors. The config was backed up before enabling only
+timers.manage. The old panel was hidden to allow pending note saves before the
+UI/package upgrade. Host verification queried metadata/counts only.
+
+Development package SHA-256:
+`8d0b3fb3be9fdadbc6ca6407cbb478535f20cab981c81023bc834fb8514c2464`.
+ARM64 timer-package compilation passed; ARM64 runtime, physical suspend/reboot,
+and a fresh-machine installation were not tested. Clock/suspend/reboot behavior
+was exercised through the injected clock and private backend restart tests.
+M32–M35 remain planned; v0.2.0 is still the latest published release. Logs are
+local under `/tmp/omnibar-m31-*` and `/tmp/omnibar-timers-*`.

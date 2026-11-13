@@ -86,6 +86,12 @@ ShellRoot {
         client: client
         active: root.opened && root.page === "files"
     }
+    TimerController {
+        id: timers
+        client: client
+        active: root.opened
+        pageActive: root.page === "timers"
+    }
     NotesController {
         id: notes
         client: client
@@ -142,6 +148,10 @@ ShellRoot {
         function showSearch(): void {
             root.openSearch();
         }
+        function showTimers(): void {
+            root.page = "timers";
+            root.opened = true;
+        }
         function showNotes(): void {
             root.page = "notes";
             root.opened = true;
@@ -174,7 +184,7 @@ ShellRoot {
             root.opened = true;
         }
         function selectPage(name: string): void {
-            if (name === "system" || name === "audio" || name === "clipboard" || name === "files" || name === "windows" || name === "apps" || name === "search" || name === "notes")
+            if (name === "system" || name === "audio" || name === "clipboard" || name === "files" || name === "windows" || name === "apps" || name === "search" || name === "notes" || name === "timers")
                 root.page = name;
         }
         function hide(): void {
@@ -334,6 +344,19 @@ ShellRoot {
                                 description: "Open Scratchpad"
                                 onClicked: root.page = "notes"
                             }
+                            PanelButton {
+                                objectName: "timerIndicator"
+                                text: timers.indicator
+                                selected: root.page === "timers"
+                                description: "Timers: " + (timers.snapshot.running || 0) + " running, " + (timers.snapshot.paused || 0) + " paused, " + (timers.snapshot.completed || 0) + " completed"
+                                onClicked: root.page = "timers"
+                            }
+                        }
+                        TimerPage {
+                            visible: root.page === "timers"
+                            Layout.fillWidth: true
+                            controller: timers
+                            onRevealRequested: item => root.revealItem(item)
                         }
                         NotesPage {
                             visible: root.page === "notes"

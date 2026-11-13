@@ -8,6 +8,7 @@ Item {
     required property string methodPrefix
     property string displayName: "Module"
     property int pollInterval: 1000
+    property bool pollingEnabled: true
     property int requestTimeout: 8000
     property var emptySnapshot: ({
             entries: []
@@ -26,7 +27,7 @@ Item {
         revision = -1;
     }
     function request(method, params) {
-        if (!active || !client.handshakeComplete || !client.socket.connected)
+        if (!active || !client || !client.handshakeComplete || !client.socket.connected)
             return;
         if (busy) {
             if (method !== (root.methodPrefix + ".getSnapshot"))
@@ -50,6 +51,7 @@ Item {
         client.socket.flush();
         timeout.restart();
     }
+    Component.onCompleted: if (active && pendingId < 0) request(methodPrefix + ".getSnapshot")
     onActiveChanged: {
         if (active) {
             state = "pending";
@@ -65,7 +67,7 @@ Item {
     Timer {
         interval: root.pollInterval
         repeat: true
-        running: root.active && root.client.backendConnected && root.state !== "denied" && root.state !== "disabled"
+        running: root.active && root.pollingEnabled && root.client && root.client.backendConnected && root.state !== "denied" && root.state !== "disabled"
         onTriggered: root.request((root.methodPrefix + ".getSnapshot"))
     }
     Timer {
@@ -99,7 +101,7 @@ Item {
         }
         function onMessageReceived(message) {
             const parsed = Protocol.classify(message);
-            if (parsed.kind !== "response" || parsed.id !== root.pendingId)
+            if (root.pendingId < 0 || parsed.kind !== "response" || parsed.id !== root.pendingId)
                 return;
             const method = root.pendingMethod;
             root.pendingId = -1;

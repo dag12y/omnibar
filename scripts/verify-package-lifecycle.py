@@ -53,6 +53,7 @@ def main():
         for relative, contents in {
             ".config/omnibar/config.toml": 'config_version = 1\n',
             ".local/share/omnibar/clipboard-favorites.json": '[]\n',
+            ".local/share/omnibar/timers.json": '{"version":1,"revision":1,"bootId":"","timers":[]}\n',
             ".local/share/omnibar/notes.json": '{"version":1,"revision":1,"notes":[]}\n',
             ".local/share/omnibar/window-layouts.json": '{"version":1,"layouts":[]}\n',
             ".local/state/omnibar/sentinel": 'preserve state\n',

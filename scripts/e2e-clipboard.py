@@ -13,6 +13,7 @@ import signal
 import socket
 import subprocess
 import tempfile
+import sys
 import time
 
 
@@ -27,7 +28,11 @@ def main():
     parser.add_argument("--controls", action="store_true", help="verify exact window controls in a private Lua compositor")
     parser.add_argument("--layouts", action="store_true", help="verify saved workspace arrangements and restart persistence")
     parser.add_argument("--notes", action="store_true", help="verify Scratchpad editor and private restart persistence")
+    parser.add_argument("--timers", action="store_true", help="verify countdowns and alerts on a private notification bus")
     args = parser.parse_args()
+    if args.timers and os.environ.get("OMNIBAR_TIMERS_TEST_BUS") != "1":
+        result = subprocess.run(["dbus-run-session", "--config-file=" + str(Path(__file__).resolve().parent / "fixtures/timer-bus.conf"), "--", sys.executable, str(Path(__file__).resolve()), *sys.argv[1:]], env=dict(os.environ, OMNIBAR_TIMERS_TEST_BUS="1"))
+        raise SystemExit(result.returncode)
     if args.layouts:
         args.controls = True
     if args.controls:
@@ -45,6 +50,8 @@ def main():
     config = (root / "config/config.toml.example").read_text()
     config = config.replace('"clipboard.read" = false', '"clipboard.read" = true')
     config = config.replace('"clipboard.write" = false', '"clipboard.write" = true')
+    if args.timers:
+        config = config.replace('"timers.manage" = false', '"timers.manage" = true')
     if args.notes:
         config = config.replace('"notes.manage" = false', '"notes.manage" = true')
     if args.shelf:
@@ -164,6 +171,11 @@ def main():
         wait_until(lambda: bool(list((trial / "run/hypr").glob("*/hyprland.lock"))), "private Hyprland instance was not registered")
         instance_lock = next((trial / "run/hypr").glob("*/hyprland.lock"))
         env["HYPRLAND_INSTANCE_SIGNATURE"] = instance_lock.parent.name
+        if args.timers:
+            env["OMNIBAR_TIMER_ALERT_LOG"] = str(trial / "timer-alerts.jsonl")
+            alerts_file = trial / "timer-alerts.jsonl"
+            notification_stub = launch("notifications", sys.executable, str(root / "scripts/fixtures/timer-notifications.py"))
+            wait_until(lambda: alerts_file.with_suffix(".ready").exists(), "private notification service did not start")
         backend = launch("backend", binary)
         path = trial / "run/omnibar/omnibar.sock"
         wait_until(path.exists, "backend did not start")
@@ -268,6 +280,53 @@ def main():
             assert rpc("shelf.getSnapshot")["entries"][0]["available"]
             subprocess.run(["quickshell", "-p", qml, "ipc", "call", "--", "panel", "showFiles"], env=env, check=True, stdout=subprocess.DEVNULL)
             print("PASS: File shelf URL batch/dedup, real copy-path, recorded folder opener, unavailable/recovery, and real Files page")
+        if args.timers:
+            def timer_snapshot(): return rpc("timers.getSnapshot")
+            def timer(timer_id): return next(t for t in timer_snapshot()["timers"] if t["id"] == timer_id)
+            def show_timers():
+                subprocess.run(["quickshell","-p",qml,"ipc","call","--","panel","hide"],env=env,check=True,stdout=subprocess.DEVNULL)
+                subprocess.run(["quickshell","-p",qml,"ipc","call","--","panel","showTimers"],env=env,check=True,stdout=subprocess.DEVNULL)
+                time.sleep(0.4)
+            def press_tabs(count): subprocess.run(["wtype", *(["-k","Tab"]*count), "-k","space"],env=env,check=True)
+            show_timers()
+            subprocess.run(["wtype","UI timer","-k","Tab","-k","space"],env=env,check=True)
+            wait_until(lambda: timer_snapshot()["running"] == 1,"real preset did not start")
+            initial=timer_snapshot()["timers"][0]
+            assert initial["seconds"]==300 and initial["name"]=="UI timer"
+            timer_file=trial/"data/omnibar/timers.json"
+            assert timer_file.stat().st_mode & 0o777 == 0o600
+            show_timers();press_tabs(8)
+            wait_until(lambda: timer_snapshot()["paused"] == 1,"real Pause did not update timer")
+            paused_file=timer_file.read_bytes()
+            time.sleep(1.1)
+            assert timer_file.read_bytes()==paused_file,"idle countdown polling rewrote timer data"
+            show_timers();press_tabs(8)
+            wait_until(lambda: timer_snapshot()["running"] == 1,"real Resume did not update timer")
+            show_timers();press_tabs(9)
+            wait_until(lambda: not timer_snapshot()["timers"],"real Cancel did not remove timer")
+            # Start a short timer through the custom duration controls.
+            show_timers()
+            subprocess.run(["wtype","-M","ctrl","-k","a","-m","ctrl","<Tea & chill>",*(["-k","Tab"]*5),"-M","ctrl","-k","a","-m","ctrl","0","-k","Tab","-M","ctrl","-k","a","-m","ctrl","3","-k","Tab","-k","space"],env=env,check=True)
+            wait_until(lambda: timer_snapshot()["running"]==1,"real custom timer did not start")
+            short_id=timer_snapshot()["timers"][0]["id"]
+            assert timer(short_id)["seconds"]==3
+            subprocess.run(["quickshell","-p",qml,"ipc","call","--","panel","hide"],env=env,check=True,stdout=subprocess.DEVNULL)
+            wait_until(lambda: timer_snapshot()["completed"]==1,"hidden timer did not complete")
+            wait_until(lambda: alerts_file.exists() and len(alerts_file.read_text().splitlines())==1,"completion did not request private notification")
+            notification=json.loads(alerts_file.read_text().splitlines()[0])
+            assert notification["app"]=="Omnibar" and notification["summary"]=="Timer finished" and notification["body"]=="&lt;Tea &amp; chill&gt;"
+            stop(ui);ui=launch("ui","quickshell","-p",qml);time.sleep(0.5);show_timers()
+            if args.capture:
+                time.sleep(0.3)
+                subprocess.run(["grim",str(trial/"timers.png")],env=env,check=True)
+            # Existing completion must survive UI restart with no second alert.
+            assert timer(short_id)["state"]=="completed" and len(alerts_file.read_text().splitlines())==1
+            press_tabs(8)
+            wait_until(lambda: not timer_snapshot()["timers"],"real Dismiss did not remove completion")
+            running=rpc("timers.start",dict(name="Restart running",seconds=60))["timers"][0]
+            paused=rpc("timers.start",dict(name="Restart paused",seconds=120))["timers"][0]
+            paused=next(t for t in rpc("timers.pause",dict(id=paused["id"],revision=paused["revision"]))["timers"] if t["id"]==paused["id"])
+            print("PASS: real preset/custom Start, Pause/Resume/Cancel/Dismiss, hidden expiry, escaped private alert, UI restart, and no idle disk writes")
         if args.notes:
             rpc("clipboard.setCollecting",dict(collecting=False))
             subprocess.run(["quickshell","-p",qml,"ipc","call","--","panel","showNotes"],env=env,check=True,stdout=subprocess.DEVNULL)
@@ -543,8 +602,11 @@ def main():
             # Keep the clipboard assertion for the existing history lifecycle test.
             copy("Copied while the panel is hidden")
             print("PASS: Clear shelf preserves originals; session shelf seeded for restart")
+        if args.timers:
+            rpc("timers.start",dict(name="Offline finished",seconds=1))
         backend.send_signal(signal.SIGTERM)
         backend.wait(timeout=5)
+        if args.timers: time.sleep(1.2)
         stream.close(); stream = None
         conn.close(); conn = None
         assert paste() == "Copied while the panel is hidden"
@@ -570,6 +632,25 @@ def main():
             rpc("notes.delete",dict(id=note_id,revision=persisted["revision"]))
             assert not json.loads(notes_file.read_text())["notes"]
             print("PASS: backend restart retains note text/pin/revision; stale edits rejected and deletion persisted")
+        if args.timers:
+            saved=timer_snapshot()
+            assert timer(running["id"])["state"]=="running"
+            paused_after=timer(paused["id"])
+            assert paused_after["state"]=="paused" and paused_after["remainingMs"]==paused["remainingMs"]
+            wait_until(lambda: timer_snapshot()["completed"]==1,"offline elapsed timer did not complete on restart")
+            wait_until(lambda: len(alerts_file.read_text().splitlines())==2,"offline completion did not alert once")
+            saved=timer_snapshot()
+            assert next(t for t in saved["timers"] if t["state"]=="completed")["name"]=="Offline finished"
+            for t in saved["timers"]: rpc("timers.dismiss" if t["state"]=="completed" else "timers.cancel",dict(id=t["id"],revision=t["revision"]))
+            # Notification service loss still leaves durable completion.
+            stop(notification_stub)
+            rpc("timers.start",dict(name="Unavailable alert",seconds=1))
+            wait_until(lambda: timer_snapshot()["completed"]==1,"notification loss lost completion")
+            wait_until(lambda: timer_snapshot()["timers"][0].get("notification")=="unavailable","notification failure not surfaced")
+            completed=timer_snapshot()["timers"][0]
+            rpc("timers.dismiss",dict(id=completed["id"],revision=completed["revision"]))
+            assert not json.loads(timer_file.read_text())["timers"]
+            print("PASS: backend restart retains running/paused deadlines, alerts do not replay, and missing notification service retains completion")
         restored = snapshot()
         assert not restored["collecting"] and len(restored["entries"]) == 1
         assert restored["entries"][0]["text"] == saved_text and restored["entries"][0]["favorite"]

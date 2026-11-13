@@ -368,7 +368,7 @@ Item {
         const plan = Protocol.subscriptionPlan(modules)
         for (let i = 0; i < plan.length; i++) {
             const module = plan[i]
-            if (module === "audio" || module === "clipboard" || module === "file_shelf" || module === "window_switcher" || module === "application_launcher" || module === "notes") continue
+            if (module === "audio" || module === "clipboard" || module === "file_shelf" || module === "window_switcher" || module === "application_launcher" || module === "notes" || module === "timers") continue
             if (module === "system_monitor" && !monitoringActive) continue
             const requestId = nextRequestId++
 

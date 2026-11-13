@@ -535,3 +535,21 @@ edit, deletes persistently, and verifies denied/corrupt storage behavior.
 editor. Go/RPC/QML tests cover storage failures, encoded bounds, conflicts,
 concurrent edits, dirty drafts, and lost acknowledgments. `panel showNotes`
 opens Notes directly. No host note text or clipboard contents are inspected.
+
+
+## Timers
+
+`make e2e-timers` creates synthetic timers in a nested compositor with private
+XDG data and a private D-Bus daemon. Its configuration has no service directories,
+so host desktop services cannot be activated. A Python D-Bus stub records alerts;
+this development check requires dbus-python and PyGObject, in addition to the
+existing nested-compositor dependencies. They are not app runtime dependencies.
+
+The check drives Start, Pause, Resume, Cancel, custom seconds, and Dismiss;
+verifies hidden completion, escaped notification content, UI/backend restart,
+offline expiry, paused recovery, no periodic file writes, and missing-service
+completion. Add `--capture` to the script's `--timers` invocation for a private
+page image. OMNIBAR_BIN/OMNIBAR_SHELL_QML overrides test an extracted package.
+Go tests cover boot clocks, wall-clock jumps, failures, bounds, stale commands,
+alert claims/replay, and shutdown cancellation. No host timer or notification is
+created by the verification harness. `panel showTimers` opens Timers directly.

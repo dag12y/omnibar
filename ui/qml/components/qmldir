@@ -32,3 +32,5 @@ WindowControls 1.0 WindowControls.qml
 LayoutPanel 1.0 LayoutPanel.qml
 NotesController 1.0 NotesController.qml
 NotesPage 1.0 NotesPage.qml
+TimerController 1.0 TimerController.qml
+TimerPage 1.0 TimerPage.qml
