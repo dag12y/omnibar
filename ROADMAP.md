@@ -94,8 +94,8 @@ System monitoring suite: event delivery, resource metrics, UI cards, and the v0.
 - [ ] Workspace manager
 
 ## Phase 11 - Distribution
-- [ ] Package and release integration
+- [x] Arch package build, lifecycle verification, and release integration
 - [ ] Module ecosystem
-- [ ] GitHub releases
-- [ ] Installation documentation
+- [x] GitHub releases (v0.1.0, v0.2.0)
+- [x] Installation, upgrade, rollback, and uninstall documentation
 - [ ] Stable release

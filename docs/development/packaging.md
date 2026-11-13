@@ -259,3 +259,13 @@ restart the backend/UI to load the new RPC and controls. The standalone Windows
 and Search pages expose Preview per running window; there is no automatic
 capture on startup or page navigation and no image storage directory. The
 private `make e2e-previews` check also needs ImageMagick to verify fixture pixels.
+
+
+### v0.2.0 release (package release 4)
+
+M28/M29 add exact window controls and saved arrangements under window.manage.
+Layouts persist only on explicit Save in the user's XDG data directory; package
+transactions preserve that directory. The lifecycle check includes layout file
+contents and permissions. Targeted maximization requires Lua Hyprland support.
+The [v0.2.0 verification record](../releases/v0.2.0-verification.md) identifies
+the tag source, final x86_64 package, and tested install/rollback behavior.

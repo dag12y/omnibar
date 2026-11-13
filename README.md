@@ -30,8 +30,8 @@ Timed Keep Awake, an audio mixer, microphone controls, and session clipboard
 history with saved favorites are also implemented. System, Audio, and Clipboard
 share the same panel alongside a session File shelf and a Hyprland window
 switcher, app launcher, unified search, optional previews, exact window controls,
-and saved workspace layouts. The v0.2.0 release candidate is under verification;
-[v0.1.0 remains available](https://github.com/dag12y/omnibar/releases/tag/v0.1.0).
+and saved workspace layouts. [v0.2.0 is available](https://github.com/dag12y/omnibar/releases/tag/v0.2.0),
+with [release verification](docs/releases/v0.2.0-verification.md) for x86_64.
 
 Run the backend with `make run` and launch the panel with
 `quickshell -n -p ui/qml/shell.qml`. Click the CPU or memory card for details.
@@ -268,7 +268,7 @@ make e2e-apps  # real GUI launches using synthetic entries in a private composit
 See [application launcher design](docs/architecture/ADR-0020-application-launcher.md).
 
 
-## Unified search (0.2.0 development)
+## Unified search (0.2.0)
 
 Choose **Search** in the panel header, or press **Ctrl+K** while the panel has
 keyboard focus. Type app names, window titles, descriptions, keywords, or
@@ -292,7 +292,7 @@ make e2e-search  # private app launch, keyboard selection, and window-focus chec
 See [unified search design](docs/architecture/ADR-0021-unified-search.md).
 
 
-## Window previews (0.2.0 development)
+## Window previews (0.2.0)
 
 Install `grim` 1.5.0 or newer, enable `"screen.capture" = true` alongside
 `"window.manage" = true` in your existing config, and restart the backend.
@@ -314,7 +314,7 @@ make e2e-previews  # synthetic off-workspace capture, decoded pixels, and UI che
 See [window preview design](docs/architecture/ADR-0022-window-previews.md).
 
 
-## Window controls (0.2.0 development)
+## Window controls (0.2.0)
 
 Open **Windows → Controls** on a window. **Float/Tile** changes its mode,
 **Maximize/Restore size** changes maximization, and **Move** sends it to the

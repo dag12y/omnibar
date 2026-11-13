@@ -1096,3 +1096,13 @@ missing-window rejection/deletion. Private previews/search/apps/shelf/audio,
 UI reconnect, and Keep Awake regressions passed. Expanded controls scroll into
 view on small displays. Release package verification is recorded in
 [the v0.2.0 verification record](docs/releases/v0.2.0-verification.md).
+
+
+## v0.2.0 release (complete)
+
+Apps, unified Search, optional previews, exact window controls, and saved
+arrangements are published in v0.2.0. The exact tag-source x86_64 package passed
+build/check, extracted UI, and full-payload lifecycle verification and is
+installed locally as 0.2.0-4 with 59 files and zero alterations. All uploaded
+asset hashes match local files. See the release verification record for evidence
+and platform limits. The next feature remains a separate roadmap decision.
