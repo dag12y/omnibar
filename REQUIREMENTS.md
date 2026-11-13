@@ -310,3 +310,19 @@ Phase 2 adds live system monitoring on top of the Phase 1 foundation and prepare
   report partial failure honestly, and keep the panel open.
 - Verify grants, matching, persistence, private files, partial failures, restart,
   and real Save/Restore UI behavior in a private compositor.
+
+
+## Scratchpad increment (M30)
+
+- Create, rename, edit, pin, search, copy, and confirm deletion of plain-text notes.
+- Use notes.manage for app-owned data, plus clipboard.write for exact saved-text
+  copying; denied/disabled notes must not load private storage.
+- Bound count, UTF-8 text, title bytes, encoded storage, and snapshot payloads.
+- Save atomically with private file/directory permissions; preserve corrupt and
+  unsafe files and roll back memory after failed persistence.
+- Require expected revisions for mutation/copy, reject stale clients, keep dirty
+  drafts across hide/disconnect/failure, and never replace edits with late loads.
+- Reconcile uncertain save acknowledgments before retrying. Clearly distinguish
+  Saving/Saved/Unsaved; require confirmation before reload/discard and deletion.
+- Verify real editor autosave, hidden saves, UI/backend restart, pin/copy/search,
+  permission denial, corruption preservation, and package lifecycle data retention.

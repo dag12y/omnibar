@@ -25,6 +25,7 @@ import (
 	"omnibar/internal/modules/core"
 	"omnibar/internal/modules/fileshelf"
 	"omnibar/internal/modules/keepawake"
+	"omnibar/internal/modules/notes"
 	"omnibar/internal/modules/systemmonitor"
 	"omnibar/internal/modules/windows"
 )
@@ -179,6 +180,14 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 	if err := registry.Register(launcher); err != nil {
 		return nil, fmt.Errorf("register application launcher: %w", err)
 	}
+	var noteStore notes.Store
+	if cfg.Permissions[notes.Capability] {
+		noteStore = notes.DefaultStore()
+	}
+	scratchpad := notes.New(noteStore, nil)
+	if err := registry.Register(scratchpad); err != nil {
+		return nil, fmt.Errorf("register notes: %w", err)
+	}
 	for name := range cfg.Modules {
 		if _, ok := registry.Info(name); !ok {
 			logger.Warn("configuration references unknown module", "module", name)
@@ -216,6 +225,7 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 	ipc.RegisterFileShelfMethods(dispatcher, registry, shelf)
 	ipc.RegisterWindowMethods(dispatcher, registry, switcher)
 	ipc.RegisterAppMethods(dispatcher, registry, launcher)
+	ipc.RegisterNoteMethods(dispatcher, registry, scratchpad)
 
 	// Resolve IPC socket path.
 	socketPath, err := ipc.SocketPath()

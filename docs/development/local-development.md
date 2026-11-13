@@ -523,3 +523,15 @@ restart persistence without automatic application, missing-window rejection,
 and deletion. Unit/RPC/QML checks cover permission denial, ambiguous matches,
 monitor changes, private/corrupt storage, bounded writes, concurrent restores,
 and responsive snapshot reads. See ADR-0024 for RPC parameters and limitations.
+
+
+## Scratchpad
+
+`make e2e-notes` uses private XDG data and a nested compositor. It edits a real
+note, verifies autosave, pins and copies exact saved text, restarts the UI,
+reopens the note, hides during debounce, restarts the backend, rejects a stale
+edit, deletes persistently, and verifies denied/corrupt storage behavior.
+`python3 scripts/e2e-clipboard.py --notes --capture` also captures the synthetic
+editor. Go/RPC/QML tests cover storage failures, encoded bounds, conflicts,
+concurrent edits, dirty drafts, and lost acknowledgments. `panel showNotes`
+opens Notes directly. No host note text or clipboard contents are inspected.

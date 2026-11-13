@@ -348,3 +348,28 @@ preserved and its error shown. Floating geometry is restored only with the same
 monitor arrangement. Exact background maximize/restore requires Lua Hyprland.
 
 See [layout design](docs/architecture/ADR-0024-window-layouts.md).
+
+
+## Scratchpad (0.3.0 development)
+
+Open **Notes**, choose **New note**, and type a title and plain text. Omnibar
+autosaves after a short typing pause; wait for **Saved** before closing the UI
+process. Notes survive panel close and backend/UI restarts once saved. **Pin**
+keeps a note at the top, **Copy** copies its saved text, and **Delete** asks for
+confirmation. Search matches titles and text; Ctrl+F focuses note search.
+
+Enable `"notes.manage" = true` in your existing `[permissions]` config and restart
+the backend. Copy also requires `clipboard.write`. The example leaves Notes
+permission off. Notes use private unencrypted JSON at
+`$XDG_DATA_HOME/omnibar/notes.json` (default `~/.local/share/omnibar/notes.json`).
+Limits are 100 notes, 32 KiB text per note, 128-byte titles, and 2 MiB encoded data.
+No arbitrary filesystem permission or network access is needed.
+
+Save errors and conflicts keep your draft in this UI. **Retry** checks the saved
+revision; **Save as new** preserves a conflicting draft as another note; **Reload
+saved** asks before discarding edits. Unsaved changes cannot survive a UI process
+crash. Corrupt data is preserved rather than replaced. If the Notes page is
+hidden, a pending save can finish; ordinary note refreshes stop while hidden.
+
+Use `panel showNotes` through Quickshell IPC to open this page directly.
+See [Scratchpad design](docs/architecture/ADR-0025-scratchpad.md).

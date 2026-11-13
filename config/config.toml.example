@@ -45,6 +45,9 @@ enabled = true
 [modules.application_launcher]
 enabled = true
 
+[modules.notes]
+enabled = true
+
 # Permissions granted to modules.
 #
 # Permissions are quoted dotted strings because TOML bare keys cannot
@@ -58,6 +61,8 @@ enabled = true
 # [permissions] table grants no permissions at all.
 [permissions]
 "system.info" = true
+# Scratchpad: only Omnibar-owned note storage. Copy also needs clipboard.write.
+"notes.manage" = false
 # Allows explicitly requested, timed idle/sleep inhibition.
 "power.inhibit" = true
 # Window switcher: list and explicitly focus existing Hyprland windows.

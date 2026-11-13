@@ -53,6 +53,7 @@ make e2e-search     # unified app/window query and real keyboard launch/focus
 make e2e-previews   # exact-window thumbnail pixels, UI, and lifecycle checks
 make e2e-controls   # targeted move/float/maximize in a private Lua compositor
 make e2e-layouts    # saved arrangements, UI Save/Restore, and restart persistence
+make e2e-notes      # private Scratchpad editor, copy, and restart persistence
 make package        # build the Arch package into dist/ (see docs/development/packaging.md)
 ./build/omnibar     # run the backend
 quickshell -p ui/qml/shell.qml  # run the UI in another terminal

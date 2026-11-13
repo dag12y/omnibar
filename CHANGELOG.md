@@ -4,6 +4,20 @@ All notable changes will be documented here.
 
 ## [Unreleased]
 
+### Added
+- Scratchpad Notes page with local autosave, title/body search, pinning, exact
+  saved-text copying, confirmed deletion, and restart persistence (M30, ADR-0025).
+- Dedicated notes.manage gate, bounded private atomic storage, revision conflict
+  checks, unsaved-draft retention, and lost-save-response reconciliation.
+- Private desktop Notes checks and note-data preservation in package lifecycle tests.
+
+### Fixed
+- Backend instance locks cannot be inherited by clipboard helpers or launched
+  apps, so those children no longer block backend restart after shutdown.
+
+### Changed
+- Development backend/package version is 0.3.0; the published release remains 0.2.0.
+
 ## [0.2.0] - 2026-11-13
 
 ### Added

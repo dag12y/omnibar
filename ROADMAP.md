@@ -1,5 +1,12 @@
 # Development Roadmap
 
+## Next release: v0.3.0
+
+Quick productivity: Scratchpad, Timers, expanded Search, and navigation/settings,
+followed by stabilization and release verification (M30–M35). See the
+[detailed v0.3.0 plan](docs/planning/v0.3.0.md) for scope, sequence, completion
+criteria, and deferred work. M30 Scratchpad is implemented; M31 Timers is next.
+
 ## Phase 0 - Planning
 - [ ] Research Vorssaint features
 - [ ] Audit Linux feature compatibility
@@ -56,7 +63,7 @@ System monitoring suite: event delivery, resource metrics, UI cards, and the v0.
 ## Phase 6 - Productivity
 - [x] Quick panel: keyboard navigation, screen-aware scrolling, and System/Audio/Windows/Clipboard/Files pages
 - [x] App/window command bar: unified search and explicit Switch/Launch (M26)
-- [ ] Scratchpad
+- [x] Scratchpad: local notes, autosave, search, pinning, and copy (M30)
 - [x] Keep awake: timed logind/Wayland inhibition with countdown and Stop
 - [ ] Color picker
 - [ ] OCR and QR reader

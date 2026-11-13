@@ -1106,3 +1106,43 @@ build/check, extracted UI, and full-payload lifecycle verification and is
 installed locally as 0.2.0-4 with 59 files and zero alterations. All uploaded
 asset hashes match local files. See the release verification record for evidence
 and platform limits. The next feature remains a separate roadmap decision.
+
+
+## M30 — Scratchpad (implemented)
+
+Adds Notes with plain-text create/edit/rename, 700 ms autosave, title/body search,
+pinning, saved-text copy, and confirmed deletion. notes.manage gates app-owned
+storage; clipboard.write independently gates Copy. Private versioned JSON is
+bounded to 100 notes, 32 KiB bodies, 128-byte titles, and 2 MiB encoded data.
+Revision checks reject stale writers; failed writes preserve memory and disk.
+The editor retains dirty drafts on hide/disconnect/failure, rejects late loads,
+and reconciles lost save replies before retrying. Reload asks before discarding
+edits; Save as new preserves a conflict as another note. A UI process crash can
+lose unacknowledged edits. See [ADR-0025](docs/architecture/ADR-0025-scratchpad.md).
+
+Private desktop verification covered real creation, title/body editing,
+autosave, pin/copy/search, UI restart and picker reopen, hide during debounce,
+backend restart, stale edits, deletion, denied permission, and corrupt-file
+preservation. Regression checks passed for layouts/controls, previews, unified
+search, and UI reconnect. A failing regression proved desktop children could
+inherit the instance lock; atomic close-on-exec now prevents that restart bug.
+Go race/vet, QML, package build, payload/data lifecycle, and extracted UI checks
+are required before local installation; final results are recorded below.
+
+
+M30 final verification: Go vet/race and all 175 QML tests passed. The exact
+working-tree 0.3.0-1 package passed the real private Notes scenario, extracted
+UI handshake/reconnect smoke test, and full-payload upgrade/reinstall/downgrade/
+remove/reinstall checks against published 0.2.0-4. Synthetic notes, favorites,
+layouts, config, and state kept their contents and modes. The package is installed
+locally: 61 files, zero alterations, active packaged service with no overrides,
+and running executable matching the installed binary. Notes is open; only
+metadata/counts were queried on the host. The config was backed up before adding
+notes.manage. No host note content or clipboard text was used for tests.
+
+Local development package SHA-256:
+`8399ad84638db92f728172c8f47f5258025ec5059b183b919c51e7341d4b0e3b`.
+This is a development build, not a published v0.3.0 release. M31–M35 remain
+planned; latest published release is still v0.2.0. aarch64, physical reboot, and
+fresh-machine installation were not tested. Logs are local under
+`/tmp/omnibar-m30-*` and `/tmp/omnibar-notes-*`.

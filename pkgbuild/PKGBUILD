@@ -1,8 +1,8 @@
 # Maintainer: dagm yibabe <dagimyibabe19@gmail.com>
 
 pkgname=omnibar
-pkgver=0.2.0
-pkgrel=4
+pkgver=0.3.0
+pkgrel=1
 pkgdesc='Modular desktop utility suite for Omarchy: Go backend with a Quickshell UI'
 arch=('x86_64' 'aarch64')
 url='https://github.com/dag12y/omnibar'
@@ -22,9 +22,9 @@ optdepends=('hyprland: running-window switcher via hyprctl' 'grim>=1.5.0: exact-
 makedepends=('go')
 options=('!debug')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-# Published v0.2.0 tag archive, verified independently.
+# Upcoming v0.3.0: replace with the published tag archive digest.
 # scripts/package-local.sh computes its substituted archive's own checksum.
-sha256sums=('51ace9d8d64297243347bd62920011cb2e9cd4a4b8d962c1c90ef136803f9c6f')
+sha256sums=('SKIP')
 
 _go_env() {
   export GOPATH="$srcdir/gopath"

@@ -26,6 +26,7 @@ def main():
     parser.add_argument("--previews", action="store_true", help="verify in-memory exact-window preview capture")
     parser.add_argument("--controls", action="store_true", help="verify exact window controls in a private Lua compositor")
     parser.add_argument("--layouts", action="store_true", help="verify saved workspace arrangements and restart persistence")
+    parser.add_argument("--notes", action="store_true", help="verify Scratchpad editor and private restart persistence")
     args = parser.parse_args()
     if args.layouts:
         args.controls = True
@@ -36,6 +37,7 @@ def main():
     if args.search:
         args.apps = True
     root = Path(__file__).resolve().parent.parent
+    binary = os.environ.get("OMNIBAR_BIN", str(root / "build/omnibar"))
     # Keep Hyprland's instance Unix-socket path below Linux's length limit.
     trial = Path(tempfile.mkdtemp(prefix="obc-"))
     (trial / "run").mkdir(mode=0o700)
@@ -43,6 +45,8 @@ def main():
     config = (root / "config/config.toml.example").read_text()
     config = config.replace('"clipboard.read" = false', '"clipboard.read" = true')
     config = config.replace('"clipboard.write" = false', '"clipboard.write" = true')
+    if args.notes:
+        config = config.replace('"notes.manage" = false', '"notes.manage" = true')
     if args.shelf:
         config = config.replace('"filesystem.access" = false', '"filesystem.access" = true')
     if args.windows or args.search:
@@ -92,7 +96,7 @@ def main():
     launched_pids = []
     processes = []
     conn = stream = None
-    qml = str(root / "ui/qml/shell.qml")
+    qml = os.environ.get("OMNIBAR_SHELL_QML", str(root / "ui/qml/shell.qml"))
 
     def launch(label, *command):
         with (trial / (label + ".log")).open("a") as log:
@@ -160,7 +164,7 @@ def main():
         wait_until(lambda: bool(list((trial / "run/hypr").glob("*/hyprland.lock"))), "private Hyprland instance was not registered")
         instance_lock = next((trial / "run/hypr").glob("*/hyprland.lock"))
         env["HYPRLAND_INSTANCE_SIGNATURE"] = instance_lock.parent.name
-        backend = launch("backend", str(root / "build/omnibar"))
+        backend = launch("backend", binary)
         path = trial / "run/omnibar/omnibar.sock"
         wait_until(path.exists, "backend did not start")
         conn = socket.socket(socket.AF_UNIX)
@@ -264,6 +268,47 @@ def main():
             assert rpc("shelf.getSnapshot")["entries"][0]["available"]
             subprocess.run(["quickshell", "-p", qml, "ipc", "call", "--", "panel", "showFiles"], env=env, check=True, stdout=subprocess.DEVNULL)
             print("PASS: File shelf URL batch/dedup, real copy-path, recorded folder opener, unavailable/recovery, and real Files page")
+        if args.notes:
+            rpc("clipboard.setCollecting",dict(collecting=False))
+            subprocess.run(["quickshell","-p",qml,"ipc","call","--","panel","showNotes"],env=env,check=True,stdout=subprocess.DEVNULL)
+            time.sleep(0.5)
+            subprocess.run(["wtype","-k","space"],env=env,check=True)
+            wait_until(lambda: len(rpc("notes.getSnapshot")["notes"])==1,"real New note button did not create")
+            note_id=rpc("notes.getSnapshot")["notes"][0]["id"]
+            time.sleep(0.3)
+            note_text="Private scratchpad fixture\nExact second line."
+            subprocess.run(["wtype","-M","ctrl","-k","a","-m","ctrl","Fixture note","-k","Tab",note_text],env=env,check=True)
+            wait_until(lambda: rpc("notes.get",dict(id=note_id))["note"]["body"]==note_text,"real editor autosave failed")
+            saved_note=rpc("notes.get",dict(id=note_id))["note"]
+            assert saved_note["title"]=="Fixture note"
+            notes_file=trial/"data/omnibar/notes.json"
+            assert notes_file.stat().st_mode & 0o777 == 0o600
+            subprocess.run(["wtype","-k","Tab","-k","space"],env=env,check=True)
+            wait_until(lambda: rpc("notes.get",dict(id=note_id))["note"]["pinned"],"real Pin did not save")
+            time.sleep(0.2)
+            subprocess.run(["wtype","-k","Tab","-k","space"],env=env,check=True)
+            wait_until(lambda: paste()==note_text,"real Copy did not copy exact saved note")
+            subprocess.run(["wtype","-M","ctrl","f","-m","ctrl","second"],env=env,check=True)
+            assert len(rpc("notes.getSnapshot",dict(query="second"))["notes"])==1
+            # Restart the real UI, reopen the existing note through its picker,
+            # then hide during debounce to verify the draft flushes.
+            stop(ui)
+            ui=launch("ui","quickshell","-p",qml)
+            time.sleep(0.5)
+            subprocess.run(["quickshell","-p",qml,"ipc","call","--","panel","showNotes"],env=env,check=True,stdout=subprocess.DEVNULL)
+            time.sleep(0.4)
+            subprocess.run(["wtype","-k","Tab","-k","Tab","-k","Down"],env=env,check=True)
+            time.sleep(0.3)
+            note_text += "\nSaved while hidden."
+            subprocess.run(["wtype","-k","Tab","-M","ctrl","-k","a","-m","ctrl",note_text],env=env,check=True)
+            subprocess.run(["quickshell","-p",qml,"ipc","call","--","panel","hide"],env=env,check=True,stdout=subprocess.DEVNULL)
+            wait_until(lambda: rpc("notes.get",dict(id=note_id))["note"]["body"]==note_text,"hide during debounce lost draft")
+            subprocess.run(["quickshell","-p",qml,"ipc","call","--","panel","showNotes"],env=env,check=True,stdout=subprocess.DEVNULL)
+            if args.capture:
+                time.sleep(0.5)
+                subprocess.run(["grim",str(trial/"notes.png")],env=env,check=True)
+            copy("Copied while the panel is hidden")
+            print("PASS: real Notes create/edit/autosave/pin/copy, private file, search, and reopen")
         if args.windows:
             fixture_qml = trial / "windows.qml"
             fixture_qml.write_text('import QtQuick\nimport QtQuick.Window\nimport Quickshell\nShellRoot { Window { visible:true; width:320; height:180; title:"Omnibar fixture Alpha"; color:"#263342" } Window { visible:true; width:320; height:180; title:"Omnibar fixture Beta"; color:"#344226" } }\n')
@@ -503,7 +548,7 @@ def main():
         stream.close(); stream = None
         conn.close(); conn = None
         assert paste() == "Copied while the panel is hidden"
-        backend = launch("backend", str(root / "build/omnibar"))
+        backend = launch("backend", binary)
         wait_until(path.exists, "backend did not restart")
         conn = socket.socket(socket.AF_UNIX); conn.settimeout(8); conn.connect(str(path))
         stream = conn.makefile("rwb", buffering=0)
@@ -518,6 +563,13 @@ def main():
             for layout in saved["layouts"]: rpc("windows.deleteLayout",dict(id=layout["id"]))
             assert json.loads(layout_file.read_text())["layouts"] == []
             print("PASS: layouts reload without applying on restart, reject missing targets, and delete persistently")
+        if args.notes:
+            persisted=rpc("notes.get",dict(id=note_id))["note"]
+            assert persisted["title"]=="Fixture note" and persisted["body"]==note_text and persisted["pinned"]
+            assert rpc_error("notes.update",dict(id=note_id,revision=1,title="stale",body="bad",pinned=False))["code"]==-32004
+            rpc("notes.delete",dict(id=note_id,revision=persisted["revision"]))
+            assert not json.loads(notes_file.read_text())["notes"]
+            print("PASS: backend restart retains note text/pin/revision; stale edits rejected and deletion persisted")
         restored = snapshot()
         assert not restored["collecting"] and len(restored["entries"]) == 1
         assert restored["entries"][0]["text"] == saved_text and restored["entries"][0]["favorite"]
@@ -527,6 +579,24 @@ def main():
         rpc("clipboard.delete", dict(id=restored["entries"][0]["id"]))
         assert not snapshot()["entries"] and not json.loads(saved_file.read_text())["entries"]
         print("PASS: restart restores only favorites, stays paused, and saved text can be copied and removed")
+        if args.notes:
+            corrupt=b"corrupt notes fixture preserved"
+            notes_file.write_bytes(corrupt)
+            for grant in (False,True):
+                stream.close();stream=None;conn.close();conn=None
+                stop(backend)
+                private_config=trial/"config/omnibar/config.toml"
+                private_config.write_text(config.replace('"notes.manage" = true','"notes.manage" = false') if not grant else config)
+                backend=launch("backend",binary)
+                wait_until(path.exists,"notes error fixture backend did not start")
+                conn=socket.socket(socket.AF_UNIX);conn.settimeout(8);conn.connect(str(path));stream=conn.makefile("rwb",buffering=0)
+                if not grant:
+                    assert rpc_error("notes.getSnapshot",{})["code"]==-32001
+                else:
+                    assert rpc("notes.getSnapshot")["storageError"]
+                    assert rpc_error("notes.create",dict(title="bad overwrite",body=""))["code"]==-32603
+                assert notes_file.read_bytes()==corrupt
+            print("PASS: denied grant and corrupt private notes fail safely and preserve original data")
     finally:
         for pid in launched_pids:
             try:

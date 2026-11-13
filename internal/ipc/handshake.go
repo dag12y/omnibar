@@ -13,7 +13,7 @@ import (
 )
 
 // ServerVersion is the backend version reported during handshake.
-const ServerVersion = "0.2.0"
+const ServerVersion = "0.3.0"
 
 type handshakeParams struct {
 	Protocol string `json:"protocol"`

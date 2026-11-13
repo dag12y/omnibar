@@ -86,6 +86,11 @@ ShellRoot {
         client: client
         active: root.opened && root.page === "files"
     }
+    NotesController {
+        id: notes
+        client: client
+        active: root.opened && root.page === "notes"
+    }
     AppController {
         id: apps
         client: client
@@ -137,6 +142,10 @@ ShellRoot {
         function showSearch(): void {
             root.openSearch();
         }
+        function showNotes(): void {
+            root.page = "notes";
+            root.opened = true;
+        }
         function showApps(): void {
             root.page = "apps";
             root.opened = true;
@@ -165,7 +174,7 @@ ShellRoot {
             root.opened = true;
         }
         function selectPage(name: string): void {
-            if (name === "system" || name === "audio" || name === "clipboard" || name === "files" || name === "windows" || name === "apps" || name === "search")
+            if (name === "system" || name === "audio" || name === "clipboard" || name === "files" || name === "windows" || name === "apps" || name === "search" || name === "notes")
                 root.page = name;
         }
         function hide(): void {
@@ -316,6 +325,21 @@ ShellRoot {
                                 description: "Launch installed applications"
                                 onClicked: root.page = "apps"
                             }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            PanelButton {
+                                text: "Notes"
+                                selected: root.page === "notes"
+                                description: "Open Scratchpad"
+                                onClicked: root.page = "notes"
+                            }
+                        }
+                        NotesPage {
+                            visible: root.page === "notes"
+                            Layout.fillWidth: true
+                            controller: notes
+                            onRevealRequested: item => root.revealItem(item)
                         }
                         SearchPage {
                             id: unifiedSearchPage

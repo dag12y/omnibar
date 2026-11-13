@@ -5,7 +5,7 @@ QMLTESTRUNNER ?= /usr/lib/qt6/bin/qmltestrunner
 BIN_DIR := build
 BINARY := $(BIN_DIR)/omnibar
 
-.PHONY: all build test ui-test e2e-ui e2e-awake e2e-audio e2e-clipboard e2e-shelf e2e-windows e2e-apps e2e-search e2e-previews e2e-controls e2e-layouts package run clean help
+.PHONY: all build test ui-test e2e-ui e2e-awake e2e-audio e2e-clipboard e2e-shelf e2e-windows e2e-apps e2e-search e2e-previews e2e-controls e2e-layouts e2e-notes package run clean help
 
 all: build
 
@@ -27,6 +27,9 @@ e2e-clipboard: build
 
 e2e-shelf: build
 	python3 scripts/e2e-clipboard.py --shelf
+
+e2e-notes: build
+	python3 scripts/e2e-clipboard.py --notes
 
 e2e-layouts: build
 	python3 scripts/e2e-clipboard.py --layouts
@@ -92,3 +95,5 @@ e2e-previews: ## Verify bounded exact-window previews in a private compositor
 e2e-controls: ## Verify exact window controls in a private Lua compositor
 
 e2e-layouts: ## Verify saved arrangements and restart persistence privately
+
+e2e-notes: ## Verify real Scratchpad editing and private note persistence

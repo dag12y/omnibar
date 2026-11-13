@@ -16,8 +16,8 @@ func TestHandshakeAndCoreStatus(t *testing.T) {
 
 	c := dial(t, env.socketPath)
 	result := handshake(t, c)
-	if len(result.Modules) != 8 || result.Modules[0] != "core" || result.Modules[1] != "system_monitor" || result.Modules[2] != "keep_awake" || result.Modules[3] != "audio" || result.Modules[4] != "clipboard" || result.Modules[5] != "file_shelf" || result.Modules[6] != "window_switcher" || result.Modules[7] != "application_launcher" {
-		t.Fatalf("handshake modules = %v, want [core system_monitor keep_awake audio clipboard file_shelf window_switcher application_launcher]", result.Modules)
+	if len(result.Modules) != 9 || result.Modules[0] != "core" || result.Modules[1] != "system_monitor" || result.Modules[2] != "keep_awake" || result.Modules[3] != "audio" || result.Modules[4] != "clipboard" || result.Modules[5] != "file_shelf" || result.Modules[6] != "window_switcher" || result.Modules[7] != "application_launcher" || result.Modules[8] != "notes" {
+		t.Fatalf("handshake modules = %v, want [core system_monitor keep_awake audio clipboard file_shelf window_switcher application_launcher notes]", result.Modules)
 	}
 
 	resp, raw := c.request("module.getStatus", map[string]string{"module": "core"})
