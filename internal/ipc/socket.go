@@ -131,8 +131,9 @@ func RemoveStaleSocket(path string) error {
 // and acquires an exclusive, non-blocking flock. If another process
 // holds the lock, it returns an already-running error. The caller must
 // call releaseLock on the returned fd when done.
+// O_CLOEXEC is set atomically: desktop children must never retain this lease.
 func acquireLock(lockPath string) (int, error) {
-	fd, err := syscall.Open(lockPath, os.O_RDWR|os.O_CREATE, 0o600)
+	fd, err := syscall.Open(lockPath, os.O_RDWR|os.O_CREATE|syscall.O_CLOEXEC, 0o600)
 	if err != nil {
 		return -1, fmt.Errorf("open lock file %q: %w", lockPath, err)
 	}
