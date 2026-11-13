@@ -5,7 +5,7 @@ QMLTESTRUNNER ?= /usr/lib/qt6/bin/qmltestrunner
 BIN_DIR := build
 BINARY := $(BIN_DIR)/omnibar
 
-.PHONY: all build test ui-test e2e-ui e2e-awake e2e-audio e2e-clipboard e2e-shelf e2e-windows package run clean help
+.PHONY: all build test ui-test e2e-ui e2e-awake e2e-audio e2e-clipboard e2e-shelf e2e-windows e2e-apps package run clean help
 
 all: build
 
@@ -27,6 +27,9 @@ e2e-clipboard: build
 
 e2e-shelf: build
 	python3 scripts/e2e-clipboard.py --shelf
+
+e2e-apps: build
+	python3 scripts/e2e-clipboard.py --apps
 
 e2e-windows: build
 	python3 scripts/e2e-clipboard.py --windows
@@ -67,3 +70,5 @@ e2e-clipboard: ## Verify clipboard in a private nested Wayland compositor
 e2e-shelf: ## Verify File shelf and clipboard in a private nested compositor
 
 e2e-windows: ## Verify window switching in a private nested Hyprland session
+
+e2e-apps: ## Verify app launching with a private desktop entry and nested Hyprland

@@ -48,6 +48,7 @@ make e2e-audio      # isolated PipeWire playback/microphones + UI, needs Hyprlan
 make e2e-clipboard  # private nested Wayland clipboard test, needs Hyprland
 make e2e-shelf      # private Wayland shelf test with synthetic files
 make e2e-windows    # private Hyprland window-switching test
+make e2e-apps       # private desktop-entry launch and real Apps page controls
 make package        # build the Arch package into dist/ (see docs/development/packaging.md)
 ./build/omnibar     # run the backend
 quickshell -p ui/qml/shell.qml  # run the UI in another terminal

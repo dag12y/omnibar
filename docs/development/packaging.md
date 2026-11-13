@@ -227,3 +227,14 @@ config/data/state before reinstalling. Dependencies are skipped because this is
 a package transaction check, not a bootable guest; runtime integration is checked
 separately with the installed service and package UI smoke test. Packages with
 install scriptlets or libalpm hooks are rejected.
+
+
+### Application launcher (0.2.0 development)
+
+M25 adds `glib2` for `gio launch` and the Apps page. The application_launcher
+module is enabled by default; its `process.manage` grant is false in the
+example. Existing configs are preserved. Add the grant explicitly to enable
+catalog access and app launching, then restart the backend and relaunch the UI.
+Terminal/D-Bus applications rely on the desktop's GIO setup. No launch history
+or autostart changes are installed. Build working-tree packages with
+`make package`; the future 0.2.0 tag checksum will be finalized at release.

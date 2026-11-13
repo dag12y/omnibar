@@ -242,3 +242,26 @@ See [window-switcher design and protocol](docs/architecture/ADR-0019-window-swit
 
 [MIT](LICENSE)
 - [Changelog](CHANGELOG.md)
+
+
+## Application launcher (0.2.0 development)
+
+Open **Apps** to search installed desktop applications by name, description, or
+keywords. Set `"process.manage" = true` under your existing `[permissions]` in
+`~/.config/omnibar/config.toml` and restart the backend. Choose **Launch →** or
+press Enter in search. Opening Apps focuses search; Tab reaches the Launch
+button. The panel closes when GIO accepts the request. Launch failures keep it
+open with an error. Acceptance does not guarantee the application opens a window.
+
+GIO from `glib2` handles desktop-file commands, terminal apps, and D-Bus activation
+using the backend's desktop session. User desktop entries override system ones;
+hidden/unavailable entries are excluded. The visible catalog is bounded to 200
+apps and refreshes every ten seconds while open; Refresh reloads immediately.
+No launch history is saved. Terminal/D-Bus behavior depends on desktop setup.
+
+```sh
+quickshell -p /absolute/path/to/omnibar/ui/qml/shell.qml ipc call -- panel showApps
+make e2e-apps  # real GUI launches using synthetic entries in a private compositor
+```
+
+See [application launcher design](docs/architecture/ADR-0020-application-launcher.md).

@@ -4,6 +4,15 @@ All notable changes will be documented here.
 
 ## [Unreleased]
 
+### Added
+- Apps page with installed desktop-entry search and explicit GIO launch under `process.manage`; ADR-0020 (M25).
+- XDG precedence/visibility/localization, bounded catalogs, stale-entry rejection, and button/Enter launch with accepted-only dismissal.
+- `panel showApps`, `make e2e-apps`, and Go/QML/private-compositor launch verification.
+
+### Changed
+- Development version is 0.2.0; GIO (`glib2`) is an explicit runtime dependency.
+- UI smoke tests derive the expected backend version from the tested binary.
+
 ## [0.1.0] - 2026-11-13
 
 ### Added

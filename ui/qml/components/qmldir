@@ -23,3 +23,5 @@ FileShelfPage 1.0 FileShelfPage.qml
 SnapshotController 1.0 SnapshotController.qml
 WindowController 1.0 WindowController.qml
 WindowPage 1.0 WindowPage.qml
+AppController 1.0 AppController.qml
+AppPage 1.0 AppPage.qml

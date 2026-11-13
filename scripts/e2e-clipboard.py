@@ -20,6 +20,7 @@ def main():
     parser.add_argument("--capture", action="store_true")
     parser.add_argument("--shelf", action="store_true", help="also verify the File shelf with synthetic files")
     parser.add_argument("--windows", action="store_true", help="verify window switching inside the private compositor")
+    parser.add_argument("--apps", action="store_true", help="verify installed desktop app launching in the private compositor")
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
     # Keep Hyprland's instance Unix-socket path below Linux's length limit.
@@ -33,6 +34,8 @@ def main():
         config = config.replace('"filesystem.access" = false', '"filesystem.access" = true')
     if args.windows:
         config = config.replace('"window.manage" = false', '"window.manage" = true')
+    if args.apps:
+        config = config.replace('"process.manage" = false', '"process.manage" = true')
     (trial / "config/omnibar/config.toml").write_text(config)
     (trial / "hyprland.conf").write_text(
         "monitor = , 900x800, auto, 1\n"
@@ -57,6 +60,10 @@ def main():
         opener.chmod(0o700)
         env["PATH"] = str(trial / "bin") + ":" + env["PATH"]
         env["OMNIBAR_TEST_OPEN_LOG"] = str(trial / "opened.json")
+    if args.apps:
+        env["XDG_DATA_DIRS"] = str(trial / "system-data")
+        env["XDG_CURRENT_DESKTOP"] = "Hyprland"
+    launched_pids = []
     processes = []
     conn = stream = None
     qml = str(root / "ui/qml/shell.qml")
@@ -256,7 +263,61 @@ def main():
             assert rpc_error("windows.focus", dict(address=address_a))["code"] == -32603
             assert not rpc("windows.getSnapshot")["windows"]
             print("PASS: private running-window list, confirmed focus across workspaces, real Windows page, invalid/stale targets, and empty desktop")
+        if args.apps:
+            appdir = trial / "data/applications"
+            appdir.mkdir(parents=True, exist_ok=True)
+            app_qml = trial / "launched-app.qml"
+            app_qml.write_text('import QtQuick\nimport QtQuick.Window\nimport Quickshell\nShellRoot { Window { visible:true; width:320; height:180; title:"Omnibar launched fixture"; color:"#263342" } }\n')
+            desktop = appdir / "launch fixture.desktop"
+            desktop.write_text('[Desktop Entry]\nType=Application\nName=Omnibar launch fixture\nComment=Synthetic GUI app\nExec=quickshell -p "' + str(app_qml) + '"\n')
+            recorder = trial / "record-arguments.py"
+            arguments = trial / "launch-arguments.json"
+            recorder.write_text("import json,sys\nfrom pathlib import Path\nPath(" + repr(str(arguments)) + ").write_text(json.dumps(sys.argv[1:]))\n")
+            record_entry = appdir / "record.desktop"
+            record_entry.write_text('[Desktop Entry]\nType=Application\nName=Record fixture\nExec=/usr/bin/python3 "' + str(recorder) + '" "two words" %c %k %% %F\n')
+            failed_entry = appdir / "failure.desktop"
+            failed_entry.write_text('[Desktop Entry]\nType=Application\nName=Omnibar missing executable\nExec=/omnibar-nonexistent-fixture-command\n')
+            listed = rpc("apps.getSnapshot")
+            assert {app["id"] for app in listed["apps"]} == {desktop.name, record_entry.name, failed_entry.name}, listed
+            rpc("apps.launch", dict(id=record_entry.name))
+            wait_until(arguments.exists, "GIO argument recorder did not run")
+            assert json.loads(arguments.read_text()) == ["two words", "Record fixture", str(record_entry), "%"]
+            print("PASS: GIO preserves quoted arguments and expands desktop field codes")
+            assert rpc_error("apps.launch", dict(id="../invalid.desktop"))["code"] == -32602
+            assert rpc_error("apps.launch", dict(id="missing.desktop"))["code"] == -32603
+            def launched_clients():
+                clients = json.loads(subprocess.check_output(["hyprctl", "-j", "clients"], env=env, text=True))
+                return [item for item in clients if item.get("title") == "Omnibar launched fixture"]
+            def panel_visible():
+                layers = json.loads(subprocess.check_output(["hyprctl", "-j", "layers"], env=env, text=True))
+                return any(item.get("namespace") == "omnibar-panel" for monitor in layers.values() for level in monitor.get("levels", {}).values() for item in level)
+            # Failed requests keep the real page open with its error.
+
+            subprocess.run(["quickshell", "-p", qml, "ipc", "call", "--", "panel", "showApps"], env=env, check=True, stdout=subprocess.DEVNULL)
+            time.sleep(0.5)
+            subprocess.run(["wtype", "Omnibar missing executable", "-k", "Return"], env=env, check=True)
+            time.sleep(0.3)
+            assert panel_visible(), "failed launch hid the panel"
+            # Search and activate the actual Launch button with Tab/Space.
+            subprocess.run(["wtype", "-M", "ctrl", "-k", "a", "-m", "ctrl", "Omnibar launch fixture", "-k", "Tab", "-k", "space"], env=env, check=True)
+            wait_until(lambda: bool(launched_clients()), "Apps page Launch button did not launch the GUI fixture")
+            launched_pids.extend(item["pid"] for item in launched_clients())
+            # A successfully launched app hides the panel.
+            layers = json.loads(subprocess.check_output(["hyprctl", "-j", "layers"], env=env, text=True))
+            assert not any(item.get("namespace") == "omnibar-panel" for monitor in layers.values() for level in monitor.get("levels", {}).values() for item in level)
+            subprocess.run(["quickshell", "-p", qml, "ipc", "call", "--", "panel", "showApps"], env=env, check=True, stdout=subprocess.DEVNULL)
+            time.sleep(0.3)
+            subprocess.run(["wtype", "-k", "Return"], env=env, check=True)
+            wait_until(lambda: len(launched_clients()) >= 2, "Apps page Enter did not launch a second GUI fixture")
+            launched_pids.extend(item["pid"] for item in launched_clients() if item["pid"] not in launched_pids)
+            desktop.unlink(); record_entry.unlink(); failed_entry.unlink()
+            assert rpc_error("apps.launch", dict(id=desktop.name))["code"] == -32603
+            assert rpc("apps.getSnapshot")["apps"] == []
+            print("PASS: real Apps page button and Enter launch GUI fixtures, failures stay open, success hides, and invalid/stale IDs are rejected")
         if args.capture:
+            if args.apps:
+                desktop.write_text('[Desktop Entry]\nType=Application\nName=Omnibar launch fixture\nComment=Synthetic GUI app\nExec=quickshell -p "' + str(app_qml) + '"\n')
+                subprocess.run(["quickshell", "-p", qml, "ipc", "call", "--", "panel", "showApps"], env=env, check=True, stdout=subprocess.DEVNULL)
             time.sleep(1.2)
             instances = list((trial / "run/hypr").glob("*/hyprland.lock"))
             assert instances, "nested compositor IPC is unavailable"
@@ -265,7 +326,7 @@ def main():
             panel = next(item for monitor in layers.values() for group in monitor.get("levels", {}).values()
                          for item in group if item.get("namespace") == "omnibar-panel")
             geometry = f"{panel['x']},{panel['y']} {panel['w']}x{panel['h']}"
-            subprocess.run(["grim", "-g", geometry, str(trial / ("windows.png" if args.windows else "files.png" if args.shelf else "clipboard.png"))], env=env, check=True)
+            subprocess.run(["grim", "-g", geometry, str(trial / ("apps.png" if args.apps else "windows.png" if args.windows else "files.png" if args.shelf else "clipboard.png"))], env=env, check=True)
         if args.shelf:
             rpc("shelf.clear")
             assert sample.read_text() == "Original synthetic text stays here.\n"
@@ -296,6 +357,11 @@ def main():
         assert not snapshot()["entries"] and not json.loads(saved_file.read_text())["entries"]
         print("PASS: restart restores only favorites, stays paused, and saved text can be copied and removed")
     finally:
+        for pid in launched_pids:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
         if stream:
             stream.close()
         if conn:

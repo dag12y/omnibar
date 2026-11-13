@@ -39,6 +39,7 @@ This document breaks the approved architecture into small, sequential, independe
 | M22 | Session File shelf | Local references, URL drops/path input, search, open folder, copy path, and missing-item recovery | Done |
 | M23 | Clipboard utilities | Transform & copy: trim edges, lowercase, uppercase, and line-break removal | Done |
 | M24 | Running-window switcher | Bounded Hyprland windows, search, exact focus, workspace switching, and confirmation | Done |
+| M25 | Application launcher | Installed desktop entries, search, explicit GIO launch, and Apps page | Done |
 
 ---
 
@@ -990,3 +991,21 @@ upgrade/reinstall/downgrade/removal checks preserved config/data/state; the
 final package is installed and the packaged backend/UI were restarted.
 aarch64 and fresh-machine/reboot testing remain documented limits; OPR
 publication remains separate.
+
+
+## M25 — Installed application launcher (implemented)
+
+Adds an Apps page and `application_launcher` module with bounded XDG desktop
+entry discovery, user/system precedence, visibility filters, localized labels,
+search, and explicit launch via GIO. Both RPC methods require `process.manage`;
+the example leaves it false. Launch accepts a freshly validated desktop ID and
+hides the panel only when GIO accepts the request. Stable rows retain keyboard
+focus, and catalog polling runs only while visible. No startup launch, watchers,
+raw-command RPC, or history storage is introduced. Go/QML tests and private
+Hyprland checks cover real button/Enter GUI launches, argument expansion,
+failure retention, and stale entries. All 134 QML checks and Go race tests
+passed. The local package passed UI smoke and isolated upgrade/rollback/remove
+checks against v0.1.0, then was installed: 53 files with zero alterations and
+71 live catalog entries without truncation. `glib2` supplies the GIO dependency.
+See [ADR-0020](docs/architecture/ADR-0020-application-launcher.md). Development
+now targets 0.2.0; v0.1.0 remains the first published release.

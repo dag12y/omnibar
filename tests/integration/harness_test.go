@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"omnibar/internal/ipc"
 	"omnibar/internal/ipc/jsonrpc"
 )
 
@@ -516,8 +517,8 @@ func handshake(t *testing.T, c *rpcClient) struct {
 	if result.Protocol != "omnibar.ipc/v1" {
 		t.Fatalf("handshake protocol = %q, want %q", result.Protocol, "omnibar.ipc/v1")
 	}
-	if result.Version != "0.1.0" {
-		t.Fatalf("handshake version = %q, want %q", result.Version, "0.1.0")
+	if result.Version != ipc.ServerVersion {
+		t.Fatalf("handshake version = %q, want %q", result.Version, ipc.ServerVersion)
 	}
 	return result
 }

@@ -34,6 +34,9 @@ if [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
     exit 1
 fi
 
+backend_version=$("$backend_bin" --version)
+backend_version=${backend_version#omnibar }
+
 # Quickshell needs the compositor socket, which lives in the real runtime dir.
 real_runtime="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 wayland_socket="$WAYLAND_DISPLAY"
@@ -129,7 +132,7 @@ WAYLAND_DISPLAY="$wayland_socket" XDG_RUNTIME_DIR="$tmp/run" \
 ui_pid=$!
 
 wait_for_count "status: connected" 1 20 "UI to connect"
-wait_for_count "handshake complete; backend 0.1.0 modules: core" 1 5 "UI handshake"
+wait_for_count "handshake complete; backend $backend_version modules: core" 1 5 "UI handshake"
 wait_for_count "subscribed to core" 1 5 "UI to subscribe to core events"
 wait_for_count "subscribed to system_monitor" 1 5 "UI to subscribe to system_monitor events"
 wait_for_count "snapshot for system_monitor received" 1 15 "UI to receive a live system_monitor snapshot"
@@ -155,7 +158,7 @@ pass "UI offline with exponential backoff (1000 ms, 2000 ms) and stale snapshots
 
 start_backend 2
 wait_for_count "status: connected" 2 30 "UI to reconnect after backend restart"
-wait_for_count "handshake complete; backend 0.1.0 modules: core" 2 5 "UI re-handshake"
+wait_for_count "handshake complete; backend $backend_version modules: core" 2 5 "UI re-handshake"
 wait_for_count "subscribed to core" 2 5 "UI to re-subscribe after backend restart"
 pass "UI reconnected, re-handshook, and re-subscribed after backend restart"
 

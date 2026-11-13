@@ -42,6 +42,9 @@ enabled = true
 [modules.window_switcher]
 enabled = true
 
+[modules.application_launcher]
+enabled = true
+
 # Permissions granted to modules.
 #
 # Permissions are quoted dotted strings because TOML bare keys cannot
@@ -63,6 +66,7 @@ enabled = true
 "clipboard.write" = false
 "audio.control" = true
 "screen.capture" = false
+# Apps: list and explicitly launch installed desktop entries via GIO.
 "process.manage" = false
 # File shelf: explicitly added path references; no content modifications.
 "filesystem.access" = false

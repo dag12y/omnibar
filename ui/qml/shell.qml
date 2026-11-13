@@ -72,6 +72,12 @@ ShellRoot {
         client: client
         active: root.opened && root.page === "files"
     }
+    AppController {
+        id: apps
+        client: client
+        active: root.opened && root.page === "apps"
+        onAppLaunched: root.opened = false
+    }
     WindowController {
         id: windows
         client: client
@@ -106,6 +112,10 @@ ShellRoot {
     }
     IpcHandler {
         target: "panel"
+        function showApps(): void {
+            root.page = "apps";
+            root.opened = true;
+        }
         function showWindows(): void {
             root.page = "windows";
             root.opened = true;
@@ -130,7 +140,7 @@ ShellRoot {
             root.opened = true;
         }
         function selectPage(name: string): void {
-            if (name === "system" || name === "audio" || name === "clipboard" || name === "files" || name === "windows")
+            if (name === "system" || name === "audio" || name === "clipboard" || name === "files" || name === "windows" || name === "apps")
                 root.page = name;
         }
         function hide(): void {
@@ -206,7 +216,7 @@ ShellRoot {
                                     font.weight: Font.DemiBold
                                 }
                                 Text {
-                                    text: root.page === "audio" ? "YOUR SOUND, YOUR CONTROL" : root.page === "windows" ? "PICK UP WHERE YOU LEFT OFF" : root.page === "files" ? "FILES WITHIN REACH" : root.page === "clipboard" ? "COPIED, KEPT WITHIN REACH" : "YOUR SYSTEM, AT A GLANCE"
+                                    text: root.page === "apps" ? "YOUR APPS, WITHIN REACH" : root.page === "audio" ? "YOUR SOUND, YOUR CONTROL" : root.page === "windows" ? "PICK UP WHERE YOU LEFT OFF" : root.page === "files" ? "FILES WITHIN REACH" : root.page === "clipboard" ? "COPIED, KEPT WITHIN REACH" : "YOUR SYSTEM, AT A GLANCE"
                                     color: Theme.muted
                                     font.pixelSize: 9
                                     font.letterSpacing: 1
@@ -263,6 +273,23 @@ ShellRoot {
                                 description: "Show file shelf"
                                 onClicked: root.page = "files"
                             }
+                            PanelButton {
+                                Layout.fillWidth: true
+                                text: "Apps"
+                                selected: root.page === "apps"
+                                description: "Launch installed applications"
+                                onClicked: root.page = "apps"
+                            }
+                        }
+                        AppPage {
+                            visible: root.page === "apps"
+                            Layout.fillWidth: true
+                            snapshot: apps.snapshot
+                            state: apps.state
+                            errorText: apps.errorText
+                            busy: apps.busy
+                            onLaunchRequested: appID => apps.request("apps.launch", { id: appID })
+                            onRefreshRequested: apps.request("apps.getSnapshot")
                         }
                         WindowPage {
                             visible: root.page === "windows"
@@ -497,7 +524,7 @@ ShellRoot {
                                 color: root.stale ? Theme.muted : Theme.accent
                             }
                             Text {
-                                text: !client.backendConnected ? "Offline" : root.page === "audio" ? (audio.state === "ready" ? "Audio connected" : "Audio " + audio.state) : root.page === "windows" ? "Running Hyprland windows" : root.page === "files" ? "Session file shelf" : root.page === "clipboard" ? "Clipboard · recent and saved" : root.state === "fresh" ? "Live monitoring" : "Waiting for metrics"
+                                text: !client.backendConnected ? "Offline" : root.page === "audio" ? (audio.state === "ready" ? "Audio connected" : "Audio " + audio.state) : root.page === "apps" ? "Installed applications" : root.page === "windows" ? "Running Hyprland windows" : root.page === "files" ? "Session file shelf" : root.page === "clipboard" ? "Clipboard · recent and saved" : root.state === "fresh" ? "Live monitoring" : "Waiting for metrics"
                                 color: Theme.muted
                                 font.pixelSize: 10
                                 Layout.fillWidth: true

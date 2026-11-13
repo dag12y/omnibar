@@ -19,6 +19,7 @@ import (
 	"omnibar/internal/ipc/jsonrpc"
 	"omnibar/internal/logging"
 	"omnibar/internal/modules"
+	"omnibar/internal/modules/apps"
 	"omnibar/internal/modules/audio"
 	"omnibar/internal/modules/clipboard"
 	"omnibar/internal/modules/core"
@@ -170,6 +171,10 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 	if err := registry.Register(switcher); err != nil {
 		return nil, fmt.Errorf("register window switcher: %w", err)
 	}
+	launcher := apps.New(nil)
+	if err := registry.Register(launcher); err != nil {
+		return nil, fmt.Errorf("register application launcher: %w", err)
+	}
 	for name := range cfg.Modules {
 		if _, ok := registry.Info(name); !ok {
 			logger.Warn("configuration references unknown module", "module", name)
@@ -206,6 +211,7 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 	ipc.RegisterClipboardMethods(dispatcher, registry, history)
 	ipc.RegisterFileShelfMethods(dispatcher, registry, shelf)
 	ipc.RegisterWindowMethods(dispatcher, registry, switcher)
+	ipc.RegisterAppMethods(dispatcher, registry, launcher)
 
 	// Resolve IPC socket path.
 	socketPath, err := ipc.SocketPath()

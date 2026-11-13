@@ -30,7 +30,7 @@ System monitoring suite: event delivery, resource metrics, UI cards, and the v0.
 - [ ] System alerts and history (requires storage / SQLite)
 
 ## Phase 3 - Window Management
-- [ ] Application switcher
+- [x] Installed application launcher: search and explicit desktop-entry launch (M25)
 - [x] Hyprland running-window switcher: search, exact focus, and workspace switching (M24)
 - [ ] Window previews
 - [ ] Window layouts

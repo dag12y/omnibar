@@ -70,8 +70,8 @@ func TestHandshakeSuccess(t *testing.T) {
 	if string(result["protocol"]) != `"omnibar.ipc/v1"` {
 		t.Errorf("result protocol = %s, want omnibar.ipc/v1", result["protocol"])
 	}
-	if string(result["version"]) != `"0.1.0"` {
-		t.Errorf("result version = %s, want 0.1.0", result["version"])
+	if string(result["version"]) != `"`+ServerVersion+`"` {
+		t.Errorf("result version = %s, want %q", result["version"], ServerVersion)
 	}
 
 	var names []string

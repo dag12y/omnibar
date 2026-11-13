@@ -230,3 +230,21 @@ Phase 2 adds live system monitoring on top of the Phase 1 foundation and prepare
   in a private compositor; leave host focus/config and application launching alone.
 - Previews, layouts, special-workspace/group restoration, and non-Hyprland support
   are deferred.
+
+
+## Application launcher increment (implemented)
+
+- Discover installed XDG desktop applications with user override precedence,
+  visibility and TryExec filters, and localized labels.
+- Search name/description/keywords, launch with a button or Enter, and close the
+  panel only when the desktop launch request is accepted.
+- Require process.manage for listing and launching; deny before filesystem or
+  desktop work. Accept only a freshly listed desktop ID, never arbitrary commands.
+- Delegate desktop launch semantics to GIO, using a single exact file argument
+  and no shell. Preserve explicit failures without treating acceptance as proof
+  that an app produced a window.
+- Bound scans, metadata, snapshots, and deadlines; retain no launch history.
+  Refresh only while visible and clear caches on hide/disconnect/shutdown.
+- Verify real argument expansion and button/Enter GUI launches with synthetic
+  desktop entries in a private compositor. Icons, history, desktop actions,
+  URI/file launch arguments, and unified window/app search remain deferred.
