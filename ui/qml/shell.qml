@@ -12,6 +12,11 @@ ShellRoot {
     ThemeLoader {
         active: root.opened
     }
+    function openSearch() {
+        root.page = "search";
+        root.opened = true;
+        Qt.callLater(unifiedSearchPage.focusQuery);
+    }
     property string page: "system"
     onPageChanged: {
         cpuHistory = [];
@@ -75,13 +80,13 @@ ShellRoot {
     AppController {
         id: apps
         client: client
-        active: root.opened && root.page === "apps"
+        active: root.opened && (root.page === "apps" || root.page === "search")
         onAppLaunched: root.opened = false
     }
     WindowController {
         id: windows
         client: client
-        active: root.opened && root.page === "windows"
+        active: root.opened && (root.page === "windows" || root.page === "search")
         onWindowFocused: root.opened = false
     }
     // A separate mapped surface keeps display-idle inhibition alive when the
@@ -112,6 +117,9 @@ ShellRoot {
     }
     IpcHandler {
         target: "panel"
+        function showSearch(): void {
+            root.openSearch();
+        }
         function showApps(): void {
             root.page = "apps";
             root.opened = true;
@@ -140,7 +148,7 @@ ShellRoot {
             root.opened = true;
         }
         function selectPage(name: string): void {
-            if (name === "system" || name === "audio" || name === "clipboard" || name === "files" || name === "windows" || name === "apps")
+            if (name === "system" || name === "audio" || name === "clipboard" || name === "files" || name === "windows" || name === "apps" || name === "search")
                 root.page = name;
         }
         function hide(): void {
@@ -180,6 +188,11 @@ ShellRoot {
                 anchors.fill: parent
                 focus: true
                 Keys.onEscapePressed: root.opened = false
+                Shortcut {
+                    sequence: "Ctrl+K"
+                    enabled: root.opened
+                    onActivated: root.openSearch()
+                }
                 ScrollView {
                     id: scroll
                     anchors.fill: parent
@@ -216,7 +229,7 @@ ShellRoot {
                                     font.weight: Font.DemiBold
                                 }
                                 Text {
-                                    text: root.page === "apps" ? "YOUR APPS, WITHIN REACH" : root.page === "audio" ? "YOUR SOUND, YOUR CONTROL" : root.page === "windows" ? "PICK UP WHERE YOU LEFT OFF" : root.page === "files" ? "FILES WITHIN REACH" : root.page === "clipboard" ? "COPIED, KEPT WITHIN REACH" : "YOUR SYSTEM, AT A GLANCE"
+                                    text: root.page === "search" ? "APPS AND WINDOWS, TOGETHER" : root.page === "apps" ? "YOUR APPS, WITHIN REACH" : root.page === "audio" ? "YOUR SOUND, YOUR CONTROL" : root.page === "windows" ? "PICK UP WHERE YOU LEFT OFF" : root.page === "files" ? "FILES WITHIN REACH" : root.page === "clipboard" ? "COPIED, KEPT WITHIN REACH" : "YOUR SYSTEM, AT A GLANCE"
                                     color: Theme.muted
                                     font.pixelSize: 9
                                     font.letterSpacing: 1
@@ -224,6 +237,12 @@ ShellRoot {
                             }
                             Item {
                                 Layout.fillWidth: true
+                            }
+                            PanelButton {
+                                text: "Search"
+                                selected: root.page === "search"
+                                description: "Search apps and windows (Ctrl+K)"
+                                onClicked: root.openSearch()
                             }
                             PanelButton {
                                 text: "×"
@@ -281,10 +300,37 @@ ShellRoot {
                                 onClicked: root.page = "apps"
                             }
                         }
+                        SearchPage {
+                            id: unifiedSearchPage
+                            visible: root.page === "search"
+                            active: root.opened && root.page === "search"
+                            Layout.fillWidth: true
+                            windowSnapshot: active ? windows.snapshot : ({ windows: [] })
+                            appSnapshot: active ? apps.snapshot : ({ apps: [] })
+                            windowState: windows.state
+                            appState: apps.state
+                            windowError: windows.errorText
+                            appError: apps.errorText
+                            busy: windows.busy || apps.busy
+                            onFocusRequested: address => windows.request("windows.focus", { address: address })
+                            onLaunchRequested: appID => apps.request("apps.launch", { id: appID })
+                            onRefreshRequested: {
+                                windows.request("windows.getSnapshot");
+                                apps.request("apps.getSnapshot");
+                            }
+                            onHighlightRequested: item => {
+                                const flick = scroll.contentItem;
+                                const top = item.mapToItem(flick, 0, 0).y;
+                                let offset = 0;
+                                if (top < 0) offset = top;
+                                else if (top + item.height > flick.height) offset = top + item.height - flick.height;
+                                flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, flick.contentY + offset));
+                            }
+                        }
                         AppPage {
                             visible: root.page === "apps"
                             Layout.fillWidth: true
-                            snapshot: apps.snapshot
+                            snapshot: root.page === "apps" ? apps.snapshot : ({ apps: [] })
                             state: apps.state
                             errorText: apps.errorText
                             busy: apps.busy
@@ -294,7 +340,7 @@ ShellRoot {
                         WindowPage {
                             visible: root.page === "windows"
                             Layout.fillWidth: true
-                            snapshot: windows.snapshot
+                            snapshot: root.page === "windows" ? windows.snapshot : ({ windows: [] })
                             state: windows.state
                             errorText: windows.errorText
                             busy: windows.busy
@@ -524,7 +570,7 @@ ShellRoot {
                                 color: root.stale ? Theme.muted : Theme.accent
                             }
                             Text {
-                                text: !client.backendConnected ? "Offline" : root.page === "audio" ? (audio.state === "ready" ? "Audio connected" : "Audio " + audio.state) : root.page === "apps" ? "Installed applications" : root.page === "windows" ? "Running Hyprland windows" : root.page === "files" ? "Session file shelf" : root.page === "clipboard" ? "Clipboard · recent and saved" : root.state === "fresh" ? "Live monitoring" : "Waiting for metrics"
+                                text: !client.backendConnected ? "Offline" : root.page === "audio" ? (audio.state === "ready" ? "Audio connected" : "Audio " + audio.state) : root.page === "search" ? "Apps and running windows" : root.page === "apps" ? "Installed applications" : root.page === "windows" ? "Running Hyprland windows" : root.page === "files" ? "Session file shelf" : root.page === "clipboard" ? "Clipboard · recent and saved" : root.state === "fresh" ? "Live monitoring" : "Waiting for metrics"
                                 color: Theme.muted
                                 font.pixelSize: 10
                                 Layout.fillWidth: true

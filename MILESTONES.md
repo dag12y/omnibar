@@ -40,6 +40,7 @@ This document breaks the approved architecture into small, sequential, independe
 | M23 | Clipboard utilities | Transform & copy: trim edges, lowercase, uppercase, and line-break removal | Done |
 | M24 | Running-window switcher | Bounded Hyprland windows, search, exact focus, workspace switching, and confirmation | Done |
 | M25 | Application launcher | Installed desktop entries, search, explicit GIO launch, and Apps page | Done |
+| M26 | Unified app/window search | Shared query, ranked results, keyboard selection, and explicit Switch/Launch | Done |
 
 ---
 
@@ -1009,3 +1010,26 @@ checks against v0.1.0, then was installed: 53 files with zero alterations and
 71 live catalog entries without truncation. `glib2` supplies the GIO dependency.
 See [ADR-0020](docs/architecture/ADR-0020-application-launcher.md). Development
 now targets 0.2.0; v0.1.0 remains the first published release.
+
+
+## M26 — Unified app/window search (implemented)
+
+Adds Search in the panel header, Ctrl+K within the focused panel, and
+`panel showSearch`. The existing app/window controllers supply independent
+permission-aware snapshots; partial availability remains usable. Multi-token
+matching searches the source catalogs and shows up to 30 results, with running
+matches first and clear Switch/Launch actions. Arrow navigation scrolls the
+selection into view; row identity and explicit choices survive refreshes.
+Search waits for available sources before focusing the field, clears its query
+and rows on hide, and uses existing confirmed-focus/accepted-launch success
+signals for dismissal. No new backend module, capability, dependency, or search
+history is introduced. See [ADR-0021](docs/architecture/ADR-0021-unified-search.md).
+
+
+M26 verification: all 144 QML tests and Go vet/race checks passed. The real
+private Search test covered shortcut opening, failed-launch retention,
+arrow-selected GUI launch, exact confirmed focus, and reset on reopen. Layout
+captures verified both the query and a scrolled selection. The package passed
+UI smoke and full-payload upgrade/downgrade/remove checks against M25. Local
+0.2.0-2 is installed with 55 files and zero alterations; both sources respond
+(71 apps and 3 windows at verification), and Search is open in the packaged UI.

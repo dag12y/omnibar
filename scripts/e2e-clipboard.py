@@ -21,7 +21,10 @@ def main():
     parser.add_argument("--shelf", action="store_true", help="also verify the File shelf with synthetic files")
     parser.add_argument("--windows", action="store_true", help="verify window switching inside the private compositor")
     parser.add_argument("--apps", action="store_true", help="verify installed desktop app launching in the private compositor")
+    parser.add_argument("--search", action="store_true", help="verify unified app/window search in the private compositor")
     args = parser.parse_args()
+    if args.search:
+        args.apps = True
     root = Path(__file__).resolve().parent.parent
     # Keep Hyprland's instance Unix-socket path below Linux's length limit.
     trial = Path(tempfile.mkdtemp(prefix="obc-"))
@@ -32,7 +35,7 @@ def main():
     config = config.replace('"clipboard.write" = false', '"clipboard.write" = true')
     if args.shelf:
         config = config.replace('"filesystem.access" = false', '"filesystem.access" = true')
-    if args.windows:
+    if args.windows or args.search:
         config = config.replace('"window.manage" = false', '"window.manage" = true')
     if args.apps:
         config = config.replace('"process.manage" = false', '"process.manage" = true')
@@ -310,6 +313,36 @@ def main():
             subprocess.run(["wtype", "-k", "Return"], env=env, check=True)
             wait_until(lambda: len(launched_clients()) >= 2, "Apps page Enter did not launch a second GUI fixture")
             launched_pids.extend(item["pid"] for item in launched_clients() if item["pid"] not in launched_pids)
+            if args.search:
+                # Ctrl+K opens Search from another page in the real panel.
+                subprocess.run(["quickshell", "-p", qml, "ipc", "call", "--", "panel", "showApps"], env=env, check=True, stdout=subprocess.DEVNULL)
+                time.sleep(0.3)
+                subprocess.run(["wtype", "-M", "ctrl", "-k", "k", "-m", "ctrl"], env=env, check=True)
+                time.sleep(0.4)
+                subprocess.run(["wtype", "Omnibar missing executable", "-k", "Return"], env=env, check=True)
+                time.sleep(0.3)
+                assert panel_visible(), "failed Search launch hid the panel"
+                # Two running matches precede the installed-app match.
+                subprocess.run(["wtype", "-M", "ctrl", "-k", "a", "-m", "ctrl", "Omnibar fixture", "-k", "Down", "-k", "Down"], env=env, check=True)
+                if args.capture:
+                    time.sleep(0.2)
+                    layers = json.loads(subprocess.check_output(["hyprctl", "-j", "layers"], env=env, text=True))
+                    panel = next(item for monitor in layers.values() for group in monitor.get("levels", {}).values() for item in group if item.get("namespace") == "omnibar-panel")
+                    geometry = f"{panel['x']},{panel['y']} {panel['w']}x{panel['h']}"
+                    subprocess.run(["grim", "-g", geometry, str(trial / "search-selected.png")], env=env, check=True)
+                subprocess.run(["wtype", "-k", "Return"], env=env, check=True)
+                wait_until(lambda: len(launched_clients()) >= 3, "Search arrows/Enter did not launch the selected app")
+                launched_pids.extend(item["pid"] for item in launched_clients() if item["pid"] not in launched_pids)
+                wait_until(lambda: not panel_visible(), "accepted Search launch did not hide panel")
+                # Reopening clears the query and returns to the first result.
+                subprocess.run(["quickshell", "-p", qml, "ipc", "call", "--", "panel", "showSearch"], env=env, check=True, stdout=subprocess.DEVNULL)
+                time.sleep(0.5)
+                expected = min(item["address"] for item in launched_clients())
+                subprocess.run(["wtype", "Omnibar fixture", "-k", "Return"], env=env, check=True)
+                wait_until(lambda: not panel_visible(), "confirmed Search focus did not hide panel")
+                active = json.loads(subprocess.check_output(["hyprctl", "-j", "activewindow"], env=env, text=True))
+                assert active["address"] == expected, (active["address"], expected)
+                print("PASS: Search shortcut, multi-token matching, arrow-selected app launch, confirmed window focus, failure retention, and reopen reset")
             desktop.unlink(); record_entry.unlink(); failed_entry.unlink()
             assert rpc_error("apps.launch", dict(id=desktop.name))["code"] == -32603
             assert rpc("apps.getSnapshot")["apps"] == []
@@ -317,7 +350,7 @@ def main():
         if args.capture:
             if args.apps:
                 desktop.write_text('[Desktop Entry]\nType=Application\nName=Omnibar launch fixture\nComment=Synthetic GUI app\nExec=quickshell -p "' + str(app_qml) + '"\n')
-                subprocess.run(["quickshell", "-p", qml, "ipc", "call", "--", "panel", "showApps"], env=env, check=True, stdout=subprocess.DEVNULL)
+                subprocess.run(["quickshell", "-p", qml, "ipc", "call", "--", "panel", "showSearch" if args.search else "showApps"], env=env, check=True, stdout=subprocess.DEVNULL)
             time.sleep(1.2)
             instances = list((trial / "run/hypr").glob("*/hyprland.lock"))
             assert instances, "nested compositor IPC is unavailable"
@@ -326,7 +359,7 @@ def main():
             panel = next(item for monitor in layers.values() for group in monitor.get("levels", {}).values()
                          for item in group if item.get("namespace") == "omnibar-panel")
             geometry = f"{panel['x']},{panel['y']} {panel['w']}x{panel['h']}"
-            subprocess.run(["grim", "-g", geometry, str(trial / ("apps.png" if args.apps else "windows.png" if args.windows else "files.png" if args.shelf else "clipboard.png"))], env=env, check=True)
+            subprocess.run(["grim", "-g", geometry, str(trial / ("search.png" if args.search else "apps.png" if args.apps else "windows.png" if args.windows else "files.png" if args.shelf else "clipboard.png"))], env=env, check=True)
         if args.shelf:
             rpc("shelf.clear")
             assert sample.read_text() == "Original synthetic text stays here.\n"

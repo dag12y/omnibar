@@ -248,3 +248,19 @@ Phase 2 adds live system monitoring on top of the Phase 1 foundation and prepare
 - Verify real argument expansion and button/Enter GUI launches with synthetic
   desktop entries in a private compositor. Icons, history, desktop actions,
   URI/file launch arguments, and unified window/app search remain deferred.
+
+
+## Unified app/window search increment (implemented)
+
+- Provide one query across installed apps and running windows, reachable through
+  Search, Ctrl+K in the focused panel, and panel showSearch.
+- Keep source permissions/states independent; available sources remain usable.
+  Preserve existing launch validation and confirmed window-focus semantics.
+- Match all query tokens, rank running matches first, and show separate explicit
+  Switch/Launch controls. Never substitute a launch for a failed Switch.
+- Support Up/Down, Enter, stable row focus and selection across refreshes, and
+  scroll the selected row into view. Wait for source readiness before focusing.
+- Bound displayed results, indicate source/result truncation, and clear the
+  query/results on hide. Store no search history and introduce no raw commands.
+- Verify real app launch and exact window focus in a private compositor, plus
+  partial permissions, late replies, bounds, keyboard actions, and cache reset.

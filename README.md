@@ -265,3 +265,27 @@ make e2e-apps  # real GUI launches using synthetic entries in a private composit
 ```
 
 See [application launcher design](docs/architecture/ADR-0020-application-launcher.md).
+
+
+## Unified search (0.2.0 development)
+
+Choose **Search** in the panel header, or press **Ctrl+K** while the panel has
+keyboard focus. Type app names, window titles, descriptions, keywords, or
+workspaces. Every word must match; matching running windows come first.
+Use **↑/↓** to choose a result and **Enter** to activate it, or choose its
+**Switch →**/**Launch →** button. Ctrl+K returns to the query and selects its
+text. Selection stays stable through refreshes and scrolls into view.
+
+Apps and windows keep their existing `process.manage` and `window.manage`
+grants independently. Search remains usable when one source is unavailable.
+A successful Switch requires confirmed focus; Launch closes the panel when GIO
+accepts the request. Failures keep it open. Up to 30 results are shown from the
+bounded source catalogs, with a notice when limits apply. Hiding the page clears
+its query and results. No search history or global desktop shortcut is installed.
+
+```sh
+quickshell -p /absolute/path/to/omnibar/ui/qml/shell.qml ipc call -- panel showSearch
+make e2e-search  # private app launch, keyboard selection, and window-focus checks
+```
+
+See [unified search design](docs/architecture/ADR-0021-unified-search.md).

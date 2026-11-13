@@ -220,9 +220,9 @@ lifecycle checks are recorded separately from the earlier working-tree candidate
 
 Run `python3 scripts/verify-package-lifecycle.py OLDER_PACKAGE NEWER_PACKAGE`
 with pacman, fakeroot, and libarchive installed. The older fixture must have a
-lower package version/release and different backend contents. The script uses
+lower package version/release and different package contents. The script uses
 a temporary root/database and synthetic home files, checks upgrade/reinstall,
-restores the exact old backend on downgrade, and checks that removal preserves
+restores the exact old files and modes on downgrade, and checks that removal preserves
 config/data/state before reinstalling. Dependencies are skipped because this is
 a package transaction check, not a bootable guest; runtime integration is checked
 separately with the installed service and package UI smoke test. Packages with
@@ -238,3 +238,13 @@ catalog access and app launching, then restart the backend and relaunch the UI.
 Terminal/D-Bus applications rely on the desktop's GIO setup. No launch history
 or autostart changes are installed. Build working-tree packages with
 `make package`; the future 0.2.0 tag checksum will be finalized at release.
+
+
+### Unified search (0.2.0 development, package release 2)
+
+M26 adds Search using existing app/window snapshots and grants. No new runtime
+dependency or config migration is required. Rebuild/reinstall the working-tree
+package and restart the UI to load the new components. The backend protocol
+and version remain compatible with M25. `make e2e-search` checks keyboard app
+launch and window focus in a private compositor; `make ui-test` covers partial
+source permissions, stable selection, bounds, and query disposal.

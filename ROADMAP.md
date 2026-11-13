@@ -54,7 +54,7 @@ System monitoring suite: event delivery, resource metrics, UI cards, and the v0.
 
 ## Phase 6 - Productivity
 - [x] Quick panel: keyboard navigation, screen-aware scrolling, and System/Audio/Windows/Clipboard/Files pages
-- [ ] Command bar
+- [x] App/window command bar: unified search and explicit Switch/Launch (M26)
 - [ ] Scratchpad
 - [x] Keep awake: timed logind/Wayland inhibition with countdown and Stop
 - [ ] Color picker
