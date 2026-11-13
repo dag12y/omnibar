@@ -102,6 +102,12 @@ func (Hyprland) Focus(ctx context.Context, address string) error {
 		return fmt.Errorf("invalid window address")
 	}
 	out, err := command(ctx, "dispatch", "focuswindow", "address:"+address)
+	// Lua-configured sessions interpret dispatch arguments as Lua, even on
+	// versions that still support legacy dispatch in hyprland.conf sessions.
+	// The address is strictly hexadecimal above; no user code enters Lua.
+	if err != nil || strings.TrimSpace(string(out)) != "ok" {
+		out, err = command(ctx, "dispatch", `hl.dsp.focus({ window = "address:`+address+`" })`)
+	}
 	if err != nil {
 		return err
 	}

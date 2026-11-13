@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -144,5 +146,41 @@ func TestBoundedCompositorOutput(t *testing.T) {
 	t.Setenv("HYPRLAND_INSTANCE_SIGNATURE", "")
 	if _, err := command(context.Background(), "-j", "clients"); err == nil {
 		t.Fatal("missing session silently selected another compositor")
+	}
+}
+
+func TestHyprlandFocusDispatchCompatibility(t *testing.T) {
+	for _, mode := range []string{"legacy", "lua", "unavailable"} {
+		t.Run(mode, func(t *testing.T) {
+			dir := t.TempDir()
+			script := `#!/bin/sh
+printf '%s\n' "$*" >> "$FOCUS_LOG"
+case "$FOCUS_MODE:$2" in
+ legacy:focuswindow) echo ok ;;
+ lua:hl.dsp.focus*) echo ok ;;
+ *) exit 1 ;;
+esac
+`
+			if err := os.WriteFile(filepath.Join(dir, "hyprctl"), []byte(script), 0700); err != nil {
+				t.Fatal(err)
+			}
+			log := filepath.Join(dir, "calls")
+			t.Setenv("PATH", dir)
+			t.Setenv("HYPRLAND_INSTANCE_SIGNATURE", "test")
+			t.Setenv("FOCUS_MODE", mode)
+			t.Setenv("FOCUS_LOG", log)
+			err := (Hyprland{}).Focus(context.Background(), "0x123abc")
+			if (err != nil) != (mode == "unavailable") {
+				t.Fatalf("unexpected focus error: %v", err)
+			}
+			data, _ := os.ReadFile(log)
+			want := "dispatch focuswindow address:0x123abc\n"
+			if mode != "legacy" {
+				want += "dispatch hl.dsp.focus({ window = \"address:0x123abc\" })\n"
+			}
+			if string(data) != want {
+				t.Fatalf("unexpected commands: %q", data)
+			}
+		})
 	}
 }
