@@ -5,6 +5,7 @@ All notable changes will be documented here.
 ## [Unreleased]
 
 ### Added
+- Window controls for exact workspace moves, floating/tiling, and maximize/restore with confirmed desired states (M28, ADR-0023).
 - Optional one-shot window previews in Windows and Search, requiring screen.capture plus window.manage (M27, ADR-0022).
 - Exact toplevel capture on the selected Hyprland instance, bounded in-memory JPEG thumbnails, lifecycle cleanup, and private pixel/UI checks via make e2e-previews.
 - Unified Search for apps and windows, with token matching, running-window priority, explicit Switch/Launch actions, and stable keyboard selection (M26, ADR-0021).

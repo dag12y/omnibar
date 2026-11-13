@@ -57,12 +57,19 @@ type client struct {
 	Class        string `json:"class"`
 	InitialClass string `json:"initialClass"`
 	Workspace    struct {
+		ID   int    `json:"id"`
 		Name string `json:"name"`
 	} `json:"workspace"`
-	Monitor      int   `json:"monitor"`
-	Mapped       bool  `json:"mapped"`
-	Hidden       bool  `json:"hidden"`
-	AcceptsInput *bool `json:"acceptsInput"`
+	Monitor      int      `json:"monitor"`
+	Mapped       bool     `json:"mapped"`
+	Hidden       bool     `json:"hidden"`
+	AcceptsInput *bool    `json:"acceptsInput"`
+	Floating     bool     `json:"floating"`
+	Fullscreen   int      `json:"fullscreen"`
+	Pinned       bool     `json:"pinned"`
+	Grouped      []string `json:"grouped"`
+	At           [2]int   `json:"at"`
+	Size         [2]int   `json:"size"`
 }
 
 func (c client) eligible() bool {
@@ -82,7 +89,7 @@ func parseClients(data []byte) ([]Window, error) {
 		if c.Class == "" {
 			c.Class = c.InitialClass
 		}
-		result = append(result, Window{Address: c.Address, Title: c.Title, Class: c.Class, Workspace: c.Workspace.Name, Monitor: c.Monitor})
+		result = append(result, Window{Address: c.Address, Title: c.Title, Class: c.Class, Workspace: c.Workspace.Name, Monitor: c.Monitor, WorkspaceID: c.Workspace.ID, Floating: c.Floating, Fullscreen: c.Fullscreen, Restricted: c.Pinned || len(c.Grouped) > 1, Geometry: Geometry{X: c.At[0], Y: c.At[1], Width: c.Size[0], Height: c.Size[1]}})
 	}
 	return result, nil
 }

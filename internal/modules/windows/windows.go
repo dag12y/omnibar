@@ -26,12 +26,17 @@ var addressPattern = regexp.MustCompile(`^0x[0-9a-fA-F]{1,16}$`)
 func ValidAddress(address string) bool { return addressPattern.MatchString(address) }
 
 type Window struct {
-	Address   string `json:"address"`
-	Title     string `json:"title"`
-	Class     string `json:"class"`
-	Workspace string `json:"workspace"`
-	Monitor   int    `json:"monitor"`
-	Active    bool   `json:"active"`
+	Address     string   `json:"address"`
+	Title       string   `json:"title"`
+	Class       string   `json:"class"`
+	Workspace   string   `json:"workspace"`
+	Monitor     int      `json:"monitor"`
+	Active      bool     `json:"active"`
+	WorkspaceID int      `json:"workspaceID"`
+	Floating    bool     `json:"floating"`
+	Fullscreen  int      `json:"fullscreen"`
+	Restricted  bool     `json:"restricted"`
+	Geometry    Geometry `json:"geometry"`
 }
 type Snapshot struct {
 	Revision  uint64   `json:"revision"`

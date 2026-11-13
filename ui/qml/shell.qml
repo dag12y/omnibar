@@ -355,6 +355,7 @@ ShellRoot {
                             snapshot: root.page === "windows" ? windows.snapshot : ({ windows: [] })
                             preview: previews
                             onPreviewRevealed: item => root.revealItem(item)
+                            onControlRequested: (method, params) => windows.request(method, params)
                             state: windows.state
                             errorText: windows.errorText
                             busy: windows.busy

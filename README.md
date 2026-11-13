@@ -311,3 +311,15 @@ make e2e-previews  # synthetic off-workspace capture, decoded pixels, and UI che
 ```
 
 See [window preview design](docs/architecture/ADR-0022-window-previews.md).
+
+
+## Window controls (0.2.0 development)
+
+Open **Windows → Controls** on a window. **Float/Tile** changes its mode,
+**Maximize/Restore size** changes maximization, and **Move** sends it to the
+entered global Hyprland workspace ID (1–9999). Changes keep the panel open.
+Controls require window.manage; pinned/grouped windows are excluded. Exit
+fullscreen first, and restore maximization before changing floating mode.
+Targeted maximization requires a Lua-configured Hyprland session.
+
+`make e2e-controls` verifies background targets and real controls privately.

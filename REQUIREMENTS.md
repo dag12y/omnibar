@@ -282,3 +282,14 @@ Phase 2 adds live system monitoring on top of the Phase 1 foundation and prepare
   Keep one preview at a time and require another explicit action to refresh it.
 - Verify permission denial, pixel/size/identity bounds, lifecycle disposal, and
   real UI buttons with synthetic windows in a private compositor.
+
+
+## Window control increment (implemented)
+
+- Move exact live targets to absolute workspace IDs without following; set
+  floating and maximized states idempotently under window.manage.
+- Reject stale/unsafe targets, invalid parameters, pinned/grouped targets, and
+  incompatible fullscreen states; confirm results before displaying success.
+- Keep the panel open after controls. Never use focused-window fallback for
+  background maximization; unsupported legacy configurations fail explicitly.
+- Verify the real controls with synthetic windows in a private Lua compositor.

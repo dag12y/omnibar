@@ -16,6 +16,8 @@ ColumnLayout {
     signal previewRevealed(var item)
     readonly property bool ready: state === "ready"
     signal focusRequested(string address)
+    signal controlRequested(string method, var params)
+    property string controlsAddress: ""
     signal refreshRequested
     spacing: 14
     ListModel {
@@ -24,6 +26,8 @@ ColumnLayout {
     function syncRows() {
         const query = search.text.toLowerCase();
         const wanted = (snapshot.windows || []).filter(window => (window.title + " " + window.class + " " + window.workspace).toLowerCase().includes(query));
+        if (!wanted.some(window => window.address === controlsAddress))
+            controlsAddress = "";
         for (let i = rows.count - 1; i >= 0; i--)
             if (!wanted.some(window => window.address === rows.get(i).address))
                 rows.remove(i);
@@ -41,7 +45,11 @@ ColumnLayout {
                 appClass: window.class,
                 workspace: window.workspace,
                 monitor: window.monitor,
-                active: window.active === true
+                active: window.active === true,
+                workspaceID: window.workspaceID || 0,
+                floating: window.floating === true,
+                fullscreen: window.fullscreen || 0,
+                restricted: window.restricted === true
             };
             if (current < 0)
                 rows.insert(i, row);
@@ -57,8 +65,12 @@ ColumnLayout {
         if (active && ready)
             search.forceActiveFocus();
     }
-    onActiveChanged: if (active)
-        Qt.callLater(focusSearch)
+    onActiveChanged: {
+        if (active)
+            Qt.callLater(focusSearch);
+        else
+            controlsAddress = "";
+    }
     onReadyChanged: if (active && ready)
         Qt.callLater(focusSearch)
     Component.onCompleted: syncRows()
@@ -156,6 +168,10 @@ ColumnLayout {
             required property string workspace
             required property int monitor
             required property bool active
+            required property int workspaceID
+            required property bool floating
+            required property int fullscreen
+            required property bool restricted
             objectName: "window-" + address
             Layout.fillWidth: true
             implicitHeight: card.implicitHeight + 24
@@ -219,12 +235,30 @@ ColumnLayout {
                         onClicked: root.preview.request(address)
                     }
                     PanelButton {
+                        objectName: "showControls"
+                        text: "Controls"
+                        visible: root.snapshot.controlsAvailable === true
+                        selected: root.controlsAddress === address
+                        enabled: root.ready && !root.busy && !restricted
+                        onClicked: root.controlsAddress = root.controlsAddress === address ? "" : address
+                    }
+                    PanelButton {
                         objectName: "switchWindow"
                         text: "Switch →"
                         description: "Switch to " + appClass
                         enabled: root.ready && !root.busy
                         onClicked: root.focusRequested(address)
                     }
+                }
+                WindowControls {
+                    visible: root.controlsAddress === card.parent.address
+                    Layout.fillWidth: true
+                    address: card.parent.address
+                    workspaceID: card.parent.workspaceID
+                    floating: card.parent.floating
+                    fullscreen: card.parent.fullscreen
+                    busy: root.busy || card.parent.restricted
+                    onControlRequested: (method, params) => root.controlRequested(method, params)
                 }
             }
         }

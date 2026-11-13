@@ -24,7 +24,10 @@ def main():
     parser.add_argument("--apps", action="store_true", help="verify installed desktop app launching in the private compositor")
     parser.add_argument("--search", action="store_true", help="verify unified app/window search in the private compositor")
     parser.add_argument("--previews", action="store_true", help="verify in-memory exact-window preview capture")
+    parser.add_argument("--controls", action="store_true", help="verify exact window controls in a private Lua compositor")
     args = parser.parse_args()
+    if args.controls:
+        args.windows = True
     if args.previews:
         args.windows = True
     if args.search:
@@ -51,6 +54,10 @@ def main():
         "misc {\n disable_hyprland_logo = true\n disable_splash_rendering = true\n}\n"
         "xwayland {\n enabled = false\n}\n"
     )
+    compositor_config = trial / "hyprland.conf"
+    if args.controls:
+        compositor_config = trial / "hyprland.lua"
+        compositor_config.write_text('hl.monitor({output="", mode="900x800", position="auto", scale=1})\nhl.config({misc={disable_hyprland_logo=true, disable_splash_rendering=true}, xwayland={enabled=false}, animations={enabled=false}})\n')
     host_wayland = os.environ["WAYLAND_DISPLAY"]
     if not host_wayland.startswith("/"):
         host_wayland = os.environ["XDG_RUNTIME_DIR"] + "/" + host_wayland
@@ -142,7 +149,7 @@ def main():
         return bool(entries) and entries[0][field] == value
 
     try:
-        compositor = launch("hyprland", "Hyprland", "--config", str(trial / "hyprland.conf"))
+        compositor = launch("hyprland", "Hyprland", "--config", str(compositor_config))
         wait_until(lambda: any(path.is_socket() for path in (trial / "run").glob("wayland-*")),
                    "nested Wayland compositor did not start")
         assert compositor.poll() is None
@@ -264,7 +271,10 @@ def main():
             clients = compositor("clients")
             address_a = next(item["address"] for item in clients if item.get("title") == "Omnibar fixture Alpha")
             address_b = next(item["address"] for item in clients if item.get("title") == "Omnibar fixture Beta")
-            subprocess.run(["hyprctl", "dispatch", "movetoworkspacesilent", "2,address:" + address_b], env=env, check=True, stdout=subprocess.DEVNULL)
+            if args.controls:
+                assert rpc("windows.moveWorkspace", dict(address=address_b, workspace=2))
+            else:
+                subprocess.run(["hyprctl", "dispatch", "movetoworkspacesilent", "2,address:" + address_b], env=env, check=True, stdout=subprocess.DEVNULL)
             if args.previews:
                 def capture_count():
                     log = trial / "preview-requests.log"
@@ -318,6 +328,24 @@ def main():
                 assert rpc_error("windows.getPreview", dict(address="0x1"))["code"] == -32603
                 assert capture_count() == 3
                 print("PASS: real Windows/Search Preview buttons, page/hide disposal, no automatic captures, and stale/invalid targets")
+            if args.controls:
+                def window(address):
+                    return next(w for w in rpc("windows.getSnapshot")["windows"] if w["address"] == address)
+                before_a = window(address_a)
+                rpc("windows.setFloating", dict(address=address_b, enabled=True))
+                assert window(address_b)["floating"] and window(address_a)["floating"] == before_a["floating"]
+                rpc("windows.setFloating", dict(address=address_b, enabled=False))
+                rpc("windows.setMaximized", dict(address=address_b, enabled=True))
+                assert window(address_b)["fullscreen"] == 1 and window(address_a)["fullscreen"] == before_a["fullscreen"]
+                rpc("windows.setMaximized", dict(address=address_b, enabled=False))
+                assert window(address_b)["fullscreen"] == 0
+                for method, params in [("windows.moveWorkspace", dict(address=address_b,workspace=-1)),("windows.setFloating",dict(address=address_b)),("windows.setMaximized",dict(address="0x1;bad",enabled=True))]:
+                    assert rpc_error(method,params)["code"] == -32602
+                # Exercise the real expanded control buttons while retaining the panel.
+                subprocess.run(["wtype", "Beta", "-k", "Tab", "-k", "space", "-k", "Tab", "-k", "Tab", "-k", "space"],env=env,check=True)
+                wait_until(lambda: window(address_b)["floating"], "real Float control did not update target")
+                rpc("windows.setFloating",dict(address=address_b,enabled=False))
+                print("PASS: exact background move/float/maximize, unchanged unrelated target, validated params, and real Float control")
             for address in [address_a, address_b]:
                 switched = rpc("windows.focus", dict(address=address))
                 assert any(item["address"] == address and item["active"] for item in switched["windows"])

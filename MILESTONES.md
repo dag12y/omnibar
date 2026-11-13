@@ -42,6 +42,7 @@ This document breaks the approved architecture into small, sequential, independe
 | M25 | Application launcher | Installed desktop entries, search, explicit GIO launch, and Apps page | Done |
 | M26 | Unified app/window search | Shared query, ranked results, keyboard selection, and explicit Switch/Launch | Done |
 | M27 | Window preview thumbnails | Optional exact-window capture, bounded in-memory images, Windows/Search controls | Done |
+| M28 | Window controls | Exact workspace move, floating/tiled state, maximize/restore, confirmed UI | Done |
 
 ---
 
@@ -1061,3 +1062,14 @@ zero alterations, matching running backend, active preview grant, and no service
 overrides. The user's config was backed up before enabling screen.capture;
 Windows is open for explicit Preview actions. No host-window image was requested
 by the agent during installed-service verification.
+
+
+## M28 — Window controls (implemented)
+
+Adds exact-address, desired-state workspace/float/maximize RPCs and an expandable
+Windows control area. Controls retain the panel, validate live targets, reject
+grouped/pinned/fullscreen targets, and verify post-dispatch state. Move uses
+absolute workspace IDs and does not follow the window. Maximization requires
+Lua support because legacy dispatch targets the focused window. Unit/RPC/QML
+and private Lua compositor checks cover validation, confirmation, idempotence,
+and the real Float control. See [ADR-0023](docs/architecture/ADR-0023-window-controls.md).
