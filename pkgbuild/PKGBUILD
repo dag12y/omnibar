@@ -21,9 +21,9 @@ optdepends=('hyprland: running-window switcher via hyprctl')
 makedepends=('go')
 options=('!debug')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-# Release bootstrap: replace with the tag tarball digest after pushing v$pkgver.
+# Verified SHA-256 of the published v0.1.0 tag source archive.
 # scripts/package-local.sh computes its substituted archive's own checksum.
-sha256sums=('SKIP')
+sha256sums=('ab953bc864fc537d6e01ecf284ccf5ea161afba9be56db0b17be78676b197253')
 
 _go_env() {
   export GOPATH="$srcdir/gopath"
