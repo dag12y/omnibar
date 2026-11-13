@@ -8,6 +8,7 @@ Item {
     required property string methodPrefix
     property string displayName: "Module"
     property int pollInterval: 1000
+    property int requestTimeout: 8000
     property var emptySnapshot: ({
             entries: []
         })
@@ -69,7 +70,7 @@ Item {
     }
     Timer {
         id: timeout
-        interval: 8000
+        interval: root.requestTimeout
         onTriggered: {
             root.busy = false;
             root.pendingId = -1;

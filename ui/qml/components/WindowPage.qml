@@ -13,11 +13,12 @@ ColumnLayout {
     property bool active: visible
     property bool busy: false
     property var preview: null
-    signal previewRevealed(var item)
+    signal revealRequested(var item)
     readonly property bool ready: state === "ready"
     signal focusRequested(string address)
     signal controlRequested(string method, var params)
     property string controlsAddress: ""
+    property bool layoutsExpanded: false
     signal refreshRequested
     spacing: 14
     ListModel {
@@ -68,8 +69,10 @@ ColumnLayout {
     onActiveChanged: {
         if (active)
             Qt.callLater(focusSearch);
-        else
+        else {
             controlsAddress = "";
+            layoutsExpanded = false;
+        }
     }
     onReadyChanged: if (active && ready)
         Qt.callLater(focusSearch)
@@ -135,6 +138,25 @@ ColumnLayout {
         onTextChanged: root.syncRows()
         onAccepted: if (root.ready && !root.busy && rows.count > 0)
             root.focusRequested(rows.get(0).address)
+    }
+    PanelButton {
+        text: root.layoutsExpanded ? "Saved layouts ▴" : "Saved layouts ▾"
+        objectName: "showLayouts"
+        visible: root.snapshot.controlsAvailable === true
+        enabled: root.ready
+        selected: root.layoutsExpanded
+        onClicked: root.layoutsExpanded = !root.layoutsExpanded
+    }
+    LayoutPanel {
+        id: layoutPanel
+        onVisibleChanged: if (visible) layoutReveal.restart()
+        Timer { id: layoutReveal; interval: 60; onTriggered: if (layoutPanel.visible) root.revealRequested(layoutPanel) }
+        visible: root.layoutsExpanded && root.ready
+        active: visible && root.active
+        Layout.fillWidth: true
+        snapshot: root.snapshot
+        busy: root.busy || (root.preview !== null && root.preview.busy)
+        onLayoutRequested: (method, params) => root.controlRequested(method, params)
     }
     Text {
         text: "Switch focuses an existing window and closes this panel."
@@ -215,7 +237,7 @@ ColumnLayout {
                     controller: root.preview
                     address: card.parent.address
                     Layout.fillWidth: true
-                    onRevealRequested: item => root.previewRevealed(item)
+                    onRevealRequested: item => root.revealRequested(item)
                 }
                 RowLayout {
                     Layout.fillWidth: true
@@ -251,6 +273,9 @@ ColumnLayout {
                     }
                 }
                 WindowControls {
+                    id: windowControls
+                    onVisibleChanged: if (visible) controlsReveal.restart()
+                    Timer { id: controlsReveal; interval: 60; onTriggered: if (windowControls.visible) root.revealRequested(windowControls) }
                     visible: root.controlsAddress === card.parent.address
                     Layout.fillWidth: true
                     address: card.parent.address

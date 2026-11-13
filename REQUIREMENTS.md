@@ -225,11 +225,11 @@ Phase 2 adds live system monitoring on top of the Phase 1 foundation and prepare
 - Bound raw replies, label bytes, displayed windows, and RPC deadlines. Show
   explicit unavailable, denied, busy, empty, and truncated states.
 - Require an explicit compositor instance; poll only while visible and retain
-  no persistent window history or title logs. Clear frontend caches on hide.
+  no automatic persistent window history or title logs. Clear frontend caches on hide.
 - Verify cross-workspace focus and closed/invalid targets using synthetic windows
   in a private compositor; leave host focus/config and application launching alone.
-- Previews, layouts, special-workspace/group restoration, and non-Hyprland support
-  are deferred.
+- Special-workspace/group restoration and non-Hyprland support are deferred;
+  subsequent preview and layout increments are specified below.
 
 
 ## Application launcher increment (implemented)
@@ -293,3 +293,20 @@ Phase 2 adds live system monitoring on top of the Phase 1 foundation and prepare
 - Keep the panel open after controls. Never use focused-window fallback for
   background maximization; unsupported legacy configurations fail explicitly.
 - Verify the real controls with synthetic windows in a private Lua compositor.
+
+
+## Saved window layout increment (implemented)
+
+- Save named arrangements of 1–16 windows from one ordinary workspace under
+  window.manage, with up to 8 layouts and 64 KiB of private atomic JSON.
+- Persist titles/classes only on explicit Save; expose summaries in snapshots,
+  preserve corrupt/unsafe data, and never apply layouts on startup.
+- Restore only uniquely matched open windows on unchanged monitor topology.
+  Validate all matches before changes, then revalidate stable identities during
+  each exact-target step. Reject missing/ambiguous/restricted targets.
+- Restore workspace, floating state, maximization, and floating geometry;
+  retain the compositor's current tiled ordering. Never launch saved commands.
+- Bound restore time, reject concurrent restores, keep listing responsive,
+  report partial failure honestly, and keep the panel open.
+- Verify grants, matching, persistence, private files, partial failures, restart,
+  and real Save/Restore UI behavior in a private compositor.

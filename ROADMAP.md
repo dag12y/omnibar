@@ -33,7 +33,8 @@ System monitoring suite: event delivery, resource metrics, UI cards, and the v0.
 - [x] Installed application launcher: search and explicit desktop-entry launch (M25)
 - [x] Hyprland running-window switcher: search, exact focus, and workspace switching (M24)
 - [x] Optional in-memory window previews in Windows and Search (M27)
-- [ ] Window layouts
+- [x] Exact workspace, float/tile, and maximize controls (M28)
+- [x] Named saved workspace arrangements for matching open windows (M29)
 
 ## Phase 4 - Clipboard and Files
 - [x] Session-only text clipboard history, search, copy, delete, and clear (M20)

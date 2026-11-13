@@ -10,7 +10,7 @@ import (
 )
 
 func RegisterWindowMethods(d *jsonrpc.Dispatcher, registry *modules.Registry, switcher *windows.Module) {
-	for _, method := range []string{"windows.getSnapshot", "windows.focus", "windows.getPreview", "windows.moveWorkspace", "windows.setFloating", "windows.setMaximized"} {
+	for _, method := range []string{"windows.getSnapshot", "windows.focus", "windows.getPreview", "windows.moveWorkspace", "windows.setFloating", "windows.setMaximized", "windows.saveLayout", "windows.restoreLayout", "windows.deleteLayout"} {
 		d.RegisterContext(method, func(ctx context.Context, params json.RawMessage) (json.RawMessage, *jsonrpc.Error) {
 			if !registry.IsEnabled(windows.Name) {
 				return nil, jsonrpc.NewError(jsonrpc.CodeModuleUnavailable, "Window switcher is disabled", windows.Name)
@@ -25,9 +25,16 @@ func RegisterWindowMethods(d *jsonrpc.Dispatcher, registry *modules.Registry, sw
 				Address   string `json:"address"`
 				Workspace int    `json:"workspace"`
 				Enabled   *bool  `json:"enabled"`
+				Name      string `json:"name"`
+				ID        string `json:"id"`
 			}
-			if method != "windows.getSnapshot" && (json.Unmarshal(params, &p) != nil || !windows.ValidAddress(p.Address)) {
+			if method != "windows.getSnapshot" && method != "windows.saveLayout" && method != "windows.restoreLayout" && method != "windows.deleteLayout" && (json.Unmarshal(params, &p) != nil || !windows.ValidAddress(p.Address)) {
 				return nil, jsonrpc.NewError(jsonrpc.CodeInvalidParams, "Invalid window address", windows.Name)
+			}
+			if method == "windows.saveLayout" || method == "windows.restoreLayout" || method == "windows.deleteLayout" {
+				if json.Unmarshal(params, &p) != nil || (method == "windows.saveLayout" && (!windows.ValidLayoutName(p.Name) || p.Workspace < 1 || p.Workspace > 9999)) || (method != "windows.saveLayout" && !windows.ValidLayoutID(p.ID)) {
+					return nil, jsonrpc.NewError(jsonrpc.CodeInvalidParams, "Invalid layout parameters", windows.Name)
+				}
 			}
 			var change windows.Change
 			switch method {
@@ -46,7 +53,11 @@ func RegisterWindowMethods(d *jsonrpc.Dispatcher, registry *modules.Registry, sw
 			if change.Action != "" && !change.Valid() {
 				return nil, jsonrpc.NewError(jsonrpc.CodeInvalidParams, "Invalid window control parameters", windows.Name)
 			}
-			ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+			deadline := 3 * time.Second
+			if method == "windows.restoreLayout" {
+				deadline = 12 * time.Second
+			}
+			ctx, cancel := context.WithTimeout(ctx, deadline)
 			defer cancel()
 			if method == "windows.getPreview" {
 				preview, err := switcher.Preview(ctx, p.Address)
@@ -58,7 +69,13 @@ func RegisterWindowMethods(d *jsonrpc.Dispatcher, registry *modules.Registry, sw
 			}
 			var snap windows.Snapshot
 			var err error
-			if method == "windows.focus" {
+			if method == "windows.saveLayout" {
+				snap, err = switcher.SaveLayout(ctx, p.Name, p.Workspace)
+			} else if method == "windows.restoreLayout" {
+				snap, err = switcher.RestoreLayout(ctx, p.ID)
+			} else if method == "windows.deleteLayout" {
+				snap, err = switcher.DeleteLayout(ctx, p.ID)
+			} else if method == "windows.focus" {
 				snap, err = switcher.Focus(ctx, p.Address)
 			} else if change.Action != "" {
 				snap, err = switcher.Change(ctx, p.Address, change)

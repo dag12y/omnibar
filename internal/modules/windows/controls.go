@@ -20,6 +20,7 @@ func (g Geometry) Valid() bool {
 }
 
 type Change struct {
+	Identity  string
 	Action    string
 	Workspace int
 	Enabled   bool
@@ -77,6 +78,9 @@ func (m *Module) changeLocked(ctx context.Context, address string, c Change) (Sn
 	w, err := target(snap, address)
 	if err != nil {
 		return Snapshot{}, err
+	}
+	if c.Identity != "" && w.Identity != c.Identity {
+		return Snapshot{}, fmt.Errorf("window identity changed; refresh")
 	}
 	if w.Restricted {
 		return Snapshot{}, fmt.Errorf("grouped or pinned windows cannot be changed individually")

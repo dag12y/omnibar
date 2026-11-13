@@ -89,7 +89,7 @@ func parseClients(data []byte) ([]Window, error) {
 		if c.Class == "" {
 			c.Class = c.InitialClass
 		}
-		result = append(result, Window{Address: c.Address, Title: c.Title, Class: c.Class, Workspace: c.Workspace.Name, Monitor: c.Monitor, WorkspaceID: c.Workspace.ID, Floating: c.Floating, Fullscreen: c.Fullscreen, Restricted: c.Pinned || len(c.Grouped) > 1, Geometry: Geometry{X: c.At[0], Y: c.At[1], Width: c.Size[0], Height: c.Size[1]}})
+		result = append(result, Window{Identity: c.StableID, Address: c.Address, Title: c.Title, Class: c.Class, Workspace: c.Workspace.Name, Monitor: c.Monitor, WorkspaceID: c.Workspace.ID, Floating: c.Floating, Fullscreen: c.Fullscreen, Restricted: c.Pinned || len(c.Grouped) > 1, Geometry: Geometry{X: c.At[0], Y: c.At[1], Width: c.Size[0], Height: c.Size[1]}})
 	}
 	return result, nil
 }

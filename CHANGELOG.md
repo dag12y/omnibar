@@ -4,7 +4,10 @@ All notable changes will be documented here.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-13
+
 ### Added
+- Named saved window arrangements with private atomic storage, exact open-window matching, monitor guards, floating geometry, and explicit Save/Restore/Delete (M29, ADR-0024).
 - Window controls for exact workspace moves, floating/tiling, and maximize/restore with confirmed desired states (M28, ADR-0023).
 - Optional one-shot window previews in Windows and Search, requiring screen.capture plus window.manage (M27, ADR-0022).
 - Exact toplevel capture on the selected Hyprland instance, bounded in-memory JPEG thumbnails, lifecycle cleanup, and private pixel/UI checks via make e2e-previews.
@@ -18,7 +21,7 @@ All notable changes will be documented here.
 - Hyprland subprocess output caps also apply to io.Copy; embedded bytes.Buffer methods can no longer bypass bounded writes.
 
 ### Changed
-- Development version is 0.2.0; GIO (`glib2`) is an explicit runtime dependency.
+- Backend version is 0.2.0; GIO (`glib2`) is an explicit runtime dependency.
 - UI smoke tests derive the expected backend version from the tested binary.
 
 ## [0.1.0] - 2026-11-13

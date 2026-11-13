@@ -11,6 +11,8 @@ import (
 	"omnibar/internal/ipc/jsonrpc"
 	"omnibar/internal/modules"
 	"omnibar/internal/modules/windows"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -36,7 +38,7 @@ func (f *windowDriver) Capture(ctx context.Context, _ string) ([]byte, error) {
 func (f *windowDriver) Read(ctx context.Context) ([]windows.Window, string, error) {
 	f.reads++
 	_, f.deadline = ctx.Deadline()
-	return []windows.Window{{Address: "0x1", Class: "Test app", Title: "Fixture", Workspace: fmt.Sprint(f.workspace), WorkspaceID: f.workspace, Floating: f.floating, Fullscreen: f.fullscreen}}, f.active, nil
+	return []windows.Window{{Address: "0x1", Identity: "fixture-stable", Class: "Test app", Title: "Fixture", Workspace: fmt.Sprint(f.workspace), WorkspaceID: f.workspace, Floating: f.floating, Fullscreen: f.fullscreen}}, f.active, nil
 }
 
 func TestWindowPreviewPermissionsAndMetadataRemainIndependent(t *testing.T) {
@@ -242,5 +244,83 @@ func TestWindowControlRPCValidationAndGrants(t *testing.T) {
 			t.Fatal("invalid request reached driver")
 		}
 		r.Stop(context.Background())
+	}
+}
+
+func (f *windowDriver) Topology(context.Context) (string, error) { return strings.Repeat("a", 64), nil }
+func TestWindowLayoutRPCPermissionsAndLifecycle(t *testing.T) {
+	for _, mode := range []string{"denied", "disabled", "granted"} {
+		t.Run(mode, func(t *testing.T) {
+			cfg := config.DefaultConfig()
+			cfg.Permissions[windows.Capability] = mode != "denied"
+			if mode == "disabled" {
+				cfg.Modules[windows.Name] = config.ModuleConfig{Enabled: false}
+			}
+			f := &windowDriver{workspace: 1}
+			m := windows.NewWithLayoutStore(f, windows.LayoutFile{Path: filepath.Join(t.TempDir(), "layouts.json")})
+			r := modules.NewRegistry(cfg, nil)
+			r.Register(m)
+			r.Initialize(context.Background())
+			r.Start(context.Background())
+			defer r.Stop(context.Background())
+			d := jsonrpc.NewDispatcher()
+			RegisterWindowMethods(d, r, m)
+			call := func(method, params string) jsonrpc.Response {
+				t.Helper()
+				out, err := d.Handle([]byte(fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":%q,"params":%s}`, method, params)))
+				if err != nil {
+					t.Fatal(err)
+				}
+				var response jsonrpc.Response
+				if json.Unmarshal(out, &response) != nil {
+					t.Fatal("bad response")
+				}
+				return response
+			}
+			if mode != "granted" {
+				for _, method := range []string{"windows.saveLayout", "windows.restoreLayout", "windows.deleteLayout"} {
+					resp := call(method, `{}`)
+					want := jsonrpc.CodePermissionDenied
+					if mode == "disabled" {
+						want = jsonrpc.CodeModuleUnavailable
+					}
+					if resp.Error == nil || resp.Error.Code != want {
+						t.Fatal("layout grant bypass", resp.Error)
+					}
+				}
+				if f.reads != 0 || f.changes != 0 {
+					t.Fatal("denied call contacted compositor")
+				}
+				return
+			}
+			for _, tc := range [][2]string{{"windows.saveLayout", `{"name":"desk","workspace":0}`}, {"windows.saveLayout", `{"name":" desk ","workspace":1}`}, {"windows.restoreLayout", `{"id":"bad"}`}, {"windows.deleteLayout", `{"id":3}`}} {
+				resp := call(tc[0], tc[1])
+				if resp.Error == nil || resp.Error.Code != jsonrpc.CodeInvalidParams {
+					t.Fatal("invalid layout accepted", resp.Error)
+				}
+			}
+			if f.reads != 0 {
+				t.Fatal("invalid request contacted compositor")
+			}
+			resp := call("windows.saveLayout", `{"name":"desk","workspace":1}`)
+			if resp.Error != nil {
+				t.Fatal(resp.Error)
+			}
+			var snap windows.Snapshot
+			if json.Unmarshal(resp.Result, &snap) != nil || len(snap.Layouts) != 1 {
+				t.Fatal("missing saved summary")
+			}
+			params := fmt.Sprintf(`{"id":%q}`, snap.Layouts[0].ID)
+			f.workspace = 2
+			if resp = call("windows.restoreLayout", params); resp.Error != nil || f.workspace != 1 {
+				t.Fatal("restore failed", resp.Error)
+			}
+			if resp = call("windows.deleteLayout", params); resp.Error != nil {
+				t.Fatal(resp.Error)
+			}
+			if strings.Contains(string(resp.Result), `"identity"`) {
+				t.Fatal("internal identity exposed")
+			}
+		})
 	}
 }

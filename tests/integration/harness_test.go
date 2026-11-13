@@ -136,7 +136,7 @@ func (e *testEnv) backendEnv() []string {
 	for _, kv := range os.Environ() {
 		if strings.HasPrefix(kv, "XDG_RUNTIME_DIR=") ||
 			strings.HasPrefix(kv, "XDG_CONFIG_HOME=") ||
-			strings.HasPrefix(kv, "XDG_STATE_HOME=") {
+			strings.HasPrefix(kv, "XDG_STATE_HOME=") || strings.HasPrefix(kv, "XDG_DATA_HOME=") {
 			continue
 		}
 		out = append(out, kv)
@@ -144,6 +144,8 @@ func (e *testEnv) backendEnv() []string {
 	return append(out,
 		"XDG_RUNTIME_DIR="+e.runtimeDir,
 		"XDG_CONFIG_HOME="+e.configDir,
+		"XDG_DATA_HOME="+filepath.Join(e.configDir, "../data"),
+		"XDG_STATE_HOME="+filepath.Join(e.configDir, "../state"),
 	)
 }
 

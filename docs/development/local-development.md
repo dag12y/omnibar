@@ -513,3 +513,13 @@ If a user service lacks it, import that variable from a terminal in the current
 desktop session with `systemctl --user import-environment HYPRLAND_INSTANCE_SIGNATURE`,
 then restart omnibar.service. Missing sessions fail explicitly; there is no
 implicit compositor selection. See [ADR-0019](../architecture/ADR-0019-window-switcher.md).
+
+
+## Saved layouts
+
+`make e2e-layouts` uses private Lua Hyprland windows and private XDG storage.
+It verifies exact geometry/state restoration, name replacement, real UI Save,
+restart persistence without automatic application, missing-window rejection,
+and deletion. Unit/RPC/QML checks cover permission denial, ambiguous matches,
+monitor changes, private/corrupt storage, bounded writes, concurrent restores,
+and responsive snapshot reads. See ADR-0024 for RPC parameters and limitations.

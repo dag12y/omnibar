@@ -1073,3 +1073,26 @@ absolute workspace IDs and does not follow the window. Maximization requires
 Lua support because legacy dispatch targets the focused window. Unit/RPC/QML
 and private Lua compositor checks cover validation, confirmation, idempotence,
 and the real Float control. See [ADR-0023](docs/architecture/ADR-0023-window-controls.md).
+
+
+## M29 — Saved window arrangements (implemented)
+
+Adds explicit Save/Restore/Delete in Windows with named workspace arrangements.
+Private atomic storage holds app classes/titles, target workspace, monitor
+fingerprint, floating geometry, and float/maximize state. Restore preflights all
+open matches and monitor topology, then revalidates exact stable targets for
+each confirmed action. Missing/ambiguous targets fail before any mutation;
+later failures report possible partial changes. Tiled ordering follows Hyprland.
+There is no automatic restore or app launch. Limits are 8 layouts, 16 windows,
+and 64 KiB. Listing remains responsive during restores. See
+[ADR-0024](docs/architecture/ADR-0024-window-layouts.md).
+
+
+M28/M29 verification: Go vet/race checks and all 161 QML tests passed. The
+private Lua compositor confirmed exact background controls, unchanged unrelated
+windows, restored floating geometry/workspaces, real Save/Restore buttons,
+name replacement, restart persistence without automatic application, and
+missing-window rejection/deletion. Private previews/search/apps/shelf/audio,
+UI reconnect, and Keep Awake regressions passed. Expanded controls scroll into
+view on small displays. Release package verification is recorded in
+[the v0.2.0 verification record](docs/releases/v0.2.0-verification.md).

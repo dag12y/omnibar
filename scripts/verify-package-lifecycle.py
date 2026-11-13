@@ -53,15 +53,17 @@ def main():
         for relative, contents in {
             ".config/omnibar/config.toml": 'config_version = 1\n',
             ".local/share/omnibar/clipboard-favorites.json": '[]\n',
+            ".local/share/omnibar/window-layouts.json": '{"version":1,"layouts":[]}\n',
             ".local/state/omnibar/sentinel": 'preserve state\n',
         }.items():
             path = home / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(contents)
-            sentinels[path] = digest(path)
+            path.chmod(0o600)
+            sentinels[path] = (digest(path), path.stat().st_mode)
 
         def check_data():
-            assert all(path.exists() and digest(path) == value
+            assert all(path.exists() and (digest(path), path.stat().st_mode) == value
                        for path, value in sentinels.items()), "user data changed"
 
         def install(package):

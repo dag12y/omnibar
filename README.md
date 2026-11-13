@@ -29,8 +29,9 @@ uses the active Omarchy theme, live CPU/memory graphs, and expandable details.
 Timed Keep Awake, an audio mixer, microphone controls, and session clipboard
 history with saved favorites are also implemented. System, Audio, and Clipboard
 share the same panel alongside a session File shelf and a Hyprland window
-switcher. [v0.1.0 is available](https://github.com/dag12y/omnibar/releases/tag/v0.1.0),
-with [release verification](docs/releases/v0.1.0-verification.md) for x86_64.
+switcher, app launcher, unified search, optional previews, exact window controls,
+and saved workspace layouts. The v0.2.0 release candidate is under verification;
+[v0.1.0 remains available](https://github.com/dag12y/omnibar/releases/tag/v0.1.0).
 
 Run the backend with `make run` and launch the panel with
 `quickshell -n -p ui/qml/shell.qml`. Click the CPU or memory card for details.
@@ -218,9 +219,9 @@ Omnibar validates the live target and closes the panel only after Hyprland
 confirms focus. Switching can take you to another workspace. Closed windows and
 unavailable sessions show an error; Refresh retries. No application is launched.
 Only mapped, non-hidden windows outside special workspaces are included, up to
-100, with a notice if truncated. Titles refresh only while visible and are not
-saved to disk. Window previews, special-workspace restoration, and MRU ordering
-remain future work.
+100, with a notice if truncated. Titles refresh only while visible. Saving a layout explicitly persists its
+app names and window titles; ordinary listing and previews remain in memory.
+Special-workspace restoration and MRU ordering remain future work.
 
 ```sh
 quickshell -p /absolute/path/to/omnibar/ui/qml/shell.qml ipc call -- panel showWindows
@@ -244,7 +245,7 @@ See [window-switcher design and protocol](docs/architecture/ADR-0019-window-swit
 - [Changelog](CHANGELOG.md)
 
 
-## Application launcher (0.2.0 development)
+## Application launcher (0.2.0)
 
 Open **Apps** to search installed desktop applications by name, description, or
 keywords. Set `"process.manage" = true` under your existing `[permissions]` in
@@ -323,3 +324,27 @@ fullscreen first, and restore maximization before changing floating mode.
 Targeted maximization requires a Lua-configured Hyprland session.
 
 `make e2e-controls` verifies background targets and real controls privately.
+
+
+## Saved window layouts (0.2.0)
+
+In **Windows → Saved layouts**, enter a name and workspace ID, then choose
+**Save**. Save the same name again to replace its arrangement. **Restore** moves
+matching open windows back and restores floating/tiling, maximize state, and
+floating positions/sizes. **Delete** removes the saved arrangement.
+
+Open the apps first. Omnibar matches app class and title, with a class-only
+fallback when exactly one window of that app exists. Missing or ambiguous
+windows, changed monitors, and pinned/grouped/fullscreen targets are rejected.
+Tiled windows use Hyprland's current tiling order. Restore keeps the panel open;
+a compositor failure can leave a partially restored desktop, with an error.
+
+This uses the existing `window.manage` grant. Layouts are saved only when you
+choose Save, in `$XDG_DATA_HOME/omnibar/window-layouts.json` (default
+`~/.local/share/omnibar/window-layouts.json`), with private permissions. The file
+includes window titles. Limits are 8 layouts, 16 windows each, and 64 KiB total.
+Layouts survive restarts and are never applied automatically. Corrupt data is
+preserved and its error shown. Floating geometry is restored only with the same
+monitor arrangement. Exact background maximize/restore requires Lua Hyprland.
+
+See [layout design](docs/architecture/ADR-0024-window-layouts.md).

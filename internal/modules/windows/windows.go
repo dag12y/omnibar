@@ -1,5 +1,5 @@
 // Package windows provides explicit switching between existing Hyprland windows.
-// It launches no applications and stores no titles outside the current session.
+// It launches no applications. Explicitly saved layouts persist window metadata.
 package windows
 
 import (
@@ -26,6 +26,7 @@ var addressPattern = regexp.MustCompile(`^0x[0-9a-fA-F]{1,16}$`)
 func ValidAddress(address string) bool { return addressPattern.MatchString(address) }
 
 type Window struct {
+	Identity    string   `json:"-"`
 	Address     string   `json:"address"`
 	Title       string   `json:"title"`
 	Class       string   `json:"class"`
@@ -39,9 +40,11 @@ type Window struct {
 	Geometry    Geometry `json:"geometry"`
 }
 type Snapshot struct {
-	Revision  uint64   `json:"revision"`
-	Truncated bool     `json:"truncated"`
-	Windows   []Window `json:"windows"`
+	Layouts     []LayoutSummary `json:"layouts"`
+	LayoutError string          `json:"layoutError,omitempty"`
+	Revision    uint64          `json:"revision"`
+	Truncated   bool            `json:"truncated"`
+	Windows     []Window        `json:"windows"`
 }
 type Driver interface {
 	Read(context.Context) ([]Window, string, error)
@@ -53,23 +56,48 @@ type Module struct {
 	revision    uint64
 	last        Snapshot
 	previewGate chan struct{}
+	layoutGate  chan struct{}
+	layoutStore LayoutStore
+	layouts     []Layout
+	layoutErr   string
 }
 
 func New(driver Driver) *Module {
 	if driver == nil {
 		driver = Hyprland{}
 	}
-	return &Module{driver: driver, revision: 1, previewGate: make(chan struct{}, 1)}
+	return &Module{driver: driver, revision: 1, previewGate: make(chan struct{}, 1), layoutGate: make(chan struct{}, 1)}
 }
 func (m *Module) Info() modules.ModuleInfo {
 	return modules.ModuleInfo{Name: Name, Description: "Switch between running Hyprland windows", Version: "0.1.0", Enabled: true, Capabilities: []string{Capability, PreviewCapability}}
 }
-func (m *Module) Initialize(context.Context) error { return nil }
-func (m *Module) Start(context.Context) error      { return nil }
+func NewWithLayoutStore(driver Driver, store LayoutStore) *Module {
+	m := New(driver)
+	m.layoutStore = store
+	return m
+}
+func (m *Module) Initialize(context.Context) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.layoutStore != nil {
+		layouts, err := m.layoutStore.Load()
+		if err == nil {
+			err = validateLayouts(layouts)
+		}
+		if err != nil {
+			m.layoutErr = err.Error()
+		} else {
+			m.layouts = layouts
+		}
+	}
+	return nil
+}
+func (m *Module) Start(context.Context) error { return nil }
 func (m *Module) Stop(context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.last = Snapshot{}
+	m.layouts = nil
 	m.revision++
 	return nil
 }
@@ -131,8 +159,8 @@ func (m *Module) snapshotLocked(ctx context.Context) (Snapshot, error) {
 	if !slices.Equal(result, m.last.Windows) || truncated != m.last.Truncated {
 		m.revision++
 	}
-	m.last = Snapshot{Revision: m.revision, Truncated: truncated, Windows: result}
-	return Snapshot{Revision: m.revision, Truncated: truncated, Windows: append([]Window{}, result...)}, nil
+	m.last = Snapshot{Revision: m.revision, Truncated: truncated, Windows: result, Layouts: m.layoutSummaries(), LayoutError: m.layoutErr}
+	return Snapshot{Revision: m.revision, Truncated: truncated, Windows: append([]Window{}, result...), Layouts: m.layoutSummaries(), LayoutError: m.layoutErr}, nil
 }
 func (m *Module) Snapshot(ctx context.Context) (Snapshot, error) {
 	m.mu.Lock()

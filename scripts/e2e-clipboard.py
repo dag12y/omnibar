@@ -25,7 +25,10 @@ def main():
     parser.add_argument("--search", action="store_true", help="verify unified app/window search in the private compositor")
     parser.add_argument("--previews", action="store_true", help="verify in-memory exact-window preview capture")
     parser.add_argument("--controls", action="store_true", help="verify exact window controls in a private Lua compositor")
+    parser.add_argument("--layouts", action="store_true", help="verify saved workspace arrangements and restart persistence")
     args = parser.parse_args()
+    if args.layouts:
+        args.controls = True
     if args.controls:
         args.windows = True
     if args.previews:
@@ -300,7 +303,7 @@ def main():
                     return (trial / "ui.log").read_text().count("window preview ready")
                 ready = ready_count()
                 time.sleep(0.4)
-                subprocess.run(["wtype", "Beta", "-k", "Tab", "-k", "space"], env=env, check=True)
+                subprocess.run(["wtype", "Beta", "-k", "Tab", "-k", "Tab", "-k", "space"], env=env, check=True)
                 wait_until(lambda: ready_count() > ready, "Windows Preview button did not render its thumbnail")
                 assert capture_count() == 2
                 if args.capture:
@@ -342,15 +345,49 @@ def main():
                 for method, params in [("windows.moveWorkspace", dict(address=address_b,workspace=-1)),("windows.setFloating",dict(address=address_b)),("windows.setMaximized",dict(address="0x1;bad",enabled=True))]:
                     assert rpc_error(method,params)["code"] == -32602
                 # Exercise the real expanded control buttons while retaining the panel.
-                subprocess.run(["wtype", "Beta", "-k", "Tab", "-k", "space", "-k", "Tab", "-k", "Tab", "-k", "space"],env=env,check=True)
+                subprocess.run(["wtype", "Beta", "-k", "Tab", "-k", "Tab", "-k", "space", "-k", "Tab", "-k", "Tab", "-k", "space"],env=env,check=True)
                 wait_until(lambda: window(address_b)["floating"], "real Float control did not update target")
                 rpc("windows.setFloating",dict(address=address_b,enabled=False))
                 print("PASS: exact background move/float/maximize, unchanged unrelated target, validated params, and real Float control")
+            if args.layouts:
+                rpc("windows.moveWorkspace", dict(address=address_b, workspace=1))
+                for address in (address_a,address_b): rpc("windows.setFloating",dict(address=address,enabled=True))
+                original = {w["address"]:w for w in rpc("windows.getSnapshot")["windows"]}
+                saved = rpc("windows.saveLayout",dict(name="Fixture desk",workspace=1))
+                layout_id = saved["layouts"][0]["id"]
+                layout_file = trial / "data/omnibar/window-layouts.json"
+                assert layout_file.stat().st_mode & 0o777 == 0o600
+                assert "Omnibar fixture Alpha" in layout_file.read_text()
+                rpc("windows.moveWorkspace",dict(address=address_a,workspace=3))
+                rpc("windows.setFloating",dict(address=address_b,enabled=False))
+                restored = rpc("windows.restoreLayout",dict(id=layout_id))
+                for w in restored["windows"]:
+                    assert w["workspaceID"] == 1 and w["floating"]
+                    assert w["geometry"] == original[w["address"]]["geometry"], (w["geometry"],original[w["address"]]["geometry"])
+                assert len(rpc("windows.saveLayout",dict(name="Fixture desk",workspace=1))["layouts"]) == 1
+                # The name field supports Enter to save through the real panel.
+                subprocess.run(["quickshell","-p",qml,"ipc","call","--","panel","hide"],env=env,check=True,stdout=subprocess.DEVNULL)
+                subprocess.run(["quickshell","-p",qml,"ipc","call","--","panel","showWindows"],env=env,check=True,stdout=subprocess.DEVNULL)
+                time.sleep(0.4)
+                subprocess.run(["wtype","-M","ctrl","-k","a","-m","ctrl","-k","BackSpace","-k","Tab","-k","space","-k","Tab","UI fixture","-k","Return"],env=env,check=True)
+                wait_until(lambda: len(rpc("windows.getSnapshot")["layouts"]) == 2,"real layout Save did not persist")
+                rpc("windows.moveWorkspace",dict(address=address_a,workspace=3))
+                # Moving the active fixture can give keyboard focus back to apps.
+                # Reopen the layer before exercising Restore from its real button.
+                subprocess.run(["quickshell","-p",qml,"ipc","call","--","panel","hide"],env=env,check=True,stdout=subprocess.DEVNULL)
+                subprocess.run(["quickshell","-p",qml,"ipc","call","--","panel","showWindows"],env=env,check=True,stdout=subprocess.DEVNULL)
+                time.sleep(0.4)
+                subprocess.run(["wtype","-k","Tab","-k","space","-k","Tab","-k","Tab","-k","Tab","-k","Tab","-k","space"],env=env,check=True)
+                wait_until(lambda: window(address_a)["workspaceID"] == 1,"real layout Restore did not move saved target")
+                if args.capture:
+                    time.sleep(0.4)
+                    subprocess.run(["grim",str(trial / "layouts.png")],env=env,check=True)
+                print("PASS: private saved arrangement restores workspace/float/geometry, updates by name, and uses real Save/Restore buttons")
             for address in [address_a, address_b]:
                 switched = rpc("windows.focus", dict(address=address))
                 assert any(item["address"] == address and item["active"] for item in switched["windows"])
                 assert compositor("activewindow")["address"] == address
-            assert compositor("activeworkspace")["id"] == 2
+            assert compositor("activeworkspace")["id"] == (1 if args.layouts else 2)
             assert rpc_error("windows.focus", dict(address="0x1;exec invalid"))["code"] == -32602
             stop(fixture_app)
             wait_until(lambda: not any(item.get("title", "").startswith("Omnibar fixture ") for item in compositor("clients")), "closed fixtures still mapped")
@@ -474,6 +511,13 @@ def main():
             assert not rpc("shelf.getSnapshot")["entries"]
             assert sample.exists()
             print("PASS: backend restart forgets shelf references and preserves original files")
+        if args.layouts:
+            saved = rpc("windows.getSnapshot")
+            assert len(saved["layouts"]) == 2 and any(l["id"] == layout_id for l in saved["layouts"])
+            assert rpc_error("windows.restoreLayout",dict(id=layout_id))["code"] == -32603
+            for layout in saved["layouts"]: rpc("windows.deleteLayout",dict(id=layout["id"]))
+            assert json.loads(layout_file.read_text())["layouts"] == []
+            print("PASS: layouts reload without applying on restart, reject missing targets, and delete persistently")
         restored = snapshot()
         assert not restored["collecting"] and len(restored["entries"]) == 1
         assert restored["entries"][0]["text"] == saved_text and restored["entries"][0]["favorite"]

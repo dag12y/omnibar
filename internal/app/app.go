@@ -167,7 +167,11 @@ func Run(args []string, stdout, stderr io.Writer) (*Backend, error) {
 	if err := registry.Register(shelf); err != nil {
 		return nil, fmt.Errorf("register file shelf: %w", err)
 	}
-	switcher := windows.New(nil)
+	var layoutStore windows.LayoutStore
+	if cfg.Permissions[windows.Capability] {
+		layoutStore = windows.DefaultLayoutStore()
+	}
+	switcher := windows.NewWithLayoutStore(nil, layoutStore)
 	if err := registry.Register(switcher); err != nil {
 		return nil, fmt.Errorf("register window switcher: %w", err)
 	}

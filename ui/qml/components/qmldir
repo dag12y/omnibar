@@ -29,3 +29,4 @@ SearchPage 1.0 SearchPage.qml
 PreviewController 1.0 PreviewController.qml
 WindowThumbnail 1.0 WindowThumbnail.qml
 WindowControls 1.0 WindowControls.qml
+LayoutPanel 1.0 LayoutPanel.qml
