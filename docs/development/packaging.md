@@ -29,7 +29,8 @@ stops a stray `~/.config/quickshell/omnibar` from shadowing the packaged UI. It
 is also how Omarchy launches its own shell (`/usr/share/omarchy/shell`).
 
 Runtime dependencies are `quickshell`, `qt6-declarative`, `glibc`, `systemd`,
-`libpulse` (provides `pactl`), and `pipewire-pulse`. The audio module uses the
+`libpulse` (provides `pactl`), `pipewire-pulse`, `wl-clipboard`, and
+`xdg-utils`. The audio module uses the
 user's existing PipeWire service and session manager. Installing Omnibar does
 not restart audio services or change output selection. The only build dependency
 is `go`. Go dependencies (`BurntSushi/toml` and `godbus/dbus/v5`) are downloaded
@@ -204,3 +205,12 @@ session environment. After upgrading, restart the service and relaunch the UI.
 No desktop keybindings/config are installed or changed. Titles are not persisted.
 See [ADR-0019](../architecture/ADR-0019-window-switcher.md) and the local development
 troubleshooting note for the user-service compositor environment.
+
+
+## v0.1.0 release candidate verification
+
+See [the verification record](../releases/v0.1.0-verification.md) for the
+2026-11-13 candidate and remaining publication gates. The changelog stays under
+Unreleased until the release is finalized. A working-tree package is not proof
+that the published tag builds; verify the tag tarball and record its checksum
+separately before marking M15 complete.

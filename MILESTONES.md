@@ -29,7 +29,7 @@ This document breaks the approved architecture into small, sequential, independe
 | M12 | Disk monitoring (filesystem storage & I/O) | /proc/diskstats and Statfs, disk snapshot & events, UI disk card | Done |
 | M13 | Network monitoring (interfaces & transfer rates) | /proc/net/dev parser, bandwidth deltas, network snapshot & events, UI network card | Done |
 | M14 | Battery and power monitoring | sysfs power_supply reader, charge level, status, battery snapshot & events, UI battery card | Done |
-| M15 | Release v0.1.0 | Tag, release, real checksums, install verification | Planned |
+| M15 | Release v0.1.0 | Tag, release, real checksums, install verification | In progress |
 | M16 | Panel usability and Keep Awake | Keyboard controls, bounded scrolling, visibility-aware monitoring, timed logind/Wayland inhibition | Done |
 | M17 | Playback audio mixer | PipeWire compatibility adapter, volume/mute, default output, Audio page, isolated service-recovery checks | Done |
 | M18 | Playback-stream output routing | Per-row device selector, live target validation, confirmed-state reconciliation, isolated two-stream checks | Done |
@@ -970,3 +970,19 @@ Go race/permission/parser/limit tests, 123 QML tests, and a private nested Hyprl
 test verify focus across workspaces, active confirmation, closed targets, and
 empty desktops. Launching apps, previews, special workspaces, and layouts remain
 deferred. See [ADR-0019](docs/architecture/ADR-0019-window-switcher.md).
+
+
+## M15 — Release preparation (2026-11-13)
+
+The x86_64 working-tree candidate passed Go build/vet/race checks, all 123 QML
+checks, real UI/reconnect checks, isolated audio and private shelf/window tests,
+and real Keep Awake cleanup. The Arch package built and passed an extracted
+package UI smoke test, then was installed over the existing same-version
+package. The installed service runs `/usr/bin/omnibar` without the temporary
+development override; live window focus was confirmed after restart. Draft
+release notes and the exact candidate checksum are recorded in
+[the verification record](docs/releases/v0.1.0-verification.md).
+
+M15 remains in progress: no remote is configured, no release/tag has been
+published, and the published-source checksum/build plus isolated
+rollback/uninstall verification remain open.

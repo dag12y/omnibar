@@ -72,6 +72,7 @@ All notable changes will be documented here.
 - Documented reconnect backoff consistently as 1s, 2s, 4s, 8s, 16s, then capped at 30s.
 
 ### Fixed
+- Window switching supports both legacy and Lua-configured Hyprland sessions, with exact-address validation and active-window confirmation.
 - Startup tests now use private runtime/config paths, so they can run alongside an installed Omnibar backend.
 - Live snapshot updates replace cached objects so QML bindings receive new values; CPU core count is available before delta sampling.
 - QML snapshot parsing in `BackendClient.qml` to handle already parsed object results from JSON-RPC without throwing `SyntaxError`.
@@ -79,5 +80,6 @@ All notable changes will be documented here.
 - Seed example config in `scripts/e2e-ui.sh` so `system_monitor` permissions are granted during automated e2e UI testing.
 
 ### Deferred
-- `module.subscribe` and `module.event` notifications until the first event-producing module (Phase 2).
-- A production RPC method that consumes a capability; the fail-closed path is tested with a test-only module.
+- GPU monitoring, persistent metrics history, and system alerts.
+- Application launching, window previews/layouts, and non-Hyprland window switching.
+- Per-recording-app input routing and live sound-level meters.
