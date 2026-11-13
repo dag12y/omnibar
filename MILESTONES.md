@@ -29,7 +29,7 @@ This document breaks the approved architecture into small, sequential, independe
 | M12 | Disk monitoring (filesystem storage & I/O) | /proc/diskstats and Statfs, disk snapshot & events, UI disk card | Done |
 | M13 | Network monitoring (interfaces & transfer rates) | /proc/net/dev parser, bandwidth deltas, network snapshot & events, UI network card | Done |
 | M14 | Battery and power monitoring | sysfs power_supply reader, charge level, status, battery snapshot & events, UI battery card | Done |
-| M15 | Release v0.1.0 | Tag, release, real checksums, install verification | In progress |
+| M15 | Release v0.1.0 | Tag, release, real checksums, install verification | Done |
 | M16 | Panel usability and Keep Awake | Keyboard controls, bounded scrolling, visibility-aware monitoring, timed logind/Wayland inhibition | Done |
 | M17 | Playback audio mixer | PipeWire compatibility adapter, volume/mute, default output, Audio page, isolated service-recovery checks | Done |
 | M18 | Playback-stream output routing | Per-row device selector, live target validation, confirmed-state reconciliation, isolated two-stream checks | Done |
@@ -872,7 +872,7 @@ and audio-service recovery ([ADR-0012](docs/architecture/ADR-0012-audio-mixer.md
 Go unit/integration and race tests, QML tests, real UI lifecycle checks, and an
 isolated audio-stack smoke test cover these increments. Per-app output routing,
 master-output volume, microphone controls, volume boost, and persistent app
-levels are not part of M17. M15 remains pending until release/install verification.
+levels are not part of M17. M15 release/install verification is now complete; see the release record below.
 
 
 ## M18 — Playback-stream output routing (implemented)
@@ -972,7 +972,7 @@ empty desktops. Launching apps, previews, special workspaces, and layouts remain
 deferred. See [ADR-0019](docs/architecture/ADR-0019-window-switcher.md).
 
 
-## M15 — Release preparation (2026-11-13)
+## M15 — Released (2026-11-13)
 
 The x86_64 working-tree candidate passed Go build/vet/race checks, all 123 QML
 checks, real UI/reconnect checks, isolated audio and private shelf/window tests,
@@ -983,7 +983,10 @@ development override; live window focus was confirmed after restart. Draft
 release notes and the exact candidate checksum are recorded in
 [the verification record](docs/releases/v0.1.0-verification.md).
 
-M15 remains in progress: the public `dag12y/omnibar` repository is connected
-as `origin` and `main` has been pushed. No release/tag has been published; the
-published-source checksum/build plus isolated rollback/uninstall verification
-remain open.
+M15 is complete for x86_64: `v0.1.0` is tagged and published with an Arch
+package, source archive, checksums, and verified PKGBUILD. The published tag
+archive passed a clean makepkg build and package UI smoke test. Isolated
+upgrade/reinstall/downgrade/removal checks preserved config/data/state; the
+final package is installed and the packaged backend/UI were restarted.
+aarch64 and fresh-machine/reboot testing remain documented limits; OPR
+publication remains separate.

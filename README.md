@@ -29,8 +29,8 @@ uses the active Omarchy theme, live CPU/memory graphs, and expandable details.
 Timed Keep Awake, an audio mixer, microphone controls, and session clipboard
 history with saved favorites are also implemented. System, Audio, and Clipboard
 share the same panel alongside a session File shelf and a Hyprland window
-switcher. The v0.1.0 candidate has passed local automated and package smoke checks;
-[release verification](docs/releases/v0.1.0-verification.md) tracks the remaining gates.
+switcher. [v0.1.0 is available](https://github.com/dag12y/omnibar/releases/tag/v0.1.0),
+with [release verification](docs/releases/v0.1.0-verification.md) for x86_64.
 
 Run the backend with `make run` and launch the panel with
 `quickshell -n -p ui/qml/shell.qml`. Click the CPU or memory card for details.

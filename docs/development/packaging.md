@@ -208,13 +208,12 @@ See [ADR-0019](../architecture/ADR-0019-window-switcher.md) and the local develo
 troubleshooting note for the user-service compositor environment.
 
 
-## v0.1.0 release candidate verification
+## v0.1.0 release verification
 
 See [the verification record](../releases/v0.1.0-verification.md) for the
-2026-11-13 candidate and remaining publication gates. The release changelog is
-dated when finalizing the tag. A working-tree package is not proof
-that the published tag builds; verify the tag tarball and record its checksum
-separately before marking M15 complete.
+2026-11-13 published release, final source/package digests, and verification
+limits. M15 is complete for x86_64. Source verification and isolated package
+lifecycle checks are recorded separately from the earlier working-tree candidate.
 
 
 ### Isolated package lifecycle verification

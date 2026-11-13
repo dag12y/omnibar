@@ -25,7 +25,7 @@ System monitoring suite: event delivery, resource metrics, UI cards, and the v0.
 - [x] Disk monitoring: filesystem storage and I/O throughput (M12)
 - [x] Network monitoring: interface throughput and transfer rates (M13)
 - [x] Battery and power monitoring: charge levels, status, and power draw (M14)
-- [ ] Release v0.1.0 (M15)
+- [x] Release v0.1.0 (M15)
 - [ ] GPU monitoring (future Phase 2 milestone)
 - [ ] System alerts and history (requires storage / SQLite)
 
