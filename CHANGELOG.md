@@ -4,6 +4,8 @@ All notable changes will be documented here.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-13
+
 ### Added
 
 - Hyprland running-window switcher: app/title/workspace search, exact live-target focus, active confirmation, and confirmed-only panel dismissal; ADR-0019.
@@ -72,6 +74,7 @@ All notable changes will be documented here.
 - Documented reconnect backoff consistently as 1s, 2s, 4s, 8s, 16s, then capped at 30s.
 
 ### Fixed
+- Working-tree packages verify their own source digest independently of the published release checksum.
 - Window switching supports both legacy and Lua-configured Hyprland sessions, with exact-address validation and active-window confirmation.
 - Startup tests now use private runtime/config paths, so they can run alongside an installed Omnibar backend.
 - Live snapshot updates replace cached objects so QML bindings receive new values; CPU core count is available before delta sampling.

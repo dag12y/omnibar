@@ -143,8 +143,9 @@ rm -rf ~/.config/omnibar ~/.local/share/omnibar ~/.local/state/omnibar
    checksum of the GitHub tag tarball, and reset `pkgrel=1`.
 4. Verify a clean build with `makepkg -f` in `pkgbuild/`.
 
-`SKIP` is only there so `make package` can substitute a tarball of the working
-tree.
+The release recipe verifies the published tag tarball. `make package` computes
+a checksum for its working-tree tarball and substitutes that checksum only in
+the temporary recipe; it leaves `pkgbuild/PKGBUILD` unchanged.
 
 ## Publishing to OPR
 
@@ -210,7 +211,20 @@ troubleshooting note for the user-service compositor environment.
 ## v0.1.0 release candidate verification
 
 See [the verification record](../releases/v0.1.0-verification.md) for the
-2026-11-13 candidate and remaining publication gates. The changelog stays under
-Unreleased until the release is finalized. A working-tree package is not proof
+2026-11-13 candidate and remaining publication gates. The release changelog is
+dated when finalizing the tag. A working-tree package is not proof
 that the published tag builds; verify the tag tarball and record its checksum
 separately before marking M15 complete.
+
+
+### Isolated package lifecycle verification
+
+Run `python3 scripts/verify-package-lifecycle.py OLDER_PACKAGE NEWER_PACKAGE`
+with pacman, fakeroot, and libarchive installed. The older fixture must have a
+lower package version/release and different backend contents. The script uses
+a temporary root/database and synthetic home files, checks upgrade/reinstall,
+restores the exact old backend on downgrade, and checks that removal preserves
+config/data/state before reinstalling. Dependencies are skipped because this is
+a package transaction check, not a bootable guest; runtime integration is checked
+separately with the installed service and package UI smoke test. Packages with
+install scriptlets or libalpm hooks are rejected.

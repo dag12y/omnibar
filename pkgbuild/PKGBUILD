@@ -21,8 +21,8 @@ optdepends=('hyprland: running-window switcher via hyprctl')
 makedepends=('go')
 options=('!debug')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-# Run `updpkgsums` after tagging v$pkgver. `make package` places a tarball of
-# the working tree at the source filename, which is why SKIP is used here.
+# Release bootstrap: replace with the tag tarball digest after pushing v$pkgver.
+# scripts/package-local.sh computes its substituted archive's own checksum.
 sha256sums=('SKIP')
 
 _go_env() {

@@ -34,6 +34,11 @@ done < <(git ls-files -z --cached --others --exclude-standard)
 tar -C "$work" -czf "$work/$pkgname-$pkgver.tar.gz" "$pkgname-$pkgver"
 rm -rf "$stage"
 cp pkgbuild/PKGBUILD "$work/PKGBUILD"
+# The release recipe verifies the published tag. This substituted source is a
+# different archive, so verify its own digest without changing that recipe.
+source_sum=$(sha256sum "$work/$pkgname-$pkgver.tar.gz")
+source_sum=${source_sum%% *}
+sed -i "s/^sha256sums=.*/sha256sums=('$source_sum')/" "$work/PKGBUILD"
 
 mkdir -p dist
 (
