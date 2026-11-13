@@ -983,6 +983,7 @@ development override; live window focus was confirmed after restart. Draft
 release notes and the exact candidate checksum are recorded in
 [the verification record](docs/releases/v0.1.0-verification.md).
 
-M15 remains in progress: no remote is configured, no release/tag has been
-published, and the published-source checksum/build plus isolated
-rollback/uninstall verification remain open.
+M15 remains in progress: the public `dag12y/omnibar` repository is connected
+as `origin` and `main` has been pushed. No release/tag has been published; the
+published-source checksum/build plus isolated rollback/uninstall verification
+remain open.
